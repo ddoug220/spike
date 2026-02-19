@@ -23,6 +23,13 @@ type EngineEvent =
       rotatedClockwise: false;
     }
   | {
+      kind: 'manual-rotation';
+      eventId: string;
+      impactedScore: true;
+      impactedStats: false;
+      rotatedClockwise: true;
+    }
+  | {
       kind: 'substitution';
       eventId: string;
       outPlayerId: string;
@@ -326,6 +333,44 @@ export class MatchEngineService {
       timeout_team: team,
       team_timeouts_remaining: nextState.teamTimeoutsRemaining,
       opponent_timeouts_remaining: nextState.opponentTimeoutsRemaining,
+      created_at: new Date().toISOString(),
+    });
+
+    return true;
+  }
+
+  manualRotateTeam(): boolean {
+    if (this.matchState.state().isMatchOver) {
+      return false;
+    }
+
+    const didRotate = this.matchState.rotateTeam();
+    if (!didRotate) {
+      return false;
+    }
+
+    this.teamRoster.rotateLineupClockwise();
+    this.teamServeAttemptTrackedThisRally = false;
+
+    const eventId = this.createEventId('evt');
+    const event: EngineEvent = {
+      kind: 'manual-rotation',
+      eventId,
+      impactedScore: true,
+      impactedStats: false,
+      rotatedClockwise: true,
+    };
+    this.undoStack.push(event);
+
+    const nextState = this.matchState.state();
+    this.offlineSync.queueMatchEvent({
+      id: eventId,
+      match_id: this.offlineSync.getActiveMatchId(),
+      event_type: 'manual_rotation',
+      action: 'manual-rotation',
+      team_rotation: nextState.teamRotation,
+      serving_team: nextState.servingTeam,
+      lineup: this.teamRoster.getLineupSnapshot(),
       created_at: new Date().toISOString(),
     });
 

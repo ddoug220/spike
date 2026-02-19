@@ -66,4 +66,32 @@ describe('TeamRosterService', () => {
     expect(didSubstitute).toBeFalse();
     expect(service.lineup()[0]).toBe(players[0].id);
   });
+
+  it('updates player details without changing lineup assignment', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      service.addPlayer({
+        name: `Player ${i}`,
+        jerseyNumber: i,
+        primaryPosition: 'OH',
+      });
+    }
+
+    const players = service.players();
+    service.assignPlayerToPosition(players[0].id, 1);
+
+    const didUpdate = service.updatePlayer(players[0].id, {
+      name: 'Updated Player',
+      jerseyNumber: 42,
+      primaryPosition: 'L',
+    });
+
+    expect(didUpdate).toBeTrue();
+    expect(service.lineup()[0]).toBe(players[0].id);
+    expect(service.getPlayerById(players[0].id)).toEqual({
+      ...players[0],
+      name: 'Updated Player',
+      jerseyNumber: 42,
+      primaryPosition: 'L',
+    });
+  });
 });

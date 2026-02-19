@@ -42,6 +42,15 @@ describe('MatchStateService', () => {
     expect(service.state().teamTimeoutsRemaining).toBe(2);
   });
 
+  it('supports manual team rotation and undo', () => {
+    const didRotate = service.rotateTeam();
+    expect(didRotate).toBeTrue();
+    expect(service.state().teamRotation).toBe(2);
+
+    service.undoLastPoint();
+    expect(service.state().teamRotation).toBe(1);
+  });
+
   it('awards a set when target and two-point lead are met', () => {
     for (let i = 0; i < 25; i += 1) {
       service.recordTeamPoint();

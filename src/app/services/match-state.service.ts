@@ -79,6 +79,21 @@ export class MatchStateService {
     return true;
   }
 
+  rotateTeam(): boolean {
+    const current = this.stateSignal();
+    if (current.isMatchOver) {
+      return false;
+    }
+
+    this.historySignal.update((history) => [...history, current]);
+    this.stateSignal.set({
+      ...current,
+      teamRotation: this.incrementRotation(current.teamRotation),
+    });
+    this.persist();
+    return true;
+  }
+
   undoLastPoint(): void {
     const history = this.historySignal();
     if (history.length === 0) {

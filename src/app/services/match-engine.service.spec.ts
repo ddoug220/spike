@@ -71,6 +71,23 @@ describe('MatchEngineService', () => {
     expect(matchState.state().teamTimeoutsRemaining).toBe(2);
   });
 
+  it('manually rotates lineup and supports undo through the same stack', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({ name: `P${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+
+    const didRotate = service.manualRotateTeam();
+    expect(didRotate).toBeTrue();
+    expect(matchState.state().teamRotation).toBe(2);
+    expect(teamRoster.lineup()[0]).toBe(players[1].id);
+
+    service.undoLastEvent();
+    expect(matchState.state().teamRotation).toBe(1);
+    expect(teamRoster.lineup()[0]).toBe(players[0].id);
+  });
+
   it('blocks scoring events after match is ended', () => {
     service.startMatch('team');
     service.endMatch();

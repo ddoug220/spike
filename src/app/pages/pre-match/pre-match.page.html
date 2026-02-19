@@ -92,7 +92,8 @@
         <p>Add players, then drag to the court</p>
       </div>
 
-      <form class="player-form" (ngSubmit)="addPlayer()">
+      <form class="player-form" (ngSubmit)="submitPlayer()">
+        <p class="form-mode" *ngIf="editingPlayerId">Editing player details</p>
         <label class="field">
           <span>Player Name</span>
           <input type="text" name="name" [(ngModel)]="draft.name" placeholder="e.g. Ava Johnson" required />
@@ -111,8 +112,13 @@
         </label>
 
         <ion-button expand="block" type="submit" class="add-btn">
-          <ion-icon name="person-add" slot="start"></ion-icon>
-          Add Player
+          <ion-icon [name]="editingPlayerId ? 'create' : 'person-add'" slot="start"></ion-icon>
+          {{ editingPlayerId ? 'Save Player' : 'Add Player' }}
+        </ion-button>
+
+        <ion-button *ngIf="editingPlayerId" expand="block" type="button" fill="outline" class="cancel-edit-btn" (click)="cancelEdit()">
+          <ion-icon name="close" slot="start"></ion-icon>
+          Cancel Edit
         </ion-button>
 
         <ion-button expand="block" type="button" class="qa-btn" (click)="generateFakeTeam()">
@@ -137,7 +143,8 @@
           (click)="selectBenchPlayer(player.id)"
           [ngClass]="{
             assigned: teamRoster.isAssigned(player.id),
-            selected: selectedBenchPlayerId === player.id
+            selected: selectedBenchPlayerId === player.id,
+            editing: editingPlayerId === player.id
           }"
         >
           <div class="player-info">
@@ -146,7 +153,10 @@
           </div>
           <div class="item-actions">
             <span class="assignment">{{ teamRoster.isAssigned(player.id) ? 'On Court' : 'Bench' }}</span>
-            <button type="button" class="remove-btn" (click)="removePlayer(player.id)">
+            <button type="button" class="edit-btn" (click)="startEditPlayer(player.id, $event)">
+              <ion-icon name="create"></ion-icon>
+            </button>
+            <button type="button" class="remove-btn" (click)="removePlayer(player.id, $event)">
               <ion-icon name="trash"></ion-icon>
             </button>
           </div>

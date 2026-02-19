@@ -118,6 +118,8 @@ export class HistoryPage {
         return `Serve switched: ${this.toTitle(this.readString(event['serving_team']) || 'unknown')}`;
       case 'timeout_called':
         return `Timeout: ${this.toTitle(this.readString(event['timeout_team']) || 'unknown')}`;
+      case 'manual_rotation':
+        return 'Manual rotation';
       default:
         return this.toTitle(type);
     }

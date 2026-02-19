@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { flask, play, personAdd, trash } from 'ionicons/icons';
+import { close, create, flask, play, personAdd, trash } from 'ionicons/icons';
 import { MatchEngineService } from '../../services/match-engine.service';
 import {
   NewRosterPlayer,
@@ -73,13 +73,14 @@ export class PreMatchPage {
 
   private draggedPlayerId: string | null = null;
   public selectedBenchPlayerId: string | null = null;
+  public editingPlayerId: string | null = null;
 
   constructor(
     public readonly teamRoster: TeamRosterService,
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
-    addIcons({ personAdd, trash, play, flask });
+    addIcons({ personAdd, trash, play, flask, create, close });
   }
 
   get players(): RosterPlayer[] {
@@ -120,33 +121,65 @@ export class PreMatchPage {
     return '';
   }
 
-  addPlayer(): void {
+  submitPlayer(): void {
     const name = this.draft.name.trim();
     if (!name) {
       return;
     }
 
-    this.teamRoster.addPlayer({
+    const nextPlayer: NewRosterPlayer = {
       name,
       jerseyNumber: this.draft.jerseyNumber,
       primaryPosition: this.draft.primaryPosition,
-    });
+    };
 
+    if (this.editingPlayerId) {
+      const didUpdate = this.teamRoster.updatePlayer(this.editingPlayerId, nextPlayer);
+      if (!didUpdate) {
+        return;
+      }
+      this.editingPlayerId = null;
+    } else {
+      this.teamRoster.addPlayer(nextPlayer);
+    }
+
+    this.resetDraft(nextPlayer.primaryPosition);
+  }
+
+  startEditPlayer(playerId: string, event?: Event): void {
+    event?.stopPropagation();
+    const player = this.teamRoster.getPlayerById(playerId);
+    if (!player) {
+      return;
+    }
+
+    this.editingPlayerId = player.id;
+    this.selectedBenchPlayerId = player.id;
     this.draft = {
-      name: '',
-      jerseyNumber: 1,
-      primaryPosition: this.draft.primaryPosition,
+      name: player.name,
+      jerseyNumber: player.jerseyNumber,
+      primaryPosition: player.primaryPosition,
     };
   }
 
-  removePlayer(playerId: string): void {
+  cancelEdit(): void {
+    this.editingPlayerId = null;
+    this.resetDraft(this.draft.primaryPosition);
+  }
+
+  removePlayer(playerId: string, event?: Event): void {
+    event?.stopPropagation();
     this.teamRoster.removePlayer(playerId);
     if (this.selectedBenchPlayerId === playerId) {
       this.selectedBenchPlayerId = null;
     }
+    if (this.editingPlayerId === playerId) {
+      this.cancelEdit();
+    }
   }
 
   generateFakeTeam(): void {
+    this.cancelEdit();
     const existingPlayers = this.teamRoster.players().map((player) => player.id);
     existingPlayers.forEach((playerId) => this.teamRoster.removePlayer(playerId));
 
@@ -243,5 +276,13 @@ export class PreMatchPage {
     const fromEvent =
       event.dataTransfer?.getData('text/player-id') || event.dataTransfer?.getData('text/plain') || '';
     return (fromEvent || this.draggedPlayerId || '').trim() || null;
+  }
+
+  private resetDraft(primaryPosition: PrimaryPosition): void {
+    this.draft = {
+      name: '',
+      jerseyNumber: 1,
+      primaryPosition,
+    };
   }
 }

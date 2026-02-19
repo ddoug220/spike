@@ -53,6 +53,36 @@ export class TeamRosterService {
     this.persist();
   }
 
+  updatePlayer(playerId: string, player: NewRosterPlayer): boolean {
+    const name = player.name.trim();
+    if (!name) {
+      return false;
+    }
+
+    let didUpdate = false;
+    this.playersSignal.update((players) =>
+      players.map((existingPlayer) => {
+        if (existingPlayer.id !== playerId) {
+          return existingPlayer;
+        }
+
+        didUpdate = true;
+        return {
+          ...existingPlayer,
+          name,
+          jerseyNumber: player.jerseyNumber,
+          primaryPosition: player.primaryPosition,
+        };
+      }),
+    );
+
+    if (didUpdate) {
+      this.persist();
+    }
+
+    return didUpdate;
+  }
+
   removePlayer(playerId: string): void {
     this.playersSignal.update((players) => players.filter((player) => player.id !== playerId));
     this.lineupSignal.update((lineup) => lineup.map((id) => (id === playerId ? null : id)));

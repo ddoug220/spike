@@ -29,6 +29,7 @@ type ExitAction = 'home' | 'lineup' | 'history' | 'end-home';
 type MatchEvent =
   | { kind: 'player-action'; playerId: number; action: QuickAction; impactedScore: boolean; impactedStats: boolean }
   | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean }
+  | { kind: 'manual-rotation'; impactedScore: false; impactedStats: false }
   | { kind: 'timeout'; team: 'team' | 'opponent'; impactedScore: false; impactedStats: false };
 
 interface PlayerPosition {
@@ -397,6 +398,9 @@ export class CourtPage {
     if (this.lastEvent.kind === 'opponent-point') {
       return 'Last: Opponent Point';
     }
+    if (this.lastEvent.kind === 'manual-rotation') {
+      return 'Last: Manual Rotation';
+    }
     if (this.lastEvent.kind === 'timeout') {
       return `Last: ${this.lastEvent.team === 'team' ? 'Our' : 'Opponent'} Timeout`;
     }
@@ -426,6 +430,24 @@ export class CourtPage {
     this.lastEvent = {
       kind: 'timeout',
       team,
+      impactedScore: false,
+      impactedStats: false,
+    };
+    this.refreshReviewLoadMetricIfVisible();
+  }
+
+  manualRotate(): void {
+    if (this.isMatchOver) {
+      return;
+    }
+
+    const didRotate = this.matchEngine.manualRotateTeam();
+    if (!didRotate) {
+      return;
+    }
+
+    this.lastEvent = {
+      kind: 'manual-rotation',
       impactedScore: false,
       impactedStats: false,
     };
@@ -996,6 +1018,9 @@ export class CourtPage {
     if (type === 'timeout_called') {
       const timeoutTeam = this.readString(event['timeout_team']) ?? 'team';
       return `${timeoutTeam === 'team' ? 'Our' : 'Opponent'} Timeout`;
+    }
+    if (type === 'manual_rotation') {
+      return 'Manual Rotation';
     }
     if (type === 'undo') {
       return 'Undo';

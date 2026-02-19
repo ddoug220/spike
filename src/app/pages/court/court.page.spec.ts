@@ -1,12 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { CourtPage } from './court.page';
+import { MatchStateService } from '../../services/match-state.service';
 import { TeamRosterService } from '../../services/team-roster.service';
 
 describe('CourtPage', () => {
   let component: CourtPage;
   let fixture: ComponentFixture<CourtPage>;
   let teamRoster: TeamRosterService;
+  let matchState: MatchStateService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -16,6 +18,7 @@ describe('CourtPage', () => {
     fixture = TestBed.createComponent(CourtPage);
     component = fixture.componentInstance;
     teamRoster = TestBed.inject(TeamRosterService);
+    matchState = TestBed.inject(MatchStateService);
     fixture.detectChanges();
   });
 
@@ -50,5 +53,26 @@ describe('CourtPage', () => {
 
     component.recordOpponentPoint();
     expect(component.activePlayer).toBe(4);
+  });
+
+  it('allows manual rotation during live play', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({
+        name: `Player ${i}`,
+        jerseyNumber: i,
+        primaryPosition: 'OH',
+      });
+    }
+    const players = teamRoster.players();
+    players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    const initialRotation = matchState.state().teamRotation;
+    const initialLineup = [...teamRoster.lineup()];
+
+    component.manualRotate();
+
+    expect(matchState.state().teamRotation).toBe(initialRotation >= 6 ? 1 : initialRotation + 1);
+    expect(teamRoster.lineup()[0]).toBe(initialLineup[1]);
+    expect(teamRoster.lineup()[5]).toBe(initialLineup[0]);
+    expect(component.getLastEventText()).toBe('Last: Manual Rotation');
   });
 });

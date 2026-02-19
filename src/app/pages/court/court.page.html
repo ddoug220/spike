@@ -107,15 +107,23 @@
             (click)="handleCourtPlayerTap(player.id)"
           >
             <ng-container *ngIf="getPlayerForPosition(player.id) as assigned; else unassignedPlayer">
-              <span class="meta">{{ getPlayerDisplayHeader(player.id) }}</span>
-              <span class="name">{{ assigned.name }}</span>
-              <span *ngIf="player.id === activePlayer" class="set-stats">{{ getSelectedPlayerSetLine(player.id) }} (this set)</span>
+              <span class="jersey">#{{ assigned.jerseyNumber }}</span>
+              <span class="position">{{ assigned.primaryPosition }}</span>
+              <span class="stat-line">{{ getPlayerTileStatLine(player.id) }}</span>
+              <span
+                class="efficiency-dot"
+                [ngClass]="'eff-' + getPlayerTileEfficiencyState(player.id)"
+                [attr.aria-label]="getPlayerTileEfficiencyLabel(player.id)"
+                title="{{ getPlayerTileEfficiencyLabel(player.id) }}"
+              ></span>
               <span *ngIf="player.id === 1 && matchState.state().servingTeam === 'team'" class="server-tag">SERVE</span>
               <span *ngIf="isSelectedOutPlayer(player.id)" class="sub-out-tag">OUT</span>
             </ng-container>
             <ng-template #unassignedPlayer>
-              <span class="meta">[{{ player.label }}] P{{ player.id }}</span>
-              <span class="name">Open</span>
+              <span class="jersey">P{{ player.id }}</span>
+              <span class="position">{{ player.label }}</span>
+              <span class="stat-line">{{ getPlayerTileStatLine(player.id) }}</span>
+              <span class="efficiency-dot eff-neutral" aria-label="No assigned player" title="No assigned player"></span>
               <span *ngIf="player.id === 1 && matchState.state().servingTeam === 'team'" class="server-tag">SERVE</span>
             </ng-template>
           </button>

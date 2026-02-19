@@ -26,6 +26,7 @@ type SurfaceMode = 'live' | 'review';
 type PlayerListFilter = 'all' | 'starters' | 'bench';
 type AnalyticsTabId = 'efficiency' | 'rotation' | 'serve-receive' | 'errors' | 'sets';
 type ExitAction = 'home' | 'lineup' | 'history' | 'end-home';
+type TileEfficiencyState = 'neutral' | 'low' | 'medium' | 'high';
 type MatchEvent =
   | { kind: 'player-action'; playerId: number; action: QuickAction; impactedScore: boolean; impactedStats: boolean }
   | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean }
@@ -186,12 +187,12 @@ export class CourtPage {
   ];
 
   public readonly playerPositions: PlayerPosition[] = [
-    { id: 4, label: 'LF', top: '24%', left: '18%' },
-    { id: 3, label: 'MF', top: '24%', left: '50%' },
-    { id: 2, label: 'RF', top: '24%', left: '82%' },
-    { id: 5, label: 'LB', top: '76%', left: '18%' },
-    { id: 6, label: 'MB', top: '76%', left: '50%' },
-    { id: 1, label: 'RB', top: '76%', left: '82%' },
+    { id: 4, label: 'LF', top: '34%', left: '19%' },
+    { id: 3, label: 'MF', top: '34%', left: '50%' },
+    { id: 2, label: 'RF', top: '34%', left: '81%' },
+    { id: 5, label: 'LB', top: '68%', left: '19%' },
+    { id: 6, label: 'MB', top: '68%', left: '50%' },
+    { id: 1, label: 'RB', top: '68%', left: '81%' },
   ];
 
   constructor(
@@ -361,24 +362,48 @@ export class CourtPage {
     return this.matchState.state().servingTeam === 'team' ? 'serve-team' : 'serve-opponent';
   }
 
-  getPlayerDisplayHeader(position: number): string {
+  getPlayerTileStatLine(position: number): string {
     const player = this.getPlayerForPosition(position);
     if (!player) {
-      return `[${position}] Open`;
-    }
-    return `[${player.primaryPosition}] #${player.jerseyNumber}`;
-  }
-
-  getSelectedPlayerSetLine(position: number): string {
-    if (position !== this.activePlayer) {
-      return '';
-    }
-    const player = this.getPlayerForPosition(position);
-    if (!player) {
-      return '';
+      return '0K / 0E';
     }
     const setStats = this.matchStats.getPlayerSetStats(player.id, this.matchState.state().currentSet);
-    return `K ${setStats.kills} | E ${setStats.attackErrors}`;
+    return `${setStats.kills}K / ${setStats.attackErrors}E`;
+  }
+
+  getPlayerTileEfficiencyState(position: number): TileEfficiencyState {
+    const player = this.getPlayerForPosition(position);
+    if (!player) {
+      return 'neutral';
+    }
+
+    const setStats = this.matchStats.getPlayerSetStats(player.id, this.matchState.state().currentSet);
+    if (setStats.totalAttacks === 0) {
+      return 'neutral';
+    }
+
+    const efficiency = (setStats.kills - setStats.attackErrors) / setStats.totalAttacks;
+    if (efficiency >= 0.3) {
+      return 'high';
+    }
+    if (efficiency >= 0.1) {
+      return 'medium';
+    }
+    return 'low';
+  }
+
+  getPlayerTileEfficiencyLabel(position: number): string {
+    const state = this.getPlayerTileEfficiencyState(position);
+    if (state === 'high') {
+      return 'High efficiency';
+    }
+    if (state === 'medium') {
+      return 'Medium efficiency';
+    }
+    if (state === 'low') {
+      return 'Low efficiency';
+    }
+    return 'No attack attempts yet';
   }
 
   getSelectedPlayerText(): string {

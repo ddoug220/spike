@@ -103,24 +103,24 @@ export class CourtPage {
   public showAdvancedControls = false;
 
   public readonly actionMeta: Record<QuickAction, ActionMeta> = {
-    kill: { label: 'Kill', icon: 'flash', accent: 'action-kill', minProfile: 'simple' },
+    kill: { label: '+ Kill', icon: 'flash', accent: 'action-kill', minProfile: 'simple' },
     'attack-error': {
-      label: 'Attack Error',
+      label: '\u2212 Att Error',
       icon: 'close-circle',
       accent: 'action-error',
       minProfile: 'simple',
     },
-    ace: { label: 'Ace', icon: 'baseball', accent: 'action-ace', minProfile: 'simple' },
+    ace: { label: '+ Ace', icon: 'baseball', accent: 'action-ace', minProfile: 'simple' },
     'service-error': {
-      label: 'Service Error',
+      label: '\u2212 Svc Error',
       icon: 'close-circle',
       accent: 'action-error',
       minProfile: 'standard',
     },
-    block: { label: 'Block', icon: 'hand-left', accent: 'action-block', minProfile: 'standard' },
+    block: { label: '+ Block', icon: 'hand-left', accent: 'action-block', minProfile: 'standard' },
     dig: { label: 'Dig', icon: 'baseball', accent: 'action-dig', minProfile: 'standard' },
     'opponent-error': {
-      label: 'Opponent Error',
+      label: '+ Opp Error',
       icon: 'close-circle',
       accent: 'action-opponent-error',
       minProfile: 'simple',
@@ -344,7 +344,7 @@ export class CourtPage {
       },
       {
         id: 'opponent-point',
-        label: 'Opponent Point',
+        label: '\u2212 Opp Point',
         icon: 'add-circle',
         accent: 'action-opponent-point',
       },

@@ -17,14 +17,16 @@
       </div>
     </div>
     <div class="sync-status" [ngClass]="{ pending: offlineSync.pendingCount() > 0 }">
+      <span *ngIf="offlineSync.pendingCount() === 0" aria-hidden="true">&check;</span>
+      <span *ngIf="offlineSync.pendingCount() > 0" aria-hidden="true">&#9203;</span>
       Sync Queue: {{ offlineSync.pendingCount() }} | {{ syncStatusText }}
     </div>
     <div class="sync-status error" *ngIf="offlineSync.lastError() as syncError">
-      Sync error: {{ syncError }}
+      <span aria-hidden="true">&#9888;</span> Sync error: {{ syncError }}
       <ion-button size="small" fill="clear" (click)="retrySync()">Retry Sync</ion-button>
     </div>
     <div class="sync-status">{{ lastSyncText }}</div>
-    <div class="match-over-banner" *ngIf="isMatchOver">Match is final. Start a new match to continue tracking.</div>
+    <div class="match-over-banner" *ngIf="isMatchOver">&#9888; Match is final. Start a new match to continue tracking.</div>
 
     <div class="scoreboard-main">
       <div class="score-team">
@@ -77,6 +79,7 @@
             <span class="name">{{ assigned.name }}</span>
             <span *ngIf="player.id === activePlayer" class="set-stats">{{ getSelectedPlayerSetLine(player.id) }} (this set)</span>
             <span *ngIf="player.id === 1 && matchState.state().servingTeam === 'team'" class="server-tag">SERVE</span>
+            <span *ngIf="isSelectedOutPlayer(player.id)" class="sub-out-tag">OUT</span>
           </ng-container>
           <ng-template #unassignedPlayer>
             <span class="meta">[{{ player.label }}] P{{ player.id }}</span>
@@ -205,7 +208,7 @@
 
         <ion-button expand="block" fill="solid" class="opponent-point-btn" (click)="recordOpponentPoint()" [disabled]="isMatchOver">
           <ion-icon name="add-circle" slot="start"></ion-icon>
-          Opponent Point
+          &minus; Opp Point
         </ion-button>
       </ng-template>
 

@@ -10,7 +10,7 @@
   --panel-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 8px 32px rgba(0, 0, 0, 0.06);
   --text-primary: #0F172A;
   --text-secondary: #475569;
-  --text-tertiary: #94A3B8;
+  --text-tertiary: #64748B;
   --toolbar-bg: rgba(255, 255, 255, 0.72);
   --toolbar-icon: #1E40AF;
   --scoreboard-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.92) 100%);
@@ -374,6 +374,7 @@ ion-menu-button {
 .profile-toggle ion-button.active {
   --background: var(--accent-blue);
   --color: #ffffff;
+  border-bottom: 3px solid #ffffff;
 }
 
 .serve-toggle {
@@ -401,6 +402,7 @@ ion-menu-button {
 .serve-toggle ion-button.active {
   --background: var(--accent-blue);
   --color: #ffffff;
+  border-bottom: 3px solid #ffffff;
 }
 
 // ─── Court visualization ───
@@ -471,7 +473,7 @@ ion-menu-button {
 
 .rotation-arrows .arrow {
   position: absolute;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 0.9rem;
 }
 
@@ -544,7 +546,7 @@ ion-menu-button {
 .player-chip .meta {
   font-size: 0.72rem;
   letter-spacing: 0.04em;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .player-chip .name {
@@ -561,7 +563,7 @@ ion-menu-button {
 .player-chip .set-stats {
   font-size: 0.56rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .player-chip.selected {
@@ -659,7 +661,18 @@ ion-menu-button {
   font-size: 0.55rem;
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: rgba(52, 211, 153, 0.9);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sub-out-tag {
+  margin-top: 2px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #ffffff;
+  background: var(--accent-red);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
 }
 
 // ─── Action buttons ───
@@ -690,6 +703,7 @@ ion-button.primary-action-btn {
 ion-button.primary-action-btn.active {
   --background: var(--accent-blue);
   --color: #ffffff;
+  border-bottom: 3px solid #ffffff;
 }
 
 .context-actions-grid {
@@ -805,6 +819,7 @@ ion-button.action-opponent-point {
 .sub-mode-btn.active {
   --background: var(--accent-amber);
   --color: #1C1917;
+  border-bottom: 3px solid #1C1917;
 }
 
 // ─── Last action ───

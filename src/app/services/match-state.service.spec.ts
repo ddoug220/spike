@@ -19,6 +19,9 @@ describe('MatchStateService', () => {
     expect(state.teamSets).toBe(0);
     expect(state.opponentSets).toBe(0);
     expect(state.currentSet).toBe(1);
+    expect(state.teamRotation).toBe(2);
+    expect(state.teamTimeoutsRemaining).toBe(2);
+    expect(state.opponentTimeoutsRemaining).toBe(2);
   });
 
   it('flags side-out when receiving team wins the rally', () => {
@@ -27,6 +30,16 @@ describe('MatchStateService', () => {
 
     expect(result.sideOut).toBeTrue();
     expect(service.state().servingTeam).toBe('team');
+    expect(service.state().teamRotation).toBe(2);
+  });
+
+  it('tracks timeout usage and allows undo', () => {
+    const didCallTimeout = service.callTimeout('team');
+    expect(didCallTimeout).toBeTrue();
+    expect(service.state().teamTimeoutsRemaining).toBe(1);
+
+    service.undoLastPoint();
+    expect(service.state().teamTimeoutsRemaining).toBe(2);
   });
 
   it('awards a set when target and two-point lead are met', () => {

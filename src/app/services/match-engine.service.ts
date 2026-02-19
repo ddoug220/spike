@@ -30,6 +30,14 @@ type EngineEvent =
       impactedScore: false;
       impactedStats: false;
       rotatedClockwise: false;
+    }
+  | {
+      kind: 'timeout';
+      eventId: string;
+      timeoutTeam: PointSide;
+      impactedScore: true;
+      impactedStats: false;
+      rotatedClockwise: false;
     };
 
 @Injectable({
@@ -285,6 +293,42 @@ export class MatchEngineService {
       in_player_id: inPlayerId,
       created_at: new Date().toISOString(),
     });
+    return true;
+  }
+
+  recordTimeout(team: PointSide): boolean {
+    if (this.matchState.state().isMatchOver) {
+      return false;
+    }
+
+    const didCallTimeout = this.matchState.callTimeout(team);
+    if (!didCallTimeout) {
+      return false;
+    }
+
+    const eventId = this.createEventId('evt');
+    const event: EngineEvent = {
+      kind: 'timeout',
+      eventId,
+      timeoutTeam: team,
+      impactedScore: true,
+      impactedStats: false,
+      rotatedClockwise: false,
+    };
+    this.undoStack.push(event);
+
+    const nextState = this.matchState.state();
+    this.offlineSync.queueMatchEvent({
+      id: eventId,
+      match_id: this.offlineSync.getActiveMatchId(),
+      event_type: 'timeout_called',
+      action: 'timeout-called',
+      timeout_team: team,
+      team_timeouts_remaining: nextState.teamTimeoutsRemaining,
+      opponent_timeouts_remaining: nextState.opponentTimeoutsRemaining,
+      created_at: new Date().toISOString(),
+    });
+
     return true;
   }
 

@@ -26,7 +26,8 @@ type PlayerListFilter = 'all' | 'starters' | 'bench';
 type AnalyticsTabId = 'efficiency' | 'rotation' | 'serve-receive' | 'errors' | 'sets';
 type MatchEvent =
   | { kind: 'player-action'; playerId: number; action: QuickAction; impactedScore: boolean; impactedStats: boolean }
-  | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean };
+  | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean }
+  | { kind: 'timeout'; team: 'team' | 'opponent'; impactedScore: false; impactedStats: false };
 
 interface PlayerPosition {
   id: number;
@@ -196,15 +197,7 @@ export class CourtPage {
     public readonly offlineSync: OfflineSyncService,
     private readonly matchEngine: MatchEngineService,
   ) {
-    addIcons({
-      'arrow-undo': arrowUndo,
-      flash,
-      'close-circle': closeCircle,
-      baseball,
-      'hand-left': handLeft,
-      'add-circle': addCircle,
-      'play-forward': playForward,
-    });
+    addIcons({'arrowUndo':arrowUndo,flash,'closeCircle':closeCircle,baseball,'handLeft':handLeft,'addCircle':addCircle,'playForward':playForward,});
   }
 
   handleCourtPlayerTap(playerId: number): void {
@@ -342,6 +335,9 @@ export class CourtPage {
     if (this.lastEvent.kind === 'opponent-point') {
       return 'Last: Opponent Point';
     }
+    if (this.lastEvent.kind === 'timeout') {
+      return `Last: ${this.lastEvent.team === 'team' ? 'Our' : 'Opponent'} Timeout`;
+    }
 
     return `Last: Player #${this.lastEvent.playerId} - ${this.getActionLabel(this.lastEvent.action)}`;
   }
@@ -352,6 +348,25 @@ export class CourtPage {
     }
 
     this.matchEngine.setServingTeam(team);
+    this.refreshReviewLoadMetricIfVisible();
+  }
+
+  callTimeout(team: 'team' | 'opponent'): void {
+    if (this.isMatchOver) {
+      return;
+    }
+
+    const didCallTimeout = this.matchEngine.recordTimeout(team);
+    if (!didCallTimeout) {
+      return;
+    }
+
+    this.lastEvent = {
+      kind: 'timeout',
+      team,
+      impactedScore: false,
+      impactedStats: false,
+    };
     this.refreshReviewLoadMetricIfVisible();
   }
 
@@ -531,6 +546,22 @@ export class CourtPage {
 
   get isMatchOver(): boolean {
     return this.matchState.state().isMatchOver;
+  }
+
+  get rotationIndicatorText(): string {
+    const rotation = this.matchState.state().teamRotation;
+    const server = this.getPlayerForPosition(1);
+    const serverText = server ? `#${server.jerseyNumber}` : 'P1 Open';
+    return `R${rotation} ${serverText}`;
+  }
+
+  get timeoutIndicatorText(): string {
+    const state = this.matchState.state();
+    return `${state.teamTimeoutsRemaining} / ${state.opponentTimeoutsRemaining}`;
+  }
+
+  get servePossessionText(): string {
+    return this.matchState.state().servingTeam === 'team' ? 'Home' : 'Away';
   }
 
   get teamSetKills(): number {
@@ -871,6 +902,10 @@ export class CourtPage {
     if (type === 'serve_team_set') {
       const servingTeam = this.readString(event['serving_team']) ?? 'team';
       return `Serve: ${servingTeam === 'team' ? 'Our Team' : 'Opponent'}`;
+    }
+    if (type === 'timeout_called') {
+      const timeoutTeam = this.readString(event['timeout_team']) ?? 'team';
+      return `${timeoutTeam === 'team' ? 'Our' : 'Opponent'} Timeout`;
     }
     if (type === 'undo') {
       return 'Undo';

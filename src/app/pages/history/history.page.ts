@@ -116,6 +116,8 @@ export class HistoryPage {
         return 'Undo action';
       case 'serve_team_set':
         return `Serve switched: ${this.toTitle(this.readString(event['serving_team']) || 'unknown')}`;
+      case 'timeout_called':
+        return `Timeout: ${this.toTitle(this.readString(event['timeout_team']) || 'unknown')}`;
       default:
         return this.toTitle(type);
     }

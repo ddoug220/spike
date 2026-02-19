@@ -62,6 +62,15 @@ describe('MatchEngineService', () => {
     expect(teamRoster.lineup()[0]).toBe(players[0].id);
   });
 
+  it('records timeout calls and undoes them through the same undo stack', () => {
+    const didCallTimeout = service.recordTimeout('team');
+    expect(didCallTimeout).toBeTrue();
+    expect(matchState.state().teamTimeoutsRemaining).toBe(1);
+
+    service.undoLastEvent();
+    expect(matchState.state().teamTimeoutsRemaining).toBe(2);
+  });
+
   it('blocks scoring events after match is ended', () => {
     service.startMatch('team');
     service.endMatch();

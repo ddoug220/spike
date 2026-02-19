@@ -107,6 +107,60 @@ ion-content {
   }
 }
 
+.game-context-toolbar {
+  --background: rgba(9, 17, 33, 0.9);
+  --color: #F8FAFC;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --min-height: 88px;
+}
+
+@media (prefers-color-scheme: light) {
+  .game-context-toolbar {
+    --background: rgba(15, 23, 42, 0.9);
+    --color: #F8FAFC;
+    --border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.game-context-grid {
+  padding: 8px 14px 10px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.context-item {
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  min-height: 64px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.context-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.context-value {
+  font-family: var(--font-display);
+  font-size: 1.28rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #F8FAFC;
+}
+
+.context-score .context-value {
+  font-size: 1.56rem;
+}
+
 ion-menu-button {
   color: var(--toolbar-icon);
 }
@@ -425,6 +479,28 @@ ion-menu-button {
   --background: var(--accent-blue);
   --color: #ffffff;
   border-bottom: 3px solid #ffffff;
+}
+
+.timeout-toggle {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.timeout-toggle ion-button {
+  margin: 0;
+  --background: rgba(255, 255, 255, 0.06);
+  --color: var(--text-secondary);
+  --border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+@media (prefers-color-scheme: light) {
+  .timeout-toggle ion-button {
+    --background: rgba(15, 23, 42, 0.06);
+  }
 }
 
 // ─── Court visualization ───
@@ -1015,6 +1091,7 @@ select:focus-visible {
 
   .profile-toggle,
   .serve-toggle,
+  .timeout-toggle,
   .primary-actions-grid,
   .context-actions-grid,
   .direct-actions-grid,
@@ -1440,6 +1517,10 @@ select:focus-visible {
 }
 
 @media (max-width: 1100px) {
+  .game-context-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .surface-toggle {
     width: 100%;
     justify-content: flex-end;
@@ -1459,6 +1540,33 @@ select:focus-visible {
 }
 
 @media (max-width: 680px) {
+  .game-context-toolbar {
+    --min-height: 108px;
+  }
+
+  .game-context-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px 10px 10px;
+  }
+
+  .context-item {
+    min-height: 56px;
+    padding: 7px 8px;
+  }
+
+  .context-label {
+    font-size: 0.52rem;
+  }
+
+  .context-value {
+    font-size: 1.12rem;
+  }
+
+  .context-score .context-value {
+    font-size: 1.3rem;
+  }
+
   .scoreboard-head {
     flex-direction: column;
     align-items: flex-start;

@@ -1,6 +1,6 @@
 <ion-header [translucent]="true">
   <ion-toolbar class="stats-toolbar">
-    <ion-title>Volleyball Stats</ion-title>
+    <ion-title>Live Game</ion-title>
     <div class="surface-toggle" slot="end">
       <ion-button size="small" [ngClass]="{ active: activeSurfaceMode === 'live' }" (click)="setSurfaceMode('live')">
         Live
@@ -11,6 +11,30 @@
     </div>
     <ion-button slot="end" class="lineup-link secondary-link" [routerLink]="['/history']">History</ion-button>
     <ion-button slot="end" class="lineup-link" [routerLink]="['/pre-match']">Lineup</ion-button>
+  </ion-toolbar>
+  <ion-toolbar class="game-context-toolbar" aria-label="Critical game context">
+    <div class="game-context-grid">
+      <div class="context-item context-score">
+        <span class="context-label">Score (H/A)</span>
+        <span class="context-value">{{ matchState.state().teamPoints }} / {{ matchState.state().opponentPoints }}</span>
+      </div>
+      <div class="context-item">
+        <span class="context-label">Set</span>
+        <span class="context-value">#{{ matchState.state().currentSet }}</span>
+      </div>
+      <div class="context-item">
+        <span class="context-label">Rotation</span>
+        <span class="context-value">{{ rotationIndicatorText }}</span>
+      </div>
+      <div class="context-item">
+        <span class="context-label">Timeouts (H/A)</span>
+        <span class="context-value">{{ timeoutIndicatorText }}</span>
+      </div>
+      <div class="context-item">
+        <span class="context-label">Serve</span>
+        <span class="context-value">{{ servePossessionText }}</span>
+      </div>
+    </div>
   </ion-toolbar>
 </ion-header>
 
@@ -166,6 +190,22 @@
               [disabled]="isMatchOver"
             >
               Their Serve
+            </ion-button>
+          </div>
+          <div class="timeout-toggle" *ngIf="showAdvancedControls">
+            <ion-button
+              size="small"
+              (click)="callTimeout('team')"
+              [disabled]="isMatchOver || matchState.state().teamTimeoutsRemaining === 0"
+            >
+              Home Timeout
+            </ion-button>
+            <ion-button
+              size="small"
+              (click)="callTimeout('opponent')"
+              [disabled]="isMatchOver || matchState.state().opponentTimeoutsRemaining === 0"
+            >
+              Away Timeout
             </ion-button>
           </div>
         </div>

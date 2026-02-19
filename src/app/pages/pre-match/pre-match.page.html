@@ -1,0 +1,157 @@
+<ion-header [translucent]="true">
+  <ion-toolbar class="prematch-toolbar">
+    <ion-title>Pre-Match Setup</ion-title>
+    <div slot="end" class="start-controls">
+      <ion-button fill="outline" [routerLink]="['/history']">History</ion-button>
+      <div class="readiness-list" aria-live="polite">
+        <span class="readiness-item" [ngClass]="{ ready: isLineupReady, notready: !isLineupReady }">
+          Lineup Ready {{ isLineupReady ? '✔' : '✖' }}
+        </span>
+        <span class="readiness-item" [ngClass]="{ ready: isRotationValid, notready: !isRotationValid }">
+          Rotation Valid {{ isRotationValid ? '✔' : '✖' }}
+        </span>
+      </div>
+      <span class="start-btn-wrap" [attr.title]="!canStartMatch ? startMatchDisabledReason : null">
+        <ion-button
+          class="start-btn"
+          (click)="startMatch()"
+          [disabled]="!canStartMatch"
+          [attr.title]="!canStartMatch ? startMatchDisabledReason : null"
+        >
+          <ion-icon slot="start" name="play"></ion-icon>
+          Start Match
+        </ion-button>
+      </span>
+    </div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="prematch-layout">
+    <section class="panel court-panel">
+      <div class="panel-head">
+        <h2>Starting Lineup</h2>
+        <p>Drag players into positions 1-6</p>
+      </div>
+
+      <div class="lineup-court" [ngClass]="{ 'lineup-court-empty': !hasAssignedStarters }">
+        <div class="court-lines"></div>
+        <div class="ghost-lineup" *ngIf="!hasAssignedStarters" aria-hidden="true">
+          <div
+            *ngFor="let slot of courtSlots; trackBy: trackByPosition"
+            class="ghost-player"
+            [style.top]="slot.top"
+            [style.left]="slot.left"
+          >
+            <span class="ghost-head"></span>
+            <span class="ghost-body"></span>
+          </div>
+        </div>
+
+        <div
+          *ngFor="let slot of courtSlots; trackBy: trackByPosition"
+          class="drop-slot"
+          [ngClass]="{
+            'front-row-slot': slot.row === 'front',
+            'back-row-slot': slot.row === 'back',
+            'serving-slot': slot.isServingFirst
+          }"
+          [style.top]="slot.top"
+          [style.left]="slot.left"
+          (dragover)="allowDrop($event)"
+          (drop)="dropOnPosition($event, slot.position)"
+          (click)="assignSelectedToPosition(slot.position)"
+        >
+          <div class="slot-number">P{{ slot.position }}</div>
+          <div class="slot-role">{{ slot.roleLabel }}</div>
+          <div *ngIf="slot.isServingFirst" class="serving-badge">
+            <span class="serving-dot" aria-hidden="true"></span>
+            Serving first
+          </div>
+
+          <div
+            *ngIf="getSlotPlayer(slot.position) as player; else emptySlot"
+            class="slot-player"
+            draggable="true"
+            (dragstart)="onDragStart($event, player.id)"
+          >
+            <div class="slot-name">{{ player.name }}</div>
+            <div class="slot-meta">#{{ player.jerseyNumber }} | {{ player.primaryPosition }}</div>
+          </div>
+
+          <ng-template #emptySlot>
+            <div class="slot-empty">Assign Starter</div>
+          </ng-template>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel roster-panel">
+      <div class="panel-head">
+        <h2>Roster</h2>
+        <p>Add players, then drag to the court</p>
+      </div>
+
+      <form class="player-form" (ngSubmit)="addPlayer()">
+        <label class="field">
+          <span>Player Name</span>
+          <input type="text" name="name" [(ngModel)]="draft.name" placeholder="e.g. Ava Johnson" required />
+        </label>
+
+        <label class="field">
+          <span>Jersey Number</span>
+          <input type="number" min="0" max="99" name="jersey" [(ngModel)]="draft.jerseyNumber" required />
+        </label>
+
+        <label class="field">
+          <span>Primary Position</span>
+          <select name="primaryPosition" [(ngModel)]="draft.primaryPosition">
+            <option *ngFor="let position of primaryPositions" [value]="position">{{ position }}</option>
+          </select>
+        </label>
+
+        <ion-button expand="block" type="submit" class="add-btn">
+          <ion-icon name="person-add" slot="start"></ion-icon>
+          Add Player
+        </ion-button>
+
+        <ion-button expand="block" type="button" class="qa-btn" (click)="generateFakeTeam()">
+          <ion-icon name="flask" slot="start"></ion-icon>
+          Generate Fake Team
+        </ion-button>
+      </form>
+
+      <div class="bench-dropzone" (dragover)="allowDrop($event)" (drop)="dropToBench($event)">
+        Drop Here To Move Back To Bench
+      </div>
+      <ion-button expand="block" type="button" fill="outline" (click)="moveSelectedToBench()">
+        Move Selected To Bench
+      </ion-button>
+
+      <div class="roster-list">
+        <div
+          *ngFor="let player of players; trackBy: trackByPlayer"
+          class="roster-item"
+          draggable="true"
+          (dragstart)="onDragStart($event, player.id)"
+          (click)="selectBenchPlayer(player.id)"
+          [ngClass]="{
+            assigned: teamRoster.isAssigned(player.id),
+            selected: selectedBenchPlayerId === player.id
+          }"
+        >
+          <div class="player-info">
+            <div class="name">{{ player.name }}</div>
+            <div class="meta">#{{ player.jerseyNumber }} | {{ player.primaryPosition }}</div>
+          </div>
+          <div class="item-actions">
+            <span class="assignment">{{ teamRoster.isAssigned(player.id) ? 'On Court' : 'Bench' }}</span>
+            <button type="button" class="remove-btn" (click)="removePlayer(player.id)">
+              <ion-icon name="trash"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</ion-content>

@@ -1,0 +1,77 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Match History</ion-title>
+    <ion-button slot="end" [routerLink]="['/court']">Live Court</ion-button>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="history-layout">
+    <section class="matches-panel">
+      <h2>Saved Matches</h2>
+      <p *ngIf="matches.length === 0" class="empty">No matches have been logged yet.</p>
+      <button
+        *ngFor="let match of matches"
+        class="match-card"
+        [ngClass]="{ selected: selectedMatchId === match.matchId }"
+        (click)="selectMatch(match.matchId)"
+      >
+        <span class="match-id">{{ match.matchId }}</span>
+        <span class="match-meta">Events: {{ match.totalEvents }}</span>
+        <span class="match-meta">Updated: {{ match.lastUpdatedAt | date:'medium' }}</span>
+        <span class="match-meta" *ngIf="match.isFinal">
+          Final: {{ match.finalTeamSets ?? 0 }} - {{ match.finalOpponentSets ?? 0 }}
+        </span>
+      </button>
+    </section>
+
+    <section class="review-panel" *ngIf="selectedMatchSummary as selected; else selectPrompt">
+      <h2>Review</h2>
+      <p class="summary">
+        Match {{ selected.matchId }} | {{ selected.totalEvents }} events | Last update {{ selected.lastUpdatedAt | date:'medium' }}
+      </p>
+
+      <h3>Event Timeline</h3>
+      <div class="timeline-list">
+        <div *ngFor="let item of timeline" class="timeline-item">
+          <span class="time">{{ item.createdAt | date:'shortTime' }}</span>
+          <span class="type">{{ item.type }}</span>
+          <span class="desc">{{ item.summary }}</span>
+        </div>
+      </div>
+
+      <h3>Box Score</h3>
+      <div class="box-grid" *ngIf="boxScoreRows.length > 0; else noBoxScore">
+        <div class="box-row box-header">
+          <span>Player</span>
+          <span>K</span>
+          <span>E</span>
+          <span>TA</span>
+          <span>SA</span>
+          <span>Serve In %</span>
+          <span>Side-Out %</span>
+        </div>
+        <div class="box-row" *ngFor="let row of boxScoreRows">
+          <span>#{{ row.jerseyNumber ?? '--' }} {{ row.playerName }}</span>
+          <span>{{ row.kills }}</span>
+          <span>{{ row.attackErrors }}</span>
+          <span>{{ row.totalAttacks }}</span>
+          <span>{{ row.serveAttempts }}</span>
+          <span>{{ formatRate(row.serveInPercentage) }}</span>
+          <span>{{ formatRate(row.sideOutPercentage) }}</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <ng-template #selectPrompt>
+    <section class="review-panel">
+      <h2>Review</h2>
+      <p class="empty">Select a match to view timeline and box score.</p>
+    </section>
+  </ng-template>
+
+  <ng-template #noBoxScore>
+    <p class="empty">No final box score has been saved for this match yet.</p>
+  </ng-template>
+</ion-content>

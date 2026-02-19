@@ -40,23 +40,11 @@
 <ion-content [fullscreen]="true">
   <section class="scoreboard-panel">
     <div class="scoreboard-head">
-      <span class="label">Live Scoreboard</span>
+      <span class="label">Match State</span>
       <div class="scoreboard-head-right">
         <span class="set-label">Set {{ matchState.state().currentSet }}</span>
-        <ion-button size="small" class="match-ctl" (click)="startNewMatch()">New Match</ion-button>
-        <ion-button size="small" class="match-ctl secondary" (click)="endMatch()" [disabled]="isMatchOver">End Match</ion-button>
       </div>
     </div>
-    <div class="sync-status" [ngClass]="{ pending: offlineSync.pendingCount() > 0 }">
-      <span *ngIf="offlineSync.pendingCount() === 0" aria-hidden="true">&check;</span>
-      <span *ngIf="offlineSync.pendingCount() > 0" aria-hidden="true">&#9203;</span>
-      Sync Queue: {{ offlineSync.pendingCount() }} | {{ syncStatusText }}
-    </div>
-    <div class="sync-status error" *ngIf="offlineSync.lastError() as syncError">
-      <span aria-hidden="true">&#9888;</span> Sync error: {{ syncError }}
-      <ion-button size="small" fill="clear" (click)="retrySync()">Retry Sync</ion-button>
-    </div>
-    <div class="sync-status">{{ lastSyncText }}</div>
     <div class="match-over-banner" *ngIf="isMatchOver">&#9888; Match is final. Start a new match to continue tracking.</div>
 
     <div class="scoreboard-main">
@@ -71,6 +59,11 @@
         <span class="points">{{ matchState.state().opponentPoints }}</span>
         <span class="sets">Sets {{ matchState.state().opponentSets }}</span>
       </div>
+    </div>
+    <div class="scoreboard-meta">
+      <span>Rotation: {{ rotationIndicatorText }}</span>
+      <span>Serve: {{ servePossessionText }}</span>
+      <span>Timeouts: {{ timeoutIndicatorText }}</span>
     </div>
   </section>
 
@@ -133,80 +126,9 @@
 
       <aside class="action-section">
         <div class="section-head">
-          <h2>Quick Action</h2>
-          <p>Selected player: {{ getSelectedPlayerText() }}</p>
-          <p class="score-line">Serving: {{ matchState.state().servingTeam | titlecase }}</p>
-          <div class="metrics-grid">
-            <div class="metric-chip">Set Kills: {{ teamSetKills }}</div>
-            <div class="metric-chip">Set Errors: {{ teamSetAttackErrors }}</div>
-            <div class="metric-chip">Side-Out: {{ formatRate(teamSideOutRate) }}</div>
-          </div>
-          <ion-button size="small" fill="outline" class="advanced-toggle" (click)="toggleAdvancedControls()">
-            {{ showAdvancedControls ? 'Hide' : 'Show' }} Advanced Controls
-          </ion-button>
-          <div class="profile-toggle" *ngIf="showAdvancedControls">
-            <ion-button
-              size="small"
-              [ngClass]="{ active: selectedProfile === 'simple' }"
-              (click)="setProfile('simple')"
-              [disabled]="isMatchOver"
-            >
-              Simple
-            </ion-button>
-            <ion-button
-              size="small"
-              [ngClass]="{ active: selectedProfile === 'standard' }"
-              (click)="setProfile('standard')"
-              [disabled]="isMatchOver"
-            >
-              Standard
-            </ion-button>
-            <ion-button
-              size="small"
-              [ngClass]="{ active: selectedProfile === 'advanced' }"
-              (click)="setProfile('advanced')"
-              [disabled]="isMatchOver"
-            >
-              Advanced
-            </ion-button>
-          </div>
-          <div class="serve-toggle" *ngIf="showAdvancedControls">
-            <ion-button
-              size="small"
-              [ngClass]="{ active: matchState.state().servingTeam === 'team' }"
-              (click)="setServingTeam('team')"
-              [disabled]="isMatchOver"
-            >
-              Our Serve
-            </ion-button>
-            <ion-button
-              size="small"
-              [ngClass]="{ active: matchState.state().servingTeam === 'opponent' }"
-              (click)="setServingTeam('opponent')"
-              [disabled]="isMatchOver"
-            >
-              Their Serve
-            </ion-button>
-          </div>
-          <div class="timeout-toggle" *ngIf="showAdvancedControls">
-            <ion-button
-              size="small"
-              (click)="callTimeout('team')"
-              [disabled]="isMatchOver || matchState.state().teamTimeoutsRemaining === 0"
-            >
-              Home Timeout
-            </ion-button>
-            <ion-button
-              size="small"
-              (click)="callTimeout('opponent')"
-              [disabled]="isMatchOver || matchState.state().opponentTimeoutsRemaining === 0"
-            >
-              Away Timeout
-            </ion-button>
-            <ion-button size="small" (click)="manualRotate()" [disabled]="isMatchOver">
-              Manual Rotate
-            </ion-button>
-          </div>
+          <h2>Command Surface</h2>
+          <p class="selected-player-line">{{ getSelectedPlayerText() }}</p>
+          <p class="score-line">Set K/E: {{ teamSetKills }} / {{ teamSetAttackErrors }} | Side-Out: {{ formatRate(teamSideOutRate) }}</p>
         </div>
 
         <ng-container *ngIf="isStandardMode; else groupedActionFlow">
@@ -260,21 +182,33 @@
           </ion-button>
         </ng-template>
 
-        <ion-button expand="block" fill="solid" class="undo-btn" (click)="undoLastAction()" [disabled]="isMatchOver">
-          <ion-icon name="arrow-undo" slot="start"></ion-icon>
-          Undo
-        </ion-button>
+        <div class="command-row">
+          <ion-button expand="block" fill="solid" class="undo-btn" (click)="undoLastAction()" [disabled]="isMatchOver">
+            <ion-icon name="arrow-undo" slot="start"></ion-icon>
+            Undo
+          </ion-button>
 
-        <ion-button
-          expand="block"
-          fill="solid"
-          class="sub-mode-btn"
-          [ngClass]="{ active: isSubOverlayOpen }"
-          (click)="toggleSubMode()"
-          [disabled]="isMatchOver"
-        >
-          {{ isSubOverlayOpen ? 'Close Sub Panel' : 'Substitute' }}
-        </ion-button>
+          <ion-button
+            expand="block"
+            fill="solid"
+            class="sub-mode-btn"
+            [ngClass]="{ active: isSubOverlayOpen }"
+            (click)="toggleSubMode()"
+            [disabled]="isMatchOver"
+          >
+            {{ isSubOverlayOpen ? 'Close Sub Panel' : 'Substitute' }}
+          </ion-button>
+
+          <ion-button
+            expand="block"
+            fill="outline"
+            class="advanced-toggle"
+            [ngClass]="{ active: showAdvancedControls }"
+            (click)="toggleAdvancedControls()"
+          >
+            {{ showAdvancedControls ? 'Hide Command' : 'Open Command' }}
+          </ion-button>
+        </div>
 
         <div class="last-action" [ngClass]="{ empty: !lastEvent }">
           <span>{{ getLastEventText() | titlecase }}</span>
@@ -282,13 +216,109 @@
 
         <p class="sub-status" [ngClass]="{ empty: !substitutionStatus }">{{ substitutionStatus || 'No substitutions yet' }}</p>
 
-        <section class="event-log-panel">
-          <h3>Recent Events</h3>
-          <p *ngIf="recentEvents.length === 0" class="sub-status empty">No events logged yet.</p>
-          <div class="event-log-list" *ngIf="recentEvents.length > 0">
-            <div class="event-log-row" *ngFor="let event of recentEvents">
-              <span class="event-time">{{ event.createdAt | date:'shortTime' }}</span>
-              <span class="event-label">{{ event.label }}</span>
+        <section class="command-panel" *ngIf="showAdvancedControls">
+          <div class="command-block">
+            <h3>Match Control</h3>
+            <div class="command-actions two-col">
+              <ion-button size="small" class="match-ctl" (click)="startNewMatch()">New Match</ion-button>
+              <ion-button size="small" class="match-ctl secondary" (click)="endMatch()" [disabled]="isMatchOver">
+                End Match
+              </ion-button>
+            </div>
+          </div>
+
+          <div class="command-block">
+            <h3>Action Profile</h3>
+            <div class="profile-toggle">
+              <ion-button
+                size="small"
+                [ngClass]="{ active: selectedProfile === 'simple' }"
+                (click)="setProfile('simple')"
+                [disabled]="isMatchOver"
+              >
+                Simple
+              </ion-button>
+              <ion-button
+                size="small"
+                [ngClass]="{ active: selectedProfile === 'standard' }"
+                (click)="setProfile('standard')"
+                [disabled]="isMatchOver"
+              >
+                Standard
+              </ion-button>
+              <ion-button
+                size="small"
+                [ngClass]="{ active: selectedProfile === 'advanced' }"
+                (click)="setProfile('advanced')"
+                [disabled]="isMatchOver"
+              >
+                Advanced
+              </ion-button>
+            </div>
+          </div>
+
+          <div class="command-block">
+            <h3>Flow Control</h3>
+            <div class="serve-toggle">
+              <ion-button
+                size="small"
+                [ngClass]="{ active: matchState.state().servingTeam === 'team' }"
+                (click)="setServingTeam('team')"
+                [disabled]="isMatchOver"
+              >
+                Our Serve
+              </ion-button>
+              <ion-button
+                size="small"
+                [ngClass]="{ active: matchState.state().servingTeam === 'opponent' }"
+                (click)="setServingTeam('opponent')"
+                [disabled]="isMatchOver"
+              >
+                Their Serve
+              </ion-button>
+            </div>
+            <div class="timeout-toggle">
+              <ion-button
+                size="small"
+                (click)="callTimeout('team')"
+                [disabled]="isMatchOver || matchState.state().teamTimeoutsRemaining === 0"
+              >
+                Home Timeout
+              </ion-button>
+              <ion-button
+                size="small"
+                (click)="callTimeout('opponent')"
+                [disabled]="isMatchOver || matchState.state().opponentTimeoutsRemaining === 0"
+              >
+                Away Timeout
+              </ion-button>
+              <ion-button size="small" (click)="manualRotate()" [disabled]="isMatchOver">
+                Manual Rotate
+              </ion-button>
+            </div>
+          </div>
+
+          <div class="command-block">
+            <h3>System</h3>
+            <div class="sync-status" [ngClass]="{ pending: offlineSync.pendingCount() > 0 }">
+              <span *ngIf="offlineSync.pendingCount() === 0" aria-hidden="true">&check;</span>
+              <span *ngIf="offlineSync.pendingCount() > 0" aria-hidden="true">&#9203;</span>
+              Queue: {{ offlineSync.pendingCount() }} | {{ syncStatusText }}
+            </div>
+            <div class="sync-status error" *ngIf="offlineSync.lastError() as syncError">
+              <span aria-hidden="true">&#9888;</span> Sync error: {{ syncError }}
+              <ion-button size="small" fill="clear" (click)="retrySync()">Retry</ion-button>
+            </div>
+            <div class="sync-status">{{ lastSyncText }}</div>
+          </div>
+
+          <div class="command-block" *ngIf="recentCommandEvents.length > 0">
+            <h3>Recent Events</h3>
+            <div class="event-log-list compact">
+              <div class="event-log-row" *ngFor="let event of recentCommandEvents">
+                <span class="event-time">{{ event.createdAt | date:'shortTime' }}</span>
+                <span class="event-label">{{ event.label }}</span>
+              </div>
             </div>
           </div>
         </section>

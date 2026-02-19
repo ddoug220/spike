@@ -516,6 +516,7 @@ export class CourtPage {
     this.activeSurfaceMode = mode;
     if (mode !== 'live') {
       this.isSubOverlayOpen = false;
+      this.showAdvancedControls = false;
       this.resetSubSelection();
     }
     if (mode === 'review') {
@@ -617,6 +618,7 @@ export class CourtPage {
       return;
     }
 
+    this.showAdvancedControls = false;
     this.openSubOverlay();
   }
 
@@ -701,6 +703,10 @@ export class CourtPage {
         createdAt: this.readString(event['created_at']) ?? '',
         label: this.describeEvent(event),
       }));
+  }
+
+  get recentCommandEvents(): LiveEventRow[] {
+    return this.recentEvents.slice(0, 5);
   }
 
   get syncStatusText(): string {

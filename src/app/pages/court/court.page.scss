@@ -1,94 +1,86 @@
-// ─── Court Page — "Midnight Hardwood" Premium ───
+// ─── Court Page — Command Surface ───
 
 :host {
-  // Light palette
-  --app-bg: #F5F7FA;
-  --app-bg-accent: rgba(99, 143, 255, 0.06);
-  --panel-bg: rgba(255, 255, 255, 0.82);
+  --app-bg: #EEF2F6;
+  --app-bg-accent: rgba(15, 23, 42, 0.04);
+  --panel-bg: #FFFFFF;
   --panel-bg-solid: #ffffff;
-  --panel-border: rgba(15, 23, 42, 0.08);
-  --panel-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 8px 32px rgba(0, 0, 0, 0.06);
+  --panel-border: rgba(15, 23, 42, 0.12);
+  --panel-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
   --text-primary: #0F172A;
-  --text-secondary: #475569;
+  --text-secondary: #334155;
   --text-tertiary: #64748B;
-  --toolbar-bg: rgba(255, 255, 255, 0.72);
-  --toolbar-icon: #1E40AF;
-  --scoreboard-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.92) 100%);
-  --scoreboard-border: rgba(15, 23, 42, 0.06);
-  --scoreboard-label: #475569;
-  --scoreboard-set: #92400E;
+  --toolbar-bg: #F8FAFC;
+  --toolbar-icon: #0F172A;
+  --scoreboard-bg: #FFFFFF;
+  --scoreboard-border: rgba(15, 23, 42, 0.12);
+  --scoreboard-label: #0F172A;
+  --scoreboard-set: #334155;
   --scorecard-bg: #ffffff;
-  --scorecard-opponent-bg: #FFF5F5;
+  --scorecard-opponent-bg: #F8FAFC;
   --score-points: #0F172A;
-  --score-sets: #1E40AF;
-  --score-divider: #CBD5E1;
+  --score-sets: #334155;
+  --score-divider: #94A3B8;
   --court-bg:
-    radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.12) 0%, transparent 55%),
-    repeating-linear-gradient(90deg, transparent 0px, transparent 52px, rgba(0, 0, 0, 0.04) 52px, rgba(0, 0, 0, 0.04) 54px),
-    linear-gradient(165deg, #D4A96A 0%, #C49A5C 30%, #B88C4E 60%, #A67B3F 100%);
-  --line-color: rgba(255, 255, 255, 0.55);
-  --court-border: rgba(164, 118, 58, 0.35);
+    linear-gradient(180deg, #D6B07A 0%, #C59C61 100%);
+  --line-color: rgba(255, 255, 255, 0.65);
+  --court-border: rgba(15, 23, 42, 0.2);
   --player-text: #ffffff;
   --player-name: rgba(255, 255, 255, 0.85);
   --action-text: #ffffff;
-  --last-action-bg: rgba(255, 255, 255, 0.6);
-  --last-action-border: rgba(15, 23, 42, 0.06);
-  --focus: #2563EB;
-  --accent-blue: #2563EB;
-  --accent-green: #059669;
+  --last-action-bg: #F8FAFC;
+  --last-action-border: rgba(15, 23, 42, 0.12);
+  --focus: #1D4ED8;
+  --accent-blue: #1D4ED8;
+  --accent-green: #047857;
   --accent-red: #DC2626;
-  --accent-amber: #D97706;
-  --accent-gold: #CA8A04;
+  --accent-amber: #B45309;
+  --accent-gold: #A16207;
 }
 
 @media (prefers-color-scheme: dark) {
   :host {
-    --app-bg: #070A10;
-    --app-bg-accent: rgba(62, 173, 255, 0.04);
-    --panel-bg: rgba(255, 255, 255, 0.035);
-    --panel-bg-solid: #0E1219;
-    --panel-border: rgba(255, 255, 255, 0.07);
-    --panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 32px rgba(0, 0, 0, 0.3);
-    --text-primary: #F0F4F8;
-    --text-secondary: #7A8BA0;
-    --text-tertiary: #4A5568;
-    --toolbar-bg: rgba(14, 18, 25, 0.82);
-    --toolbar-icon: #93C5FD;
-    --scoreboard-bg: linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(20, 30, 50, 0.7) 100%);
-    --scoreboard-border: rgba(255, 255, 255, 0.06);
-    --scoreboard-label: #93C5FD;
-    --scoreboard-set: #FDE68A;
-    --scorecard-bg: rgba(255, 255, 255, 0.04);
-    --scorecard-opponent-bg: rgba(248, 113, 113, 0.06);
-    --score-points: #F0F4F8;
-    --score-sets: #93C5FD;
-    --score-divider: rgba(255, 255, 255, 0.12);
+    --app-bg: #090D14;
+    --app-bg-accent: rgba(148, 163, 184, 0.05);
+    --panel-bg: #0F172A;
+    --panel-bg-solid: #0F172A;
+    --panel-border: rgba(148, 163, 184, 0.35);
+    --panel-shadow: 0 4px 16px rgba(2, 6, 23, 0.35);
+    --text-primary: #E2E8F0;
+    --text-secondary: #CBD5E1;
+    --text-tertiary: #94A3B8;
+    --toolbar-bg: #0B1220;
+    --toolbar-icon: #E2E8F0;
+    --scoreboard-bg: #0F172A;
+    --scoreboard-border: rgba(148, 163, 184, 0.35);
+    --scoreboard-label: #E2E8F0;
+    --scoreboard-set: #CBD5E1;
+    --scorecard-bg: #111B2E;
+    --scorecard-opponent-bg: #111B2E;
+    --score-points: #F8FAFC;
+    --score-sets: #CBD5E1;
+    --score-divider: rgba(226, 232, 240, 0.35);
     --court-bg:
-      radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 55%),
-      repeating-linear-gradient(90deg, transparent 0px, transparent 52px, rgba(0, 0, 0, 0.1) 52px, rgba(0, 0, 0, 0.1) 54px),
-      linear-gradient(165deg, #9A7A50 0%, #876A42 30%, #745A36 60%, #624C2C 100%);
-    --line-color: rgba(255, 255, 255, 0.4);
-    --court-border: rgba(120, 86, 40, 0.4);
+      linear-gradient(180deg, #8C6A3E 0%, #74532F 100%);
+    --line-color: rgba(248, 250, 252, 0.55);
+    --court-border: rgba(148, 163, 184, 0.45);
     --player-text: #F0F4F8;
     --player-name: rgba(255, 255, 255, 0.75);
     --action-text: #ffffff;
-    --last-action-bg: rgba(255, 255, 255, 0.03);
-    --last-action-border: rgba(255, 255, 255, 0.06);
-    --focus: #3EADFF;
-    --accent-blue: #3EADFF;
-    --accent-green: #34D399;
+    --last-action-bg: #111B2E;
+    --last-action-border: rgba(148, 163, 184, 0.35);
+    --focus: #60A5FA;
+    --accent-blue: #3B82F6;
+    --accent-green: #10B981;
     --accent-red: #F87171;
-    --accent-amber: #FBBF24;
+    --accent-amber: #F59E0B;
     --accent-gold: #EAB308;
   }
 }
 
 // ─── Content ───
 ion-content {
-  --background:
-    radial-gradient(ellipse at 18% 8%, var(--app-bg-accent) 0%, transparent 50%),
-    radial-gradient(ellipse at 82% 88%, rgba(255, 184, 77, 0.02) 0%, transparent 40%),
-    var(--app-bg);
+  --background: var(--app-bg);
   color: var(--text-primary);
 }
 
@@ -96,14 +88,14 @@ ion-content {
 .stats-toolbar {
   --background: var(--toolbar-bg);
   --color: var(--text-primary);
-  --border-color: rgba(0, 0, 0, 0);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  --border-color: var(--panel-border);
 
   ion-title {
     font-family: var(--font-display);
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: -0.01em;
+    text-transform: uppercase;
+    font-size: 0.96rem;
   }
 }
 
@@ -209,10 +201,7 @@ ion-menu-button {
   border-radius: var(--radius-xl);
   border: 1px solid var(--scoreboard-border);
   background: var(--scoreboard-bg);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
   box-shadow: var(--panel-shadow);
-  animation: fadeInUp 0.4s var(--ease-out) both;
 }
 
 .scoreboard-head {
@@ -229,7 +218,7 @@ ion-menu-button {
 
 .match-ctl {
   margin: 0;
-  --background: var(--accent-green);
+  --background: var(--text-primary);
   --color: #ffffff;
   --border-radius: var(--radius-sm);
   font-weight: 700;
@@ -238,15 +227,11 @@ ion-menu-button {
 }
 
 .match-ctl.secondary {
-  --background: rgba(255, 255, 255, 0.08);
-  --color: var(--text-secondary);
-}
-
-@media (prefers-color-scheme: light) {
-  .match-ctl.secondary {
-    --background: rgba(15, 23, 42, 0.06);
-    --color: var(--text-secondary);
-  }
+  --background: transparent;
+  --color: var(--text-primary);
+  --border-color: var(--panel-border);
+  --border-style: solid;
+  --border-width: 1px;
 }
 
 .scoreboard-head .label {
@@ -347,14 +332,24 @@ ion-menu-button {
   color: var(--score-divider);
 }
 
+.scoreboard-meta {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
 // ─── Two-column layout ───
 .tablet-layout {
   min-height: 100%;
   padding: 12px 16px 16px;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 1.35fr 0.65fr;
   gap: 16px;
-  animation: fadeInUp 0.5s var(--ease-out) 0.1s both;
 }
 
 .court-section,
@@ -362,69 +357,104 @@ ion-menu-button {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-xl);
   background: var(--panel-bg);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
   box-shadow: var(--panel-shadow);
-  padding: 18px;
+  padding: 16px;
   min-height: calc(100dvh - 132px);
+}
+
+.action-section {
+  display: flex;
+  flex-direction: column;
 }
 
 .section-head h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .section-head p {
   margin: 3px 0 0;
   color: var(--text-secondary);
-  font-size: 0.82rem;
-  font-weight: 400;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.selected-player-line {
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 0.94rem;
+  font-weight: 700;
 }
 
 .score-line {
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-weight: 700;
-  font-size: 0.85rem;
-}
-
-// ─── Metrics ───
-.metrics-grid {
-  margin-top: 8px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.metric-chip {
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-sm);
-  padding: 8px 6px;
-  background: var(--panel-bg-solid);
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-align: center;
+  font-size: 0.74rem;
   letter-spacing: 0.02em;
 }
 
 // ─── Toggle buttons ───
 .advanced-toggle {
-  margin-top: 8px;
+  margin: 0;
   --border-color: var(--panel-border);
-  --color: var(--text-secondary);
+  --color: var(--text-primary);
+  --background: transparent;
   --border-radius: var(--radius-sm);
-  font-weight: 600;
-  font-size: 0.75rem;
+  font-weight: 700;
+  font-size: 0.78rem;
   letter-spacing: 0.02em;
 }
 
-.profile-toggle {
-  margin-top: 8px;
+.advanced-toggle.active {
+  --background: var(--text-primary);
+  --color: #ffffff;
+}
+
+.command-row {
+  margin-top: 12px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 8px;
+}
+
+.command-panel {
+  margin-top: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: var(--panel-bg-solid);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.command-block {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.03);
+  padding: 10px;
+}
+
+.command-block h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.command-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.command-actions.two-col {
+  grid-template-columns: 1fr 1fr;
 }
 
 .profile-toggle ion-button {
@@ -445,11 +475,11 @@ ion-menu-button {
 .profile-toggle ion-button.active {
   --background: var(--accent-blue);
   --color: #ffffff;
-  border-bottom: 3px solid #ffffff;
+  border-bottom: none;
 }
 
 .serve-toggle {
-  margin-top: 8px;
+  margin-top: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
@@ -473,7 +503,7 @@ ion-menu-button {
 .serve-toggle ion-button.active {
   --background: var(--accent-blue);
   --color: #ffffff;
-  border-bottom: 3px solid #ffffff;
+  border-bottom: none;
 }
 
 .timeout-toggle {
@@ -509,9 +539,7 @@ ion-menu-button {
   overflow: hidden;
   background: var(--court-bg);
   border: 1px solid var(--court-border);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .court-wrap.sub-overlay-active::after {
@@ -629,10 +657,8 @@ ion-menu-button {
   min-height: 110px;
   transform: translate(-50%, -50%);
   border-radius: 18px;
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
-  background:
-    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.16) 0%, transparent 52%),
-    linear-gradient(145deg, #194779 0%, #153C67 55%, #113357 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: #1E3A8A;
   color: var(--player-text);
   display: grid;
   grid-template-rows: auto auto auto;
@@ -642,10 +668,8 @@ ion-menu-button {
   padding: 12px 14px 12px;
   font-weight: 700;
   touch-action: manipulation;
-  transition: transform 120ms ease, box-shadow 160ms ease, border-color 160ms ease, opacity 160ms ease;
-  box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.18),
-    0 10px 18px rgba(0, 0, 0, 0.14);
+  transition: transform 80ms ease, border-color 120ms ease, opacity 120ms ease;
+  box-shadow: none;
   z-index: 3;
   cursor: pointer;
   text-align: left;
@@ -662,7 +686,7 @@ ion-menu-button {
 
 .player-chip .jersey {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 2rem;
   line-height: 1.05;
   font-weight: 800;
   letter-spacing: 0.01em;
@@ -685,31 +709,20 @@ ion-menu-button {
 
 .player-chip.selected {
   border-color: var(--accent-amber);
-  box-shadow:
-    0 0 0 3px rgba(251, 191, 36, 0.32),
-    0 0 20px rgba(251, 191, 36, 0.2),
-    0 10px 22px rgba(0, 0, 0, 0.24);
-  transform: translate(-50%, -50%) scale(1.03);
+  box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.34);
+  transform: translate(-50%, -50%) scale(1.01);
   z-index: 5;
-  background:
-    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.18) 0%, transparent 50%),
-    linear-gradient(145deg, #1D4ED8 0%, #1D4ED8 48%, #1E40AF 100%);
+  background: #1D4ED8;
 }
 
 .player-chip.current-server {
   border-color: var(--accent-green);
-  box-shadow:
-    0 0 0 2px rgba(52, 211, 153, 0.25),
-    0 0 14px rgba(52, 211, 153, 0.15),
-    0 8px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 0 2px rgba(4, 120, 87, 0.28);
 }
 
 .player-chip.sub-out-selected {
   border-color: var(--accent-red);
-  box-shadow:
-    0 0 0 3px rgba(248, 113, 113, 0.25),
-    0 0 16px rgba(248, 113, 113, 0.15),
-    0 8px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.28);
 }
 
 .player-chip:active,
@@ -787,24 +800,18 @@ ion-menu-button {
 ion-button.primary-action-btn {
   height: 58px;
   margin: 0;
-  --background: rgba(255, 255, 255, 0.06);
-  --color: var(--text-secondary);
+  --background: #E2E8F0;
+  --color: #0F172A;
   --border-radius: var(--radius-md);
   font-family: var(--font-display);
   font-size: 0.88rem;
   font-weight: 700;
 }
 
-@media (prefers-color-scheme: light) {
-  ion-button.primary-action-btn {
-    --background: rgba(15, 23, 42, 0.05);
-  }
-}
-
 ion-button.primary-action-btn.active {
-  --background: var(--accent-blue);
+  --background: #0F172A;
   --color: #ffffff;
-  border-bottom: 3px solid #ffffff;
+  border-bottom: none;
 }
 
 .context-actions-grid {
@@ -822,105 +829,89 @@ ion-button.primary-action-btn.active {
 }
 
 ion-button.action-btn {
-  height: 84px;
+  height: 78px;
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 0.94rem;
   font-weight: 700;
   letter-spacing: 0.01em;
-  --border-radius: var(--radius-lg);
+  --border-radius: var(--radius-md);
   --box-shadow: none;
   --color: #ffffff;
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-
-ion-button.action-btn:active {
-  transform: scale(0.97);
+  transition: none;
 }
 
 ion-button.action-kill {
-  --background: linear-gradient(135deg, #059669, #047857);
+  --background: #047857;
 }
 
 ion-button.action-error {
-  --background: linear-gradient(135deg, #EF4444, #DC2626);
+  --background: #B91C1C;
   --color: #ffffff;
 }
 
 ion-button.action-ace {
-  --background: linear-gradient(135deg, #10B981, #059669);
+  --background: #059669;
 }
 
 ion-button.action-block {
-  --background: linear-gradient(135deg, #14B8A6, #0D9488);
+  --background: #0F766E;
 }
 
 ion-button.action-opponent-error {
-  --background: linear-gradient(135deg, #F59E0B, #D97706);
+  --background: #B45309;
 }
 
 ion-button.action-dig {
-  --background: linear-gradient(135deg, #EAB308, #CA8A04);
+  --background: #A16207;
 }
 
 ion-button.action-opponent-point {
-  --background: linear-gradient(135deg, #F97316, #EA580C);
+  --background: #C2410C;
   --color: #ffffff;
 }
 
 .opponent-point-btn {
   margin-top: 12px;
-  height: 76px;
-  --background: linear-gradient(135deg, #F97316, #EA580C);
-  --border-radius: var(--radius-lg);
+  height: 68px;
+  --background: #C2410C;
+  --border-radius: var(--radius-md);
   --color: #ffffff;
   font-family: var(--font-display);
-  font-size: 1.02rem;
+  font-size: 0.94rem;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
 .undo-btn {
-  margin-top: 12px;
-  height: 68px;
-  --background: rgba(255, 255, 255, 0.06);
-  --border-radius: var(--radius-lg);
-  --color: var(--text-secondary);
+  margin: 0;
+  height: 52px;
+  --background: transparent;
+  --border-radius: var(--radius-sm);
+  --color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 0.84rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
-}
-
-@media (prefers-color-scheme: light) {
-  .undo-btn {
-    --background: rgba(15, 23, 42, 0.04);
-  }
+  border-radius: var(--radius-sm);
 }
 
 .sub-mode-btn {
-  margin-top: 8px;
-  height: 54px;
-  --background: rgba(255, 255, 255, 0.06);
-  --color: var(--text-secondary);
-  --border-radius: var(--radius-md);
+  margin: 0;
+  height: 52px;
+  --background: #0F172A;
+  --color: #ffffff;
+  --border-radius: var(--radius-sm);
   font-family: var(--font-display);
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: 700;
 }
 
-@media (prefers-color-scheme: light) {
-  .sub-mode-btn {
-    --background: rgba(15, 23, 42, 0.05);
-  }
-}
-
 .sub-mode-btn.active {
-  --background: var(--accent-amber);
-  --color: #1C1917;
-  border-bottom: 3px solid #1C1917;
+  --background: #B45309;
+  --color: #ffffff;
+  border-bottom: none;
 }
 
 // ─── Last action ───
@@ -1176,6 +1167,10 @@ ion-button.action-opponent-point {
   border-radius: var(--radius-sm);
 }
 
+.event-log-list.compact {
+  max-height: 124px;
+}
+
 .event-log-row {
   display: grid;
   grid-template-columns: 70px 1fr;
@@ -1244,9 +1239,13 @@ select:focus-visible {
   .timeout-toggle,
   .primary-actions-grid,
   .context-actions-grid,
-  .direct-actions-grid,
-  .metrics-grid {
+  .command-row {
     grid-template-columns: 1fr;
+  }
+
+  .scoreboard-meta {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .sub-overlay-panel {

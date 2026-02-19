@@ -1,6 +1,14 @@
 <ion-header [translucent]="true">
   <ion-toolbar class="stats-toolbar">
     <ion-title>Volleyball Stats</ion-title>
+    <div class="surface-toggle" slot="end">
+      <ion-button size="small" [ngClass]="{ active: activeSurfaceMode === 'live' }" (click)="setSurfaceMode('live')">
+        Live
+      </ion-button>
+      <ion-button size="small" [ngClass]="{ active: activeSurfaceMode === 'review' }" (click)="setSurfaceMode('review')">
+        Game Review
+      </ion-button>
+    </div>
     <ion-button slot="end" class="lineup-link secondary-link" [routerLink]="['/history']">History</ion-button>
     <ion-button slot="end" class="lineup-link" [routerLink]="['/pre-match']">Lineup</ion-button>
   </ion-toolbar>
@@ -43,259 +51,423 @@
     </div>
   </section>
 
-  <div class="tablet-layout">
-    <section class="court-section">
-      <div class="section-head">
-        <h2>Court View</h2>
-        <p>Tap a player then log a quick action</p>
-      </div>
-
-      <div class="court-wrap" [ngClass]="{ 'sub-mode-active': isSubMode }">
-        <div class="court-lines"></div>
-        <div class="serve-indicator" [ngClass]="getServeIndicatorClass()">
-          <span>Serve: {{ matchState.state().servingTeam === 'team' ? 'Our Team' : 'Opponent' }}</span>
+  <ng-container *ngIf="activeSurfaceMode === 'live'; else reviewSurface">
+    <div class="tablet-layout">
+      <section class="court-section">
+        <div class="section-head">
+          <h2>Court View</h2>
+          <p>Tap a player then log a quick action</p>
         </div>
-        <div class="front-row-tint" *ngIf="isFrontRow(activePlayer)"></div>
-        <div class="rotation-arrows" *ngIf="matchState.state().servingTeam === 'opponent'">
-          <ion-icon name="play-forward" class="arrow arrow-5"></ion-icon>
-          <ion-icon name="play-forward" class="arrow arrow-6"></ion-icon>
-          <ion-icon name="play-forward" class="arrow arrow-1"></ion-icon>
-        </div>
-        <button
-          *ngFor="let player of playerPositions"
-          class="player-chip"
-          [ngClass]="{
-            selected: player.id === activePlayer,
-            'current-server': player.id === 1 && matchState.state().servingTeam === 'team',
-            dimmed: player.id !== activePlayer,
-            'sub-out-selected': isSelectedOutPlayer(player.id)
-          }"
-          [style.top]="player.top"
-          [style.left]="player.left"
-          (click)="handleCourtPlayerTap(player.id)"
-        >
-          <ng-container *ngIf="getPlayerForPosition(player.id) as assigned; else unassignedPlayer">
-            <span class="meta">{{ getPlayerDisplayHeader(player.id) }}</span>
-            <span class="name">{{ assigned.name }}</span>
-            <span *ngIf="player.id === activePlayer" class="set-stats">{{ getSelectedPlayerSetLine(player.id) }} (this set)</span>
-            <span *ngIf="player.id === 1 && matchState.state().servingTeam === 'team'" class="server-tag">SERVE</span>
-            <span *ngIf="isSelectedOutPlayer(player.id)" class="sub-out-tag">OUT</span>
-          </ng-container>
-          <ng-template #unassignedPlayer>
-            <span class="meta">[{{ player.label }}] P{{ player.id }}</span>
-            <span class="name">Open</span>
-            <span *ngIf="player.id === 1 && matchState.state().servingTeam === 'team'" class="server-tag">SERVE</span>
-          </ng-template>
-        </button>
 
-        <div class="bench-slide" [ngClass]="{ active: isSubMode }">
+        <div class="court-wrap" [ngClass]="{ 'sub-mode-active': isSubMode }">
+          <div class="court-lines"></div>
+          <div class="serve-indicator" [ngClass]="getServeIndicatorClass()">
+            <span>Serve: {{ matchState.state().servingTeam === 'team' ? 'Our Team' : 'Opponent' }}</span>
+          </div>
+          <div class="front-row-tint" *ngIf="isFrontRow(activePlayer)"></div>
+          <div class="rotation-arrows" *ngIf="matchState.state().servingTeam === 'opponent'">
+            <ion-icon name="play-forward" class="arrow arrow-5"></ion-icon>
+            <ion-icon name="play-forward" class="arrow arrow-6"></ion-icon>
+            <ion-icon name="play-forward" class="arrow arrow-1"></ion-icon>
+          </div>
           <button
-            *ngFor="let benchPlayer of benchPlayers"
-            class="bench-chip"
-            [ngClass]="{ selected: isSelectedInBenchPlayer(benchPlayer.id) }"
-            (click)="handleBenchPlayerTap(benchPlayer.id)"
+            *ngFor="let player of playerPositions"
+            class="player-chip"
+            [ngClass]="{
+              selected: player.id === activePlayer,
+              'current-server': player.id === 1 && matchState.state().servingTeam === 'team',
+              dimmed: player.id !== activePlayer,
+              'sub-out-selected': isSelectedOutPlayer(player.id)
+            }"
+            [style.top]="player.top"
+            [style.left]="player.left"
+            (click)="handleCourtPlayerTap(player.id)"
           >
-            <span class="bench-meta">[{{ benchPlayer.primaryPosition }}] #{{ benchPlayer.jerseyNumber }}</span>
-            <span class="bench-name">{{ benchPlayer.name }}</span>
+            <ng-container *ngIf="getPlayerForPosition(player.id) as assigned; else unassignedPlayer">
+              <span class="meta">{{ getPlayerDisplayHeader(player.id) }}</span>
+              <span class="name">{{ assigned.name }}</span>
+              <span *ngIf="player.id === activePlayer" class="set-stats">{{ getSelectedPlayerSetLine(player.id) }} (this set)</span>
+              <span *ngIf="player.id === 1 && matchState.state().servingTeam === 'team'" class="server-tag">SERVE</span>
+              <span *ngIf="isSelectedOutPlayer(player.id)" class="sub-out-tag">OUT</span>
+            </ng-container>
+            <ng-template #unassignedPlayer>
+              <span class="meta">[{{ player.label }}] P{{ player.id }}</span>
+              <span class="name">Open</span>
+              <span *ngIf="player.id === 1 && matchState.state().servingTeam === 'team'" class="server-tag">SERVE</span>
+            </ng-template>
           </button>
-        </div>
-      </div>
-    </section>
 
-    <aside class="action-section">
-      <div class="section-head">
-        <h2>Quick Action</h2>
-        <p>Selected player: {{ getSelectedPlayerText() }}</p>
-        <p class="score-line">Serving: {{ matchState.state().servingTeam | titlecase }}</p>
-        <div class="metrics-grid">
-          <div class="metric-chip">Set Kills: {{ teamSetKills }}</div>
-          <div class="metric-chip">Set Errors: {{ teamSetAttackErrors }}</div>
-          <div class="metric-chip">Side-Out: {{ formatRate(teamSideOutRate) }}</div>
-        </div>
-        <ion-button size="small" fill="outline" class="advanced-toggle" (click)="toggleAdvancedControls()">
-          {{ showAdvancedControls ? 'Hide' : 'Show' }} Advanced Controls
-        </ion-button>
-        <div class="profile-toggle" *ngIf="showAdvancedControls">
-          <ion-button
-            size="small"
-            [ngClass]="{ active: selectedProfile === 'simple' }"
-            (click)="setProfile('simple')"
-            [disabled]="isMatchOver"
-          >
-            Simple
-          </ion-button>
-          <ion-button
-            size="small"
-            [ngClass]="{ active: selectedProfile === 'standard' }"
-            (click)="setProfile('standard')"
-            [disabled]="isMatchOver"
-          >
-            Standard
-          </ion-button>
-          <ion-button
-            size="small"
-            [ngClass]="{ active: selectedProfile === 'advanced' }"
-            (click)="setProfile('advanced')"
-            [disabled]="isMatchOver"
-          >
-            Advanced
-          </ion-button>
-        </div>
-        <div class="serve-toggle" *ngIf="showAdvancedControls">
-          <ion-button
-            size="small"
-            [ngClass]="{ active: matchState.state().servingTeam === 'team' }"
-            (click)="setServingTeam('team')"
-            [disabled]="isMatchOver"
-          >
-            Our Serve
-          </ion-button>
-          <ion-button
-            size="small"
-            [ngClass]="{ active: matchState.state().servingTeam === 'opponent' }"
-            (click)="setServingTeam('opponent')"
-            [disabled]="isMatchOver"
-          >
-            Their Serve
-          </ion-button>
-        </div>
-      </div>
-
-      <ng-container *ngIf="isStandardMode; else groupedActionFlow">
-        <div class="direct-actions-grid">
-          <ion-button
-            *ngFor="let action of standardOutcomeActions"
-            expand="block"
-            class="action-btn"
-            [ngClass]="action.accent"
-            (click)="recordStandardOutcome(action.id)"
-            [disabled]="isMatchOver"
-          >
-            <ion-icon [name]="action.icon" slot="start"></ion-icon>
-            {{ action.label }}
-          </ion-button>
-        </div>
-      </ng-container>
-
-      <ng-template #groupedActionFlow>
-        <div class="primary-actions-grid">
-          <ion-button
-            *ngFor="let group of visiblePrimaryGroups"
-            expand="block"
-            class="primary-action-btn"
-            [ngClass]="{ active: activePrimaryGroupId === group.id }"
-            (click)="setPrimaryGroup(group.id)"
-            [disabled]="isMatchOver"
-          >
-            <ion-icon [name]="group.icon" slot="start"></ion-icon>
-            {{ group.label }}
-          </ion-button>
-        </div>
-
-        <div class="context-actions-grid" *ngIf="visibleContextActions.length > 0">
-          <ion-button
-            *ngFor="let action of visibleContextActions"
-            expand="block"
-            class="action-btn"
-            [ngClass]="action.accent"
-            (click)="recordAction(action.id)"
-            [disabled]="isMatchOver"
-          >
-            <ion-icon [name]="action.icon" slot="start"></ion-icon>
-            {{ action.label }}
-          </ion-button>
-        </div>
-
-        <ion-button expand="block" fill="solid" class="opponent-point-btn" (click)="recordOpponentPoint()" [disabled]="isMatchOver">
-          <ion-icon name="add-circle" slot="start"></ion-icon>
-          &minus; Opp Point
-        </ion-button>
-      </ng-template>
-
-      <ion-button expand="block" fill="solid" class="undo-btn" (click)="undoLastAction()" [disabled]="isMatchOver">
-        <ion-icon name="arrow-undo" slot="start"></ion-icon>
-        Undo
-      </ion-button>
-
-      <ion-button
-        expand="block"
-        fill="solid"
-        class="sub-mode-btn"
-        [ngClass]="{ active: isSubMode }"
-        (click)="toggleSubMode()"
-        [disabled]="isMatchOver"
-      >
-        Sub Mode {{ isSubMode ? 'On' : 'Off' }}
-      </ion-button>
-
-      <div class="last-action" [ngClass]="{ empty: !lastEvent }">
-        <span>{{ getLastEventText() | titlecase }}</span>
-      </div>
-
-      <div class="substitution-panel" *ngIf="isSubMode && !isMatchOver">
-        <h3>Substitute Confirmation</h3>
-        <p>
-          OUT:
-          <strong>{{ selectedOutPlayer ? selectedOutPlayer.name + ' (#' + selectedOutPlayer.jerseyNumber + ')' : 'Select on court' }}</strong>
-        </p>
-        <p>
-          IN:
-          <strong>{{ selectedInPlayer ? selectedInPlayer.name + ' (#' + selectedInPlayer.jerseyNumber + ')' : 'Select from bench' }}</strong>
-        </p>
-
-        <div class="sub-actions">
-          <ion-button expand="block" class="sub-btn" [disabled]="!isSubstitutionReady" (click)="confirmSubstitution()">
-            Confirm
-          </ion-button>
-          <ion-button expand="block" fill="outline" class="sub-cancel-btn" (click)="cancelSubstitution()">
-            Cancel
-          </ion-button>
-        </div>
-      </div>
-
-      <p class="sub-status" [ngClass]="{ empty: !substitutionStatus }">{{ substitutionStatus || 'No substitutions yet' }}</p>
-
-      <section class="event-log-panel">
-        <h3>Recent Events</h3>
-        <p *ngIf="recentEvents.length === 0" class="sub-status empty">No events logged yet.</p>
-        <div class="event-log-list" *ngIf="recentEvents.length > 0">
-          <div class="event-log-row" *ngFor="let event of recentEvents">
-            <span class="event-time">{{ event.createdAt | date:'shortTime' }}</span>
-            <span class="event-label">{{ event.label }}</span>
+          <div class="bench-slide" [ngClass]="{ active: isSubMode }">
+            <button
+              *ngFor="let benchPlayer of benchPlayers"
+              class="bench-chip"
+              [ngClass]="{ selected: isSelectedInBenchPlayer(benchPlayer.id) }"
+              (click)="handleBenchPlayerTap(benchPlayer.id)"
+            >
+              <span class="bench-meta">[{{ benchPlayer.primaryPosition }}] #{{ benchPlayer.jerseyNumber }}</span>
+              <span class="bench-name">{{ benchPlayer.name }}</span>
+            </button>
           </div>
         </div>
       </section>
-    </aside>
-  </div>
 
-  <section *ngIf="matchState.state().isMatchOver" class="box-score-panel">
-    <div class="box-head">
-      <h2>Post-Match Box Score</h2>
-      <p>Hitting Efficiency = (Kills - Attack Errors) / Total Attacks</p>
+      <aside class="action-section">
+        <div class="section-head">
+          <h2>Quick Action</h2>
+          <p>Selected player: {{ getSelectedPlayerText() }}</p>
+          <p class="score-line">Serving: {{ matchState.state().servingTeam | titlecase }}</p>
+          <div class="metrics-grid">
+            <div class="metric-chip">Set Kills: {{ teamSetKills }}</div>
+            <div class="metric-chip">Set Errors: {{ teamSetAttackErrors }}</div>
+            <div class="metric-chip">Side-Out: {{ formatRate(teamSideOutRate) }}</div>
+          </div>
+          <ion-button size="small" fill="outline" class="advanced-toggle" (click)="toggleAdvancedControls()">
+            {{ showAdvancedControls ? 'Hide' : 'Show' }} Advanced Controls
+          </ion-button>
+          <div class="profile-toggle" *ngIf="showAdvancedControls">
+            <ion-button
+              size="small"
+              [ngClass]="{ active: selectedProfile === 'simple' }"
+              (click)="setProfile('simple')"
+              [disabled]="isMatchOver"
+            >
+              Simple
+            </ion-button>
+            <ion-button
+              size="small"
+              [ngClass]="{ active: selectedProfile === 'standard' }"
+              (click)="setProfile('standard')"
+              [disabled]="isMatchOver"
+            >
+              Standard
+            </ion-button>
+            <ion-button
+              size="small"
+              [ngClass]="{ active: selectedProfile === 'advanced' }"
+              (click)="setProfile('advanced')"
+              [disabled]="isMatchOver"
+            >
+              Advanced
+            </ion-button>
+          </div>
+          <div class="serve-toggle" *ngIf="showAdvancedControls">
+            <ion-button
+              size="small"
+              [ngClass]="{ active: matchState.state().servingTeam === 'team' }"
+              (click)="setServingTeam('team')"
+              [disabled]="isMatchOver"
+            >
+              Our Serve
+            </ion-button>
+            <ion-button
+              size="small"
+              [ngClass]="{ active: matchState.state().servingTeam === 'opponent' }"
+              (click)="setServingTeam('opponent')"
+              [disabled]="isMatchOver"
+            >
+              Their Serve
+            </ion-button>
+          </div>
+        </div>
+
+        <ng-container *ngIf="isStandardMode; else groupedActionFlow">
+          <div class="direct-actions-grid">
+            <ion-button
+              *ngFor="let action of standardOutcomeActions"
+              expand="block"
+              class="action-btn"
+              [ngClass]="action.accent"
+              (click)="recordStandardOutcome(action.id)"
+              [disabled]="isMatchOver"
+            >
+              <ion-icon [name]="action.icon" slot="start"></ion-icon>
+              {{ action.label }}
+            </ion-button>
+          </div>
+        </ng-container>
+
+        <ng-template #groupedActionFlow>
+          <div class="primary-actions-grid">
+            <ion-button
+              *ngFor="let group of visiblePrimaryGroups"
+              expand="block"
+              class="primary-action-btn"
+              [ngClass]="{ active: activePrimaryGroupId === group.id }"
+              (click)="setPrimaryGroup(group.id)"
+              [disabled]="isMatchOver"
+            >
+              <ion-icon [name]="group.icon" slot="start"></ion-icon>
+              {{ group.label }}
+            </ion-button>
+          </div>
+
+          <div class="context-actions-grid" *ngIf="visibleContextActions.length > 0">
+            <ion-button
+              *ngFor="let action of visibleContextActions"
+              expand="block"
+              class="action-btn"
+              [ngClass]="action.accent"
+              (click)="recordAction(action.id)"
+              [disabled]="isMatchOver"
+            >
+              <ion-icon [name]="action.icon" slot="start"></ion-icon>
+              {{ action.label }}
+            </ion-button>
+          </div>
+
+          <ion-button expand="block" fill="solid" class="opponent-point-btn" (click)="recordOpponentPoint()" [disabled]="isMatchOver">
+            <ion-icon name="add-circle" slot="start"></ion-icon>
+            &minus; Opp Point
+          </ion-button>
+        </ng-template>
+
+        <ion-button expand="block" fill="solid" class="undo-btn" (click)="undoLastAction()" [disabled]="isMatchOver">
+          <ion-icon name="arrow-undo" slot="start"></ion-icon>
+          Undo
+        </ion-button>
+
+        <ion-button
+          expand="block"
+          fill="solid"
+          class="sub-mode-btn"
+          [ngClass]="{ active: isSubMode }"
+          (click)="toggleSubMode()"
+          [disabled]="isMatchOver"
+        >
+          Sub Mode {{ isSubMode ? 'On' : 'Off' }}
+        </ion-button>
+
+        <div class="last-action" [ngClass]="{ empty: !lastEvent }">
+          <span>{{ getLastEventText() | titlecase }}</span>
+        </div>
+
+        <div class="substitution-panel" *ngIf="isSubMode && !isMatchOver">
+          <h3>Substitute Confirmation</h3>
+          <p>
+            OUT:
+            <strong>{{ selectedOutPlayer ? selectedOutPlayer.name + ' (#' + selectedOutPlayer.jerseyNumber + ')' : 'Select on court' }}</strong>
+          </p>
+          <p>
+            IN:
+            <strong>{{ selectedInPlayer ? selectedInPlayer.name + ' (#' + selectedInPlayer.jerseyNumber + ')' : 'Select from bench' }}</strong>
+          </p>
+
+          <div class="sub-actions">
+            <ion-button expand="block" class="sub-btn" [disabled]="!isSubstitutionReady" (click)="confirmSubstitution()">
+              Confirm
+            </ion-button>
+            <ion-button expand="block" fill="outline" class="sub-cancel-btn" (click)="cancelSubstitution()">
+              Cancel
+            </ion-button>
+          </div>
+        </div>
+
+        <p class="sub-status" [ngClass]="{ empty: !substitutionStatus }">{{ substitutionStatus || 'No substitutions yet' }}</p>
+
+        <section class="event-log-panel">
+          <h3>Recent Events</h3>
+          <p *ngIf="recentEvents.length === 0" class="sub-status empty">No events logged yet.</p>
+          <div class="event-log-list" *ngIf="recentEvents.length > 0">
+            <div class="event-log-row" *ngFor="let event of recentEvents">
+              <span class="event-time">{{ event.createdAt | date:'shortTime' }}</span>
+              <span class="event-label">{{ event.label }}</span>
+            </div>
+          </div>
+        </section>
+      </aside>
     </div>
 
-    <div class="box-grid">
-      <div class="box-row box-header">
-        <span>Player</span>
-        <span>K</span>
-        <span>E</span>
-        <span>TA</span>
-        <span>SA</span>
-        <span>Serve In %</span>
-        <span>Hit Eff</span>
-        <span>Side-Out %</span>
+    <section *ngIf="matchState.state().isMatchOver" class="box-score-panel">
+      <div class="box-head">
+        <h2>Post-Match Box Score</h2>
+        <p>Hitting Efficiency = (Kills - Attack Errors) / Total Attacks</p>
       </div>
 
-      <div class="box-row" *ngFor="let row of boxScoreRows">
-        <span>#{{ row.player.jerseyNumber }} {{ row.player.name }}</span>
-        <span>{{ row.kills }}</span>
-        <span>{{ row.attackErrors }}</span>
-        <span>{{ row.totalAttacks }}</span>
-        <span>{{ row.serveAttempts }}</span>
-        <span>{{ formatRate(row.serveInPercentage) }}</span>
-        <span>{{ formatRate(row.hittingEfficiency) }}</span>
-        <span>{{ formatRate(row.sideOutPercentage) }}</span>
+      <div class="box-grid">
+        <div class="box-row box-header">
+          <span>Player</span>
+          <span>K</span>
+          <span>E</span>
+          <span>TA</span>
+          <span>SA</span>
+          <span>Serve In %</span>
+          <span>Hit Eff</span>
+          <span>Side-Out %</span>
+        </div>
+
+        <div class="box-row" *ngFor="let row of boxScoreRows">
+          <span>#{{ row.player.jerseyNumber }} {{ row.player.name }}</span>
+          <span>{{ row.kills }}</span>
+          <span>{{ row.attackErrors }}</span>
+          <span>{{ row.totalAttacks }}</span>
+          <span>{{ row.serveAttempts }}</span>
+          <span>{{ formatRate(row.serveInPercentage) }}</span>
+          <span>{{ formatRate(row.hittingEfficiency) }}</span>
+          <span>{{ formatRate(row.sideOutPercentage) }}</span>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+  </ng-container>
+
+  <ng-template #reviewSurface>
+    <section class="review-surface">
+      <aside class="review-player-panel">
+        <div class="review-panel-head">
+          <h2>Player List</h2>
+          <p>Compact rows with efficiency rating</p>
+        </div>
+
+        <div class="review-search-wrap">
+          <label for="player-search" class="review-label">Search</label>
+          <input id="player-search" class="review-search" type="text" placeholder="Name, #, position" [(ngModel)]="playerSearchQuery" />
+        </div>
+
+        <div class="review-filter-row">
+          <button
+            type="button"
+            class="review-filter-btn"
+            [ngClass]="{ active: playerListFilter === 'all' }"
+            (click)="setPlayerListFilter('all')"
+          >
+            All
+          </button>
+          <button
+            type="button"
+            class="review-filter-btn"
+            [ngClass]="{ active: playerListFilter === 'starters' }"
+            (click)="setPlayerListFilter('starters')"
+          >
+            Starters
+          </button>
+          <button
+            type="button"
+            class="review-filter-btn"
+            [ngClass]="{ active: playerListFilter === 'bench' }"
+            (click)="setPlayerListFilter('bench')"
+          >
+            Bench
+          </button>
+        </div>
+
+        <div class="review-player-list">
+          <div class="review-player-row" *ngFor="let player of filteredReviewPlayers">
+            <div class="review-player-line">
+              #{{ player.jerseyNumber }} | {{ player.primaryPosition }} | {{ player.kills }}K {{ player.attackErrors }}E | {{ player.efficiencyText }}
+            </div>
+            <div class="review-player-meta">
+              <span>{{ player.name }}</span>
+              <span class="review-rating">{{ player.efficiencyRating }}</span>
+            </div>
+          </div>
+          <p class="review-empty" *ngIf="filteredReviewPlayers.length === 0">No players match this filter.</p>
+        </div>
+      </aside>
+
+      <section class="review-analytics-panel">
+        <div class="review-panel-head analytics-head">
+          <div>
+            <h2>Main Analytics</h2>
+            <p>Clean line/bar charts on dark surfaces</p>
+          </div>
+          <span class="review-load-chip" [ngClass]="{ met: reviewLoadTargetHit, missed: !reviewLoadTargetHit }">
+            {{ reviewLoadMs }}ms (target &lt; 500ms)
+          </span>
+        </div>
+
+        <div class="analytics-tabs">
+          <button
+            type="button"
+            class="analytics-tab-btn"
+            *ngFor="let tab of analyticsTabs"
+            [ngClass]="{ active: activeAnalyticsTab === tab.id }"
+            (click)="setAnalyticsTab(tab.id)"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'efficiency'">
+          <h3>Efficiency</h3>
+          <div class="chart-grid">
+            <div class="chart-row" *ngFor="let item of efficiencyChartBars">
+              <span class="chart-label">{{ item.label }}</span>
+              <div class="chart-track">
+                <div class="chart-fill efficiency-fill" [style.width.%]="item.width"></div>
+              </div>
+              <span class="chart-value">{{ item.displayValue }}</span>
+              <span class="chart-detail">{{ item.detail }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'rotation'">
+          <h3>Rotation Performance</h3>
+          <div class="chart-grid">
+            <div class="chart-row" *ngFor="let item of rotationPerformanceBars">
+              <span class="chart-label">{{ item.label }}</span>
+              <div class="chart-track">
+                <div class="chart-fill rotation-fill" [style.width.%]="item.width"></div>
+              </div>
+              <span class="chart-value">{{ item.displayValue }}</span>
+              <span class="chart-detail">{{ item.detail }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'serve-receive'">
+          <h3>Serve Receive</h3>
+          <div class="chart-grid">
+            <div class="chart-row" *ngFor="let item of serveReceiveBars">
+              <span class="chart-label">{{ item.label }}</span>
+              <div class="chart-track">
+                <div class="chart-fill receive-fill" [style.width.%]="item.width"></div>
+              </div>
+              <span class="chart-value">{{ item.displayValue }}</span>
+              <span class="chart-detail">{{ item.detail }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'errors'">
+          <h3>Error Breakdown</h3>
+          <div class="chart-grid">
+            <div class="chart-row" *ngFor="let item of errorBreakdownBars">
+              <span class="chart-label">{{ item.label }}</span>
+              <div class="chart-track">
+                <div class="chart-fill error-fill" [style.width.%]="item.width"></div>
+              </div>
+              <span class="chart-value">{{ item.displayValue }}</span>
+              <span class="chart-detail">{{ item.detail }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'sets'">
+          <h3>Set Breakdown</h3>
+          <div class="line-chart-wrap" [ngClass]="{ empty: !setChartHasData }">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <polyline class="line-kills" [attr.points]="setKillsLinePoints"></polyline>
+              <polyline class="line-errors" [attr.points]="setErrorsLinePoints"></polyline>
+            </svg>
+          </div>
+          <div class="set-table">
+            <div class="set-row set-head">
+              <span>Set</span>
+              <span>K</span>
+              <span>E</span>
+              <span>TA</span>
+              <span>Eff</span>
+            </div>
+            <div class="set-row" *ngFor="let row of setBreakdownRows">
+              <span>S{{ row.setNumber }}</span>
+              <span>{{ row.kills }}</span>
+              <span>{{ row.attackErrors }}</span>
+              <span>{{ row.totalAttacks }}</span>
+              <span>{{ formatEfficiencyValue(row.efficiency) }}</span>
+            </div>
+          </div>
+        </section>
+      </section>
+    </section>
+  </ng-template>
 </ion-content>

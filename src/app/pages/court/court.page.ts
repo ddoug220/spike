@@ -21,6 +21,9 @@ import { RosterPlayer, TeamRosterService } from '../../services/team-roster.serv
 type QuickAction = StatsAction;
 type EventProfile = 'simple' | 'standard' | 'advanced';
 type StandardOutcomeAction = 'kill' | 'attack-error' | 'block' | 'opponent-point';
+type SurfaceMode = 'live' | 'review';
+type PlayerListFilter = 'all' | 'starters' | 'bench';
+type AnalyticsTabId = 'efficiency' | 'rotation' | 'serve-receive' | 'errors' | 'sets';
 type MatchEvent =
   | { kind: 'player-action'; playerId: number; action: QuickAction; impactedScore: boolean; impactedStats: boolean }
   | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean };
@@ -70,6 +73,37 @@ interface LiveEventRow {
   label: string;
 }
 
+interface ReviewPlayerRow {
+  id: string;
+  name: string;
+  jerseyNumber: number;
+  primaryPosition: string;
+  kills: number;
+  attackErrors: number;
+  efficiency: number | null;
+  efficiencyText: string;
+  efficiencyRating: string;
+  sideOutConversions: number;
+  sideOutOpportunities: number;
+  isStarter: boolean;
+}
+
+interface ReviewBarDatum {
+  label: string;
+  detail: string;
+  value: number;
+  width: number;
+  displayValue: string;
+}
+
+interface SetBreakdownRow {
+  setNumber: number;
+  kills: number;
+  attackErrors: number;
+  totalAttacks: number;
+  efficiency: number | null;
+}
+
 @Component({
   selector: 'app-court',
   templateUrl: './court.page.html',
@@ -101,6 +135,19 @@ export class CourtPage {
   public substitutionInPlayerId: string | null = null;
   public substitutionStatus = '';
   public showAdvancedControls = false;
+  public activeSurfaceMode: SurfaceMode = 'live';
+  public playerListFilter: PlayerListFilter = 'all';
+  public playerSearchQuery = '';
+  public activeAnalyticsTab: AnalyticsTabId = 'efficiency';
+  public reviewLoadMs = 0;
+
+  public readonly analyticsTabs: Array<{ id: AnalyticsTabId; label: string }> = [
+    { id: 'efficiency', label: 'Efficiency' },
+    { id: 'rotation', label: 'Rotation Performance' },
+    { id: 'serve-receive', label: 'Serve Receive' },
+    { id: 'errors', label: 'Error Breakdown' },
+    { id: 'sets', label: 'Set Breakdown' },
+  ];
 
   public readonly actionMeta: Record<QuickAction, ActionMeta> = {
     kill: { label: '+ Kill', icon: 'flash', accent: 'action-kill', minProfile: 'simple' },
@@ -197,10 +244,12 @@ export class CourtPage {
     this.substitutionStatus = '';
     this.isSubMode = false;
     this.resetSubSelection();
+    this.refreshReviewLoadMetricIfVisible();
   }
 
   endMatch(): void {
     this.matchEngine.endMatch();
+    this.refreshReviewLoadMetricIfVisible();
   }
 
   recordAction(action: QuickAction): void {
@@ -216,6 +265,7 @@ export class CourtPage {
       impactedScore: event.impactedScore,
       impactedStats: event.impactedStats,
     };
+    this.refreshReviewLoadMetricIfVisible();
   }
 
   recordOpponentPoint(): void {
@@ -229,6 +279,7 @@ export class CourtPage {
       impactedScore: true,
       impactedStats: event.impactedStats,
     };
+    this.refreshReviewLoadMetricIfVisible();
   }
 
   undoLastAction(): void {
@@ -238,6 +289,7 @@ export class CourtPage {
 
     this.matchEngine.undoLastEvent();
     this.lastEvent = undefined;
+    this.refreshReviewLoadMetricIfVisible();
   }
 
   getPlayerForPosition(position: number): RosterPlayer | null {
@@ -300,6 +352,7 @@ export class CourtPage {
     }
 
     this.matchEngine.setServingTeam(team);
+    this.refreshReviewLoadMetricIfVisible();
   }
 
   setProfile(profile: EventProfile): void {
@@ -312,6 +365,25 @@ export class CourtPage {
 
   setPrimaryGroup(groupId: string): void {
     this.activePrimaryGroupId = this.activePrimaryGroupId === groupId ? '' : groupId;
+  }
+
+  setSurfaceMode(mode: SurfaceMode): void {
+    if (this.activeSurfaceMode === mode) {
+      return;
+    }
+
+    this.activeSurfaceMode = mode;
+    if (mode === 'review') {
+      this.measureReviewSurfaceLoad();
+    }
+  }
+
+  setPlayerListFilter(filter: PlayerListFilter): void {
+    this.playerListFilter = filter;
+  }
+
+  setAnalyticsTab(tabId: AnalyticsTabId): void {
+    this.activeAnalyticsTab = tabId;
   }
 
   toggleAdvancedControls(): void {
@@ -402,6 +474,7 @@ export class CourtPage {
     }
 
     this.resetSubSelection();
+    this.refreshReviewLoadMetricIfVisible();
   }
 
   confirmSubstitution(): void {
@@ -426,6 +499,7 @@ export class CourtPage {
     this.substitutionStatus = `Substituted: ${inPlayer?.name ?? 'Player'} in for ${outPlayer?.name ?? 'player'}.`;
     this.isSubMode = false;
     this.resetSubSelection();
+    this.refreshReviewLoadMetricIfVisible();
   }
 
   cancelSubstitution(): void {
@@ -553,12 +627,219 @@ export class CourtPage {
       });
   }
 
+  get reviewPlayers(): ReviewPlayerRow[] {
+    const starters = new Set(this.onCourtPlayers.map((player) => player.id));
+    return this.boxScoreRows.map((row) => {
+      const sideOutStats = this.matchStats.getPlayerStats(row.player.id);
+      return {
+        id: row.player.id,
+        name: row.player.name,
+        jerseyNumber: row.player.jerseyNumber,
+        primaryPosition: row.player.primaryPosition,
+        kills: row.kills,
+        attackErrors: row.attackErrors,
+        efficiency: row.hittingEfficiency,
+        efficiencyText: this.formatEfficiencyDecimal(row.hittingEfficiency),
+        efficiencyRating: this.getEfficiencyRating(row.hittingEfficiency),
+        sideOutConversions: sideOutStats.sideOutConversions,
+        sideOutOpportunities: sideOutStats.sideOutOpportunities,
+        isStarter: starters.has(row.player.id),
+      };
+    });
+  }
+
+  get filteredReviewPlayers(): ReviewPlayerRow[] {
+    const query = this.playerSearchQuery.trim().toLowerCase();
+    return this.reviewPlayers.filter((player) => {
+      if (this.playerListFilter === 'starters' && !player.isStarter) {
+        return false;
+      }
+      if (this.playerListFilter === 'bench' && player.isStarter) {
+        return false;
+      }
+      if (!query) {
+        return true;
+      }
+
+      return (
+        player.name.toLowerCase().includes(query) ||
+        `${player.jerseyNumber}`.includes(query) ||
+        player.primaryPosition.toLowerCase().includes(query)
+      );
+    });
+  }
+
+  get efficiencyChartBars(): ReviewBarDatum[] {
+    const source = this.reviewPlayers
+      .slice()
+      .sort((a, b) => (b.efficiency ?? Number.NEGATIVE_INFINITY) - (a.efficiency ?? Number.NEGATIVE_INFINITY));
+    return this.toBarData(
+      source.map((player) => ({
+        label: `#${player.jerseyNumber} ${player.name}`,
+        detail: `${player.kills}K ${player.attackErrors}E`,
+        value: player.efficiency === null ? 0 : Math.max(0, player.efficiency * 100),
+        displayValue: player.efficiencyText,
+      })),
+    );
+  }
+
+  get rotationPerformanceBars(): ReviewBarDatum[] {
+    const byRotation = new Map<number, { wins: number; errors: number }>();
+    for (let position = 1; position <= 6; position += 1) {
+      byRotation.set(position, { wins: 0, errors: 0 });
+    }
+
+    this.getActiveMatchEvents().forEach((event) => {
+      if (this.readString(event['event_type']) !== 'player_action') {
+        return;
+      }
+      const action = this.readString(event['action']);
+      const rotationPosition = this.readNumber(event['rotation_position']);
+      if (!action || !rotationPosition || !byRotation.has(rotationPosition)) {
+        return;
+      }
+
+      const bucket = byRotation.get(rotationPosition);
+      if (!bucket) {
+        return;
+      }
+
+      if (action === 'kill' || action === 'ace' || action === 'block' || action === 'opponent-error') {
+        bucket.wins += 1;
+      }
+      if (action === 'attack-error' || action === 'service-error') {
+        bucket.errors += 1;
+      }
+    });
+
+    return this.toBarData(
+      Array.from(byRotation.entries()).map(([position, totals]) => {
+        const attempts = totals.wins + totals.errors;
+        const ratio = attempts === 0 ? 0 : (totals.wins / attempts) * 100;
+        return {
+          label: `Rotation P${position}`,
+          detail: `${totals.wins} won | ${totals.errors} errors`,
+          value: ratio,
+          displayValue: attempts === 0 ? '--' : `${ratio.toFixed(0)}%`,
+        };
+      }),
+    );
+  }
+
+  get serveReceiveBars(): ReviewBarDatum[] {
+    return this.toBarData(
+      this.reviewPlayers.map((player) => {
+        const value =
+          player.sideOutOpportunities === 0 ? 0 : (player.sideOutConversions / player.sideOutOpportunities) * 100;
+        return {
+          label: `#${player.jerseyNumber} ${player.name}`,
+          detail: `${player.sideOutConversions}/${player.sideOutOpportunities} side-outs`,
+          value,
+          displayValue: player.sideOutOpportunities === 0 ? '--' : `${value.toFixed(0)}%`,
+        };
+      }),
+    );
+  }
+
+  get errorBreakdownBars(): ReviewBarDatum[] {
+    const totals = this.teamRoster.players().reduce(
+      (acc, player) => {
+        const stats = this.matchStats.getPlayerStats(player.id);
+        return {
+          attackErrors: acc.attackErrors + stats.attackErrors,
+          serviceErrors: acc.serviceErrors + stats.serviceErrors,
+        };
+      },
+      {
+        attackErrors: 0,
+        serviceErrors: 0,
+      },
+    );
+    const opponentPoints = this.getActiveMatchEvents().filter(
+      (event) => this.readString(event['event_type']) === 'opponent_point',
+    ).length;
+
+    return this.toBarData([
+      {
+        label: 'Attack Errors',
+        detail: 'Missed attack outcomes',
+        value: totals.attackErrors,
+        displayValue: `${totals.attackErrors}`,
+      },
+      {
+        label: 'Service Errors',
+        detail: 'Missed serves',
+        value: totals.serviceErrors,
+        displayValue: `${totals.serviceErrors}`,
+      },
+      {
+        label: 'Opponent Point Events',
+        detail: 'Logged opponent points',
+        value: opponentPoints,
+        displayValue: `${opponentPoints}`,
+      },
+    ]);
+  }
+
+  get setBreakdownRows(): SetBreakdownRow[] {
+    const maxSet = Math.max(1, this.matchState.state().currentSet);
+    const players = this.teamRoster.players();
+    const rows: SetBreakdownRow[] = [];
+    for (let setNumber = 1; setNumber <= maxSet; setNumber += 1) {
+      const totals = players.reduce(
+        (acc, player) => {
+          const setStats = this.matchStats.getPlayerSetStats(player.id, setNumber);
+          return {
+            kills: acc.kills + setStats.kills,
+            attackErrors: acc.attackErrors + setStats.attackErrors,
+            totalAttacks: acc.totalAttacks + setStats.totalAttacks,
+          };
+        },
+        {
+          kills: 0,
+          attackErrors: 0,
+          totalAttacks: 0,
+        },
+      );
+
+      rows.push({
+        setNumber,
+        kills: totals.kills,
+        attackErrors: totals.attackErrors,
+        totalAttacks: totals.totalAttacks,
+        efficiency:
+          totals.totalAttacks === 0 ? null : (totals.kills - totals.attackErrors) / totals.totalAttacks,
+      });
+    }
+    return rows;
+  }
+
+  get setKillsLinePoints(): string {
+    return this.toLinePoints(this.setBreakdownRows.map((row) => row.kills));
+  }
+
+  get setErrorsLinePoints(): string {
+    return this.toLinePoints(this.setBreakdownRows.map((row) => row.attackErrors));
+  }
+
+  get setChartHasData(): boolean {
+    return this.setBreakdownRows.some((row) => row.kills > 0 || row.attackErrors > 0);
+  }
+
+  get reviewLoadTargetHit(): boolean {
+    return this.reviewLoadMs <= 500;
+  }
+
   formatRate(value: number | null): string {
     if (value === null) {
       return '--';
     }
 
     return `${(value * 100).toFixed(1)}%`;
+  }
+
+  formatEfficiencyValue(value: number | null): string {
+    return this.formatEfficiencyDecimal(value);
   }
 
   private getActionLabel(action: QuickAction): string {
@@ -605,5 +886,103 @@ export class CourtPage {
 
   private readString(value: unknown): string | null {
     return typeof value === 'string' ? value : null;
+  }
+
+  private readNumber(value: unknown): number | null {
+    return typeof value === 'number' ? value : null;
+  }
+
+  private formatEfficiencyDecimal(value: number | null): string {
+    if (value === null) {
+      return '.000';
+    }
+
+    const rounded = Math.round(value * 1000) / 1000;
+    const fixed = Math.abs(rounded).toFixed(3).replace(/^0/, '');
+    return rounded < 0 ? `-${fixed}` : fixed;
+  }
+
+  private getEfficiencyRating(value: number | null): string {
+    if (value === null) {
+      return 'No Attempts';
+    }
+    if (value >= 0.35) {
+      return 'Elite';
+    }
+    if (value >= 0.25) {
+      return 'Strong';
+    }
+    if (value >= 0.12) {
+      return 'Steady';
+    }
+    if (value >= 0) {
+      return 'Developing';
+    }
+    return 'Needs Reset';
+  }
+
+  private getActiveMatchEvents(): Record<string, unknown>[] {
+    return this.offlineSync.getMatchEvents(this.offlineSync.getActiveMatchId());
+  }
+
+  private toBarData(
+    raw: Array<{
+      label: string;
+      detail: string;
+      value: number;
+      displayValue: string;
+    }>,
+  ): ReviewBarDatum[] {
+    const maxValue = raw.reduce((peak, item) => Math.max(peak, item.value), 0);
+    return raw.map((item) => ({
+      ...item,
+      width: maxValue === 0 ? 0 : (item.value / maxValue) * 100,
+    }));
+  }
+
+  private toLinePoints(values: number[]): string {
+    if (values.length === 0) {
+      return '';
+    }
+
+    const max = values.reduce((peak, value) => Math.max(peak, value), 1);
+    if (values.length === 1) {
+      const y = 100 - (values[0] / max) * 100;
+      return `0,${y} 100,${y}`;
+    }
+
+    return values
+      .map((value, index) => {
+        const x = (index / (values.length - 1)) * 100;
+        const y = 100 - (value / max) * 100;
+        return `${x},${y}`;
+      })
+      .join(' ');
+  }
+
+  private measureReviewSurfaceLoad(): void {
+    const start = this.nowMs();
+    void this.filteredReviewPlayers;
+    void this.efficiencyChartBars;
+    void this.rotationPerformanceBars;
+    void this.serveReceiveBars;
+    void this.errorBreakdownBars;
+    void this.setBreakdownRows;
+    this.reviewLoadMs = Math.round(this.nowMs() - start);
+  }
+
+  private refreshReviewLoadMetricIfVisible(): void {
+    if (this.activeSurfaceMode !== 'review') {
+      return;
+    }
+
+    this.measureReviewSurfaceLoad();
+  }
+
+  private nowMs(): number {
+    if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+      return performance.now();
+    }
+    return Date.now();
   }
 }

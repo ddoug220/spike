@@ -135,9 +135,8 @@ export class CourtPage {
   public lastEvent?: MatchEvent;
   public selectedProfile: EventProfile = 'standard';
   public activePrimaryGroupId = 'attack';
-  public isSubMode = false;
+  public isSubOverlayOpen = false;
   public substitutionOutPlayerId: string | null = null;
-  public substitutionInPlayerId: string | null = null;
   public substitutionStatus = '';
   public showAdvancedControls = false;
   public activeSurfaceMode: SurfaceMode = 'live';
@@ -265,28 +264,46 @@ export class CourtPage {
   }
 
   handleCourtPlayerTap(playerId: number): void {
-    if (!this.isSubMode) {
+    if (!this.isSubOverlayOpen) {
       this.activePlayer = playerId;
       return;
     }
 
+    this.activePlayer = playerId;
     const player = this.getPlayerForPosition(playerId);
     if (!player) {
+      this.substitutionOutPlayerId = null;
+      this.substitutionStatus = 'Select an occupied on-court player first.';
       return;
     }
 
     this.substitutionOutPlayerId = player.id;
-    if (this.substitutionInPlayerId === player.id) {
-      this.substitutionInPlayerId = null;
-    }
+    this.substitutionStatus = `OUT selected: ${player.name}. Tap a bench player to swap.`;
   }
 
   handleBenchPlayerTap(playerId: string): void {
-    if (!this.isSubMode) {
+    if (!this.isSubOverlayOpen || this.isMatchOver) {
       return;
     }
 
-    this.substitutionInPlayerId = playerId;
+    const outId = this.substitutionOutPlayerId;
+    if (!outId) {
+      this.substitutionStatus = 'Select an on-court player first.';
+      return;
+    }
+
+    const didSubstitute = this.matchEngine.recordSubstitution(outId, playerId);
+    if (!didSubstitute) {
+      this.substitutionStatus = 'Substitution could not be applied.';
+      return;
+    }
+
+    const inPlayer = this.teamRoster.getPlayerById(playerId);
+    const outPlayer = this.teamRoster.getPlayerById(outId);
+    this.substitutionStatus = `Substituted: ${inPlayer?.name ?? 'Player'} in for ${outPlayer?.name ?? 'player'}.`;
+    this.isSubOverlayOpen = false;
+    this.resetSubSelection();
+    this.refreshReviewLoadMetricIfVisible();
   }
 
   startNewMatch(): void {
@@ -299,7 +316,7 @@ export class CourtPage {
     this.matchEngine.startMatch(this.matchState.state().servingTeam);
     this.lastEvent = undefined;
     this.substitutionStatus = '';
-    this.isSubMode = false;
+    this.isSubOverlayOpen = false;
     this.resetSubSelection();
     this.refreshReviewLoadMetricIfVisible();
   }
@@ -497,6 +514,10 @@ export class CourtPage {
     }
 
     this.activeSurfaceMode = mode;
+    if (mode !== 'live') {
+      this.isSubOverlayOpen = false;
+      this.resetSubSelection();
+    }
     if (mode === 'review') {
       this.measureReviewSurfaceLoad();
     }
@@ -591,45 +612,20 @@ export class CourtPage {
       return;
     }
 
-    this.isSubMode = !this.isSubMode;
-    if (this.isSubMode) {
-      this.substitutionStatus = 'Sub Mode active: tap OUT on court, then IN from bench.';
+    if (this.isSubOverlayOpen) {
+      this.closeSubOverlay('Substitution cancelled.');
       return;
     }
 
-    this.resetSubSelection();
-    this.refreshReviewLoadMetricIfVisible();
+    this.openSubOverlay();
   }
 
-  confirmSubstitution(): void {
-    if (this.isMatchOver) {
-      return;
-    }
-
-    if (!this.isSubstitutionReady) {
-      return;
-    }
-
-    const outId = this.substitutionOutPlayerId as string;
-    const inId = this.substitutionInPlayerId as string;
-    const didSubstitute = this.matchEngine.recordSubstitution(outId, inId);
-    if (!didSubstitute) {
-      this.substitutionStatus = 'Substitution could not be applied.';
-      return;
-    }
-
-    const inPlayer = this.teamRoster.getPlayerById(inId);
-    const outPlayer = this.teamRoster.getPlayerById(outId);
-    this.substitutionStatus = `Substituted: ${inPlayer?.name ?? 'Player'} in for ${outPlayer?.name ?? 'player'}.`;
-    this.isSubMode = false;
+  closeSubOverlay(status?: string): void {
+    this.isSubOverlayOpen = false;
     this.resetSubSelection();
-    this.refreshReviewLoadMetricIfVisible();
-  }
-
-  cancelSubstitution(): void {
-    this.substitutionStatus = 'Substitution cancelled.';
-    this.isSubMode = false;
-    this.resetSubSelection();
+    if (status) {
+      this.substitutionStatus = status;
+    }
   }
 
   isSelectedOutPlayer(position: number): boolean {
@@ -637,20 +633,8 @@ export class CourtPage {
     return !!player && player.id === this.substitutionOutPlayerId;
   }
 
-  isSelectedInBenchPlayer(playerId: string): boolean {
-    return this.substitutionInPlayerId === playerId;
-  }
-
   get selectedOutPlayer(): RosterPlayer | null {
     return this.teamRoster.getPlayerById(this.substitutionOutPlayerId);
-  }
-
-  get selectedInPlayer(): RosterPlayer | null {
-    return this.teamRoster.getPlayerById(this.substitutionInPlayerId);
-  }
-
-  get isSubstitutionReady(): boolean {
-    return !!this.substitutionOutPlayerId && !!this.substitutionInPlayerId;
   }
 
   get isMatchOver(): boolean {
@@ -770,9 +754,17 @@ export class CourtPage {
     await this.router.navigate(['/history']);
   }
 
+  private openSubOverlay(): void {
+    this.isSubOverlayOpen = true;
+    const selectedOutPlayer = this.getPlayerForPosition(this.activePlayer);
+    this.substitutionOutPlayerId = selectedOutPlayer?.id ?? null;
+    this.substitutionStatus = selectedOutPlayer
+      ? `OUT selected: ${selectedOutPlayer.name}. Tap a bench player to swap.`
+      : 'Tap an on-court player, then tap a bench player.';
+  }
+
   private resetSubSelection(): void {
     this.substitutionOutPlayerId = null;
-    this.substitutionInPlayerId = null;
   }
 
   get boxScoreRows(): BoxScoreRow[] {

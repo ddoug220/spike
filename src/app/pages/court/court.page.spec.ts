@@ -75,4 +75,25 @@ describe('CourtPage', () => {
     expect(teamRoster.lineup()[5]).toBe(initialLineup[0]);
     expect(component.getLastEventText()).toBe('Last: Manual Rotation');
   });
+
+  it('applies substitution immediately when a bench player is tapped in overlay mode', () => {
+    for (let i = 1; i <= 8; i += 1) {
+      teamRoster.addPlayer({
+        name: `Player ${i}`,
+        jerseyNumber: i,
+        primaryPosition: 'OH',
+      });
+    }
+    const players = teamRoster.players();
+    players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    const benchInPlayer = players[6];
+
+    component.activePlayer = 1;
+    component.toggleSubMode();
+    component.handleBenchPlayerTap(benchInPlayer.id);
+
+    expect(component.isSubOverlayOpen).toBeFalse();
+    expect(teamRoster.lineup()[0]).toBe(benchInPlayer.id);
+    expect(component.substitutionStatus).toContain('Substituted:');
+  });
 });

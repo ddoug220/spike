@@ -82,7 +82,7 @@
           <p>Tap a player then log a quick action</p>
         </div>
 
-        <div class="court-wrap" [ngClass]="{ 'sub-mode-active': isSubMode }">
+        <div class="court-wrap" [ngClass]="{ 'sub-overlay-active': isSubOverlayOpen }">
           <div class="court-lines"></div>
           <div class="serve-indicator" [ngClass]="getServeIndicatorClass()">
             <span>Serve: {{ matchState.state().servingTeam === 'team' ? 'Our Team' : 'Opponent' }}</span>
@@ -128,17 +128,6 @@
             </ng-template>
           </button>
 
-          <div class="bench-slide" [ngClass]="{ active: isSubMode }">
-            <button
-              *ngFor="let benchPlayer of benchPlayers"
-              class="bench-chip"
-              [ngClass]="{ selected: isSelectedInBenchPlayer(benchPlayer.id) }"
-              (click)="handleBenchPlayerTap(benchPlayer.id)"
-            >
-              <span class="bench-meta">[{{ benchPlayer.primaryPosition }}] #{{ benchPlayer.jerseyNumber }}</span>
-              <span class="bench-name">{{ benchPlayer.name }}</span>
-            </button>
-          </div>
         </div>
       </section>
 
@@ -280,36 +269,15 @@
           expand="block"
           fill="solid"
           class="sub-mode-btn"
-          [ngClass]="{ active: isSubMode }"
+          [ngClass]="{ active: isSubOverlayOpen }"
           (click)="toggleSubMode()"
           [disabled]="isMatchOver"
         >
-          Sub Mode {{ isSubMode ? 'On' : 'Off' }}
+          {{ isSubOverlayOpen ? 'Close Sub Panel' : 'Substitute' }}
         </ion-button>
 
         <div class="last-action" [ngClass]="{ empty: !lastEvent }">
           <span>{{ getLastEventText() | titlecase }}</span>
-        </div>
-
-        <div class="substitution-panel" *ngIf="isSubMode && !isMatchOver">
-          <h3>Substitute Confirmation</h3>
-          <p>
-            OUT:
-            <strong>{{ selectedOutPlayer ? selectedOutPlayer.name + ' (#' + selectedOutPlayer.jerseyNumber + ')' : 'Select on court' }}</strong>
-          </p>
-          <p>
-            IN:
-            <strong>{{ selectedInPlayer ? selectedInPlayer.name + ' (#' + selectedInPlayer.jerseyNumber + ')' : 'Select from bench' }}</strong>
-          </p>
-
-          <div class="sub-actions">
-            <ion-button expand="block" class="sub-btn" [disabled]="!isSubstitutionReady" (click)="confirmSubstitution()">
-              Confirm
-            </ion-button>
-            <ion-button expand="block" fill="outline" class="sub-cancel-btn" (click)="cancelSubstitution()">
-              Cancel
-            </ion-button>
-          </div>
         </div>
 
         <p class="sub-status" [ngClass]="{ empty: !substitutionStatus }">{{ substitutionStatus || 'No substitutions yet' }}</p>
@@ -326,6 +294,55 @@
         </section>
       </aside>
     </div>
+
+    <button
+      *ngIf="isSubOverlayOpen && !isMatchOver"
+      type="button"
+      class="sub-overlay-backdrop"
+      (click)="closeSubOverlay('Substitution cancelled.')"
+      aria-label="Close substitution panel"
+    ></button>
+
+    <section class="sub-overlay-panel" *ngIf="isSubOverlayOpen && !isMatchOver" aria-label="Substitution panel">
+      <div class="sub-overlay-head">
+        <h3>Quick Substitution</h3>
+        <button type="button" class="sub-overlay-close" (click)="closeSubOverlay('Substitution cancelled.')">Close</button>
+      </div>
+      <div class="sub-overlay-grid">
+        <div class="sub-overlay-left">
+          <span class="sub-overlay-label">On Court (OUT)</span>
+          <div class="sub-out-card" [ngClass]="{ empty: !selectedOutPlayer }">
+            <ng-container *ngIf="selectedOutPlayer as player; else noOutPlayer">
+              <span class="sub-out-jersey">#{{ player.jerseyNumber }}</span>
+              <span class="sub-out-name">{{ player.name }}</span>
+              <span class="sub-out-pos">{{ player.primaryPosition }}</span>
+            </ng-container>
+            <ng-template #noOutPlayer>
+              <span class="sub-out-name">Tap a court player to select OUT</span>
+            </ng-template>
+          </div>
+          <p class="sub-overlay-hint">Tap any on-court player above to change the OUT selection.</p>
+        </div>
+
+        <div class="sub-overlay-right">
+          <span class="sub-overlay-label">Bench (Tap to Swap)</span>
+          <div class="sub-bench-grid" *ngIf="benchPlayers.length > 0; else noBenchPlayers">
+            <button
+              *ngFor="let benchPlayer of benchPlayers"
+              type="button"
+              class="sub-bench-tile"
+              (click)="handleBenchPlayerTap(benchPlayer.id)"
+            >
+              <span class="sub-bench-meta">#{{ benchPlayer.jerseyNumber }} | {{ benchPlayer.primaryPosition }}</span>
+              <span class="sub-bench-name">{{ benchPlayer.name }}</span>
+            </button>
+          </div>
+          <ng-template #noBenchPlayers>
+            <p class="sub-overlay-empty">No bench players available.</p>
+          </ng-template>
+        </div>
+      </div>
+    </section>
 
     <section *ngIf="matchState.state().isMatchOver" class="box-score-panel">
       <div class="box-head">

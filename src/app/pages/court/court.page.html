@@ -9,8 +9,7 @@
         Game Review
       </ion-button>
     </div>
-    <ion-button slot="end" class="lineup-link secondary-link" [routerLink]="['/history']">History</ion-button>
-    <ion-button slot="end" class="lineup-link" [routerLink]="['/pre-match']">Lineup</ion-button>
+    <ion-button slot="end" class="exit-link" (click)="openExitSheet()">Exit</ion-button>
   </ion-toolbar>
   <ion-toolbar class="game-context-toolbar" aria-label="Critical game context">
     <div class="game-context-grid">
@@ -511,3 +510,11 @@
     </section>
   </ng-template>
 </ion-content>
+
+<ion-action-sheet
+  [isOpen]="isExitSheetOpen"
+  header="Leave Live Game"
+  [subHeader]="exitSheetSubHeader"
+  [buttons]="exitSheetButtons"
+  (didDismiss)="handleExitSheetDismiss($event)"
+></ion-action-sheet>

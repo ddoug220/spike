@@ -1,8 +1,9 @@
 import { DatePipe, NgClass, NgFor, NgIf, TitleCasePipe } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import {
+  IonActionSheet,
   IonButton,
   IonContent,
   IonHeader,
@@ -24,6 +25,7 @@ type StandardOutcomeAction = 'kill' | 'attack-error' | 'block' | 'opponent-point
 type SurfaceMode = 'live' | 'review';
 type PlayerListFilter = 'all' | 'starters' | 'bench';
 type AnalyticsTabId = 'efficiency' | 'rotation' | 'serve-receive' | 'errors' | 'sets';
+type ExitAction = 'home' | 'lineup' | 'history' | 'end-home';
 type MatchEvent =
   | { kind: 'player-action'; playerId: number; action: QuickAction; impactedScore: boolean; impactedStats: boolean }
   | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean }
@@ -122,8 +124,8 @@ interface SetBreakdownRow {
     TitleCasePipe,
     DatePipe,
     IonIcon,
-    RouterLink,
     FormsModule,
+    IonActionSheet,
   ],
 })
 export class CourtPage {
@@ -141,6 +143,7 @@ export class CourtPage {
   public playerSearchQuery = '';
   public activeAnalyticsTab: AnalyticsTabId = 'efficiency';
   public reviewLoadMs = 0;
+  public isExitSheetOpen = false;
 
   public readonly analyticsTabs: Array<{ id: AnalyticsTabId; label: string }> = [
     { id: 'efficiency', label: 'Efficiency' },
@@ -196,8 +199,67 @@ export class CourtPage {
     public readonly matchStats: MatchStatsService,
     public readonly offlineSync: OfflineSyncService,
     private readonly matchEngine: MatchEngineService,
+    private readonly router: Router,
   ) {
     addIcons({'arrowUndo':arrowUndo,flash,'closeCircle':closeCircle,baseball,'handLeft':handLeft,'addCircle':addCircle,'playForward':playForward,});
+  }
+
+  get exitSheetSubHeader(): string {
+    if (this.isMatchOver) {
+      return 'Match is final. Choose where to go next.';
+    }
+
+    return 'Match stays live unless you choose End Match.';
+  }
+
+  get exitSheetButtons(): Array<{ text: string; role?: 'cancel' | 'destructive'; data?: { action: ExitAction } }> {
+    const buttons: Array<{ text: string; role?: 'cancel' | 'destructive'; data?: { action: ExitAction } }> = [
+      {
+        text: 'Go Home',
+        data: { action: 'home' },
+      },
+      {
+        text: 'Lineup Selection',
+        data: { action: 'lineup' },
+      },
+      {
+        text: 'Match History',
+        data: { action: 'history' },
+      },
+      {
+        text: 'Cancel',
+        role: 'cancel',
+      },
+    ];
+
+    if (!this.isMatchOver) {
+      buttons.splice(3, 0, {
+        text: 'End Match + Go Home',
+        role: 'destructive',
+        data: { action: 'end-home' },
+      });
+    }
+
+    return buttons;
+  }
+
+  openExitSheet(): void {
+    this.isExitSheetOpen = true;
+  }
+
+  handleExitSheetDismiss(event: Event): void {
+    this.isExitSheetOpen = false;
+    const detail = (event as CustomEvent<{ role?: string; data?: { action?: ExitAction } }>).detail;
+    if (detail?.role === 'cancel') {
+      return;
+    }
+
+    const action = detail?.data?.action;
+    if (!action) {
+      return;
+    }
+
+    void this.navigateFromExitSheet(action);
   }
 
   handleCourtPlayerTap(playerId: number): void {
@@ -631,6 +693,34 @@ export class CourtPage {
 
   retrySync(): void {
     void this.offlineSync.retryNow();
+  }
+
+  private async navigateFromExitSheet(action: ExitAction): Promise<void> {
+    if (action === 'end-home') {
+      const confirmed =
+        typeof window === 'undefined'
+          ? true
+          : window.confirm('End this match and return home? You can still review it in match history.');
+      if (!confirmed) {
+        return;
+      }
+
+      this.matchEngine.endMatch();
+      await this.router.navigate(['/home']);
+      return;
+    }
+
+    if (action === 'home') {
+      await this.router.navigate(['/home']);
+      return;
+    }
+
+    if (action === 'lineup') {
+      await this.router.navigate(['/pre-match']);
+      return;
+    }
+
+    await this.router.navigate(['/history']);
   }
 
   private resetSubSelection(): void {

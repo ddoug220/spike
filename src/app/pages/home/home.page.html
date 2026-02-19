@@ -1,0 +1,52 @@
+<ion-header [translucent]="true">
+  <ion-toolbar class="home-toolbar">
+    <ion-title>Spike Home</ion-title>
+    <ion-button slot="end" fill="outline" [routerLink]="['/history']">History</ion-button>
+    <ion-button slot="end" [routerLink]="['/pre-match']">Lineup</ion-button>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="home-layout">
+    <section class="home-panel">
+      <h1>Match Control Center</h1>
+      <p class="subtitle">Jump into live scoring, update your lineup, or review saved match data.</p>
+
+      <div class="status-grid">
+        <article class="status-card" [ngClass]="{ ready: hasValidLineup, warning: !hasValidLineup }">
+          <span class="label">Lineup</span>
+          <span class="value">{{ lineupAssignedCount }}/6 assigned</span>
+          <span class="detail">{{ hasValidLineup ? 'Ready for live court' : 'Need 6 unique starters' }}</span>
+        </article>
+
+        <article class="status-card" [ngClass]="{ ready: hasMatchStarted && !matchState.state().isMatchOver }">
+          <span class="label">Match Status</span>
+          <span class="value">{{ matchStatusText }}</span>
+          <span class="detail">Set {{ matchState.state().currentSet }} | Serve: {{ matchState.state().servingTeam }}</span>
+        </article>
+
+        <article class="status-card" [ngClass]="{ warning: offlineSync.pendingCount() > 0 }">
+          <span class="label">Sync</span>
+          <span class="value">{{ syncStatusText }}</span>
+          <span class="detail">Queue: {{ offlineSync.pendingCount() }}</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="home-panel actions-panel">
+      <h2>Where to next?</h2>
+
+      <ion-button expand="block" class="primary-action" [routerLink]="['/court']" [disabled]="!hasValidLineup">
+        {{ liveMatchButtonText }}
+      </ion-button>
+      <p *ngIf="!hasValidLineup" class="hint">Assign a valid six-player lineup before opening live court.</p>
+
+      <ion-button expand="block" fill="outline" class="secondary-action" [routerLink]="['/pre-match']">
+        Lineup Selection
+      </ion-button>
+      <ion-button expand="block" fill="outline" class="secondary-action" [routerLink]="['/history']">
+        Match History
+      </ion-button>
+    </section>
+  </div>
+</ion-content>

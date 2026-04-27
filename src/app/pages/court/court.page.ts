@@ -13,6 +13,7 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward } from 'ionicons/icons';
+import { GameEvent as FirestoreGameEvent } from '../../models/firestore.models';
 import { MatchEngineService } from '../../services/match-engine.service';
 import { MatchStateService } from '../../services/match-state.service';
 import { MatchStatsService, StatsAction } from '../../services/match-stats.service';
@@ -697,10 +698,8 @@ export class CourtPage {
       .slice(-8)
       .reverse()
       .map((event) => ({
-        id:
-          this.readString(event['id']) ??
-          `${this.readString(event['event_type']) ?? 'event'}-${this.readString(event['created_at']) ?? ''}`,
-        createdAt: this.readString(event['created_at']) ?? '',
+        id: event.id || `${event.type}-${event.createdAt}`,
+        createdAt: event.createdAt,
         label: this.describeEvent(event),
       }));
   }
@@ -856,11 +855,11 @@ export class CourtPage {
     }
 
     this.getActiveMatchEvents().forEach((event) => {
-      if (this.readString(event['event_type']) !== 'player_action') {
+      if (event.type !== 'playerAction') {
         return;
       }
-      const action = this.readString(event['action']);
-      const rotationPosition = this.readNumber(event['rotation_position']);
+      const action = event.action;
+      const rotationPosition = event.rotationPosition ?? null;
       if (!action || !rotationPosition || !byRotation.has(rotationPosition)) {
         return;
       }
@@ -922,7 +921,7 @@ export class CourtPage {
       },
     );
     const opponentPoints = this.getActiveMatchEvents().filter(
-      (event) => this.readString(event['event_type']) === 'opponent_point',
+      (event) => event.type === 'opponentPoint',
     ).length;
 
     return this.toBarData([
@@ -1022,36 +1021,36 @@ export class CourtPage {
     return rank[this.selectedProfile] >= rank[this.actionMeta[action].minProfile];
   }
 
-  private describeEvent(event: Record<string, unknown>): string {
-    const type = this.readString(event['event_type']) ?? 'event';
-    if (type === 'player_action') {
-      const action = this.readString(event['action']) ?? 'action';
+  private describeEvent(event: { type: string; action: string; servingTeam?: string; timeoutTeam?: string }): string {
+    const type = event.type;
+    if (type === 'playerAction') {
+      const action = event.action || 'action';
       return `Player: ${this.getActionLabel(action as QuickAction)}`;
     }
-    if (type === 'opponent_point') {
+    if (type === 'opponentPoint') {
       return 'Opponent Point';
     }
     if (type === 'substitution') {
       return 'Substitution';
     }
-    if (type === 'serve_team_set') {
-      const servingTeam = this.readString(event['serving_team']) ?? 'team';
+    if (type === 'serveTeamSet') {
+      const servingTeam = event.servingTeam ?? 'team';
       return `Serve: ${servingTeam === 'team' ? 'Our Team' : 'Opponent'}`;
     }
-    if (type === 'timeout_called') {
-      const timeoutTeam = this.readString(event['timeout_team']) ?? 'team';
+    if (type === 'timeoutCalled') {
+      const timeoutTeam = event.timeoutTeam ?? 'team';
       return `${timeoutTeam === 'team' ? 'Our' : 'Opponent'} Timeout`;
     }
-    if (type === 'manual_rotation') {
+    if (type === 'manualRotation') {
       return 'Manual Rotation';
     }
     if (type === 'undo') {
       return 'Undo';
     }
-    if (type === 'match_started') {
+    if (type === 'matchStarted') {
       return 'Match Started';
     }
-    if (type === 'match_ended') {
+    if (type === 'matchEnded') {
       return 'Match Ended';
     }
     return 'Event';
@@ -1094,7 +1093,7 @@ export class CourtPage {
     return 'Needs Reset';
   }
 
-  private getActiveMatchEvents(): Record<string, unknown>[] {
+  private getActiveMatchEvents(): FirestoreGameEvent[] {
     return this.offlineSync.getMatchEvents(this.offlineSync.getActiveMatchId());
   }
 

@@ -65,6 +65,7 @@ export class MatchEngineService {
 
   startMatch(initialServe: PointSide = 'team'): string {
     const matchId = this.offlineSync.startNewMatch();
+    const createdAt = new Date().toISOString();
     this.matchState.resetMatch();
     this.matchState.setServingTeam(initialServe);
     this.matchStats.resetMatch();
@@ -73,14 +74,27 @@ export class MatchEngineService {
     this.boxScoreQueuedForMatchId = null;
     this.matchEndedEventQueuedForMatchId = null;
 
+    this.offlineSync.queueGame({
+      id: matchId,
+      teamId: 'local-team',
+      opponentName: 'Opponent',
+      status: 'live',
+      servingTeam: initialServe,
+      teamSets: 0,
+      opponentSets: 0,
+      startedAt: createdAt,
+      endedAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    });
     this.offlineSync.queueMatchEvent({
       id: this.createEventId('evt'),
-      match_id: matchId,
-      event_type: 'match_started',
+      gameId: matchId,
+      type: 'matchStarted',
       action: 'match-started',
-      serving_team: initialServe,
+      servingTeam: initialServe,
       lineup: this.teamRoster.getLineupSnapshot(),
-      created_at: new Date().toISOString(),
+      createdAt,
     });
 
     return matchId;
@@ -93,16 +107,30 @@ export class MatchEngineService {
     }
 
     this.matchState.endMatch();
+    const createdAt = new Date().toISOString();
+    this.offlineSync.queueGame({
+      id: matchId,
+      teamId: 'local-team',
+      opponentName: 'Opponent',
+      status: 'final',
+      servingTeam: this.matchState.state().servingTeam,
+      teamSets: this.matchState.state().teamSets,
+      opponentSets: this.matchState.state().opponentSets,
+      startedAt: createdAt,
+      endedAt: createdAt,
+      createdAt,
+      updatedAt: createdAt,
+    });
     this.offlineSync.queueMatchEvent({
       id: this.createEventId('evt'),
-      match_id: matchId,
-      event_type: 'match_ended',
+      gameId: matchId,
+      type: 'matchEnded',
       action: 'match-ended',
-      team_sets: this.matchState.state().teamSets,
-      opponent_sets: this.matchState.state().opponentSets,
-      created_at: new Date().toISOString(),
+      teamSets: this.matchState.state().teamSets,
+      opponentSets: this.matchState.state().opponentSets,
+      createdAt,
     });
-    this.queueBoxScore(matchId);
+    this.queuePlayerStats(matchId);
     this.matchEndedEventQueuedForMatchId = matchId;
   }
 
@@ -115,11 +143,11 @@ export class MatchEngineService {
     this.teamServeAttemptTrackedThisRally = false;
     this.offlineSync.queueMatchEvent({
       id: this.createEventId('evt'),
-      match_id: this.offlineSync.getActiveMatchId(),
-      event_type: 'serve_team_set',
+      gameId: this.offlineSync.getActiveMatchId(),
+      type: 'serveTeamSet',
       action: 'serve-team-set',
-      serving_team: team,
-      created_at: new Date().toISOString(),
+      servingTeam: team,
+      createdAt: new Date().toISOString(),
     });
   }
 
@@ -194,22 +222,22 @@ export class MatchEngineService {
 
     this.offlineSync.queueMatchEvent({
       id: event.eventId,
-      match_id: matchId,
-      event_type: 'player_action',
+      gameId: matchId,
+      type: 'playerAction',
       action,
-      rotation_position: rotationPosition,
-      player_id: selectedPlayer?.id ?? null,
-      was_receiving: wasReceiving,
-      side_out_won: scoreResult.sideOutWon,
-      team_points: this.matchState.state().teamPoints,
-      opponent_points: this.matchState.state().opponentPoints,
-      team_sets: this.matchState.state().teamSets,
-      opponent_sets: this.matchState.state().opponentSets,
-      created_at: new Date().toISOString(),
+      rotationPosition,
+      playerId: selectedPlayer?.id ?? null,
+      wasReceiving,
+      sideOutWon: scoreResult.sideOutWon,
+      teamPoints: this.matchState.state().teamPoints,
+      opponentPoints: this.matchState.state().opponentPoints,
+      teamSets: this.matchState.state().teamSets,
+      opponentSets: this.matchState.state().opponentSets,
+      createdAt: new Date().toISOString(),
     });
 
     if (scoreResult.matchEnded) {
-      this.queueBoxScore(matchId);
+      this.queuePlayerStats(matchId);
     }
 
     return event;
@@ -252,18 +280,18 @@ export class MatchEngineService {
 
     this.offlineSync.queueMatchEvent({
       id: event.eventId,
-      match_id: matchId,
-      event_type: 'opponent_point',
+      gameId: matchId,
+      type: 'opponentPoint',
       action: 'opponent-point',
-      team_points: this.matchState.state().teamPoints,
-      opponent_points: this.matchState.state().opponentPoints,
-      team_sets: this.matchState.state().teamSets,
-      opponent_sets: this.matchState.state().opponentSets,
-      created_at: new Date().toISOString(),
+      teamPoints: this.matchState.state().teamPoints,
+      opponentPoints: this.matchState.state().opponentPoints,
+      teamSets: this.matchState.state().teamSets,
+      opponentSets: this.matchState.state().opponentSets,
+      createdAt: new Date().toISOString(),
     });
 
     if (result.matchEnded) {
-      this.queueBoxScore(matchId);
+      this.queuePlayerStats(matchId);
     }
 
     return event;
@@ -293,12 +321,12 @@ export class MatchEngineService {
 
     this.offlineSync.queueMatchEvent({
       id: eventId,
-      match_id: this.offlineSync.getActiveMatchId(),
-      event_type: 'substitution',
+      gameId: this.offlineSync.getActiveMatchId(),
+      type: 'substitution',
       action: 'substitution',
-      out_player_id: outPlayerId,
-      in_player_id: inPlayerId,
-      created_at: new Date().toISOString(),
+      outPlayerId,
+      inPlayerId,
+      createdAt: new Date().toISOString(),
     });
     return true;
   }
@@ -327,13 +355,13 @@ export class MatchEngineService {
     const nextState = this.matchState.state();
     this.offlineSync.queueMatchEvent({
       id: eventId,
-      match_id: this.offlineSync.getActiveMatchId(),
-      event_type: 'timeout_called',
+      gameId: this.offlineSync.getActiveMatchId(),
+      type: 'timeoutCalled',
       action: 'timeout-called',
-      timeout_team: team,
-      team_timeouts_remaining: nextState.teamTimeoutsRemaining,
-      opponent_timeouts_remaining: nextState.opponentTimeoutsRemaining,
-      created_at: new Date().toISOString(),
+      timeoutTeam: team,
+      teamTimeoutsRemaining: nextState.teamTimeoutsRemaining,
+      opponentTimeoutsRemaining: nextState.opponentTimeoutsRemaining,
+      createdAt: new Date().toISOString(),
     });
 
     return true;
@@ -365,13 +393,13 @@ export class MatchEngineService {
     const nextState = this.matchState.state();
     this.offlineSync.queueMatchEvent({
       id: eventId,
-      match_id: this.offlineSync.getActiveMatchId(),
-      event_type: 'manual_rotation',
+      gameId: this.offlineSync.getActiveMatchId(),
+      type: 'manualRotation',
       action: 'manual-rotation',
-      team_rotation: nextState.teamRotation,
-      serving_team: nextState.servingTeam,
+      teamRotation: nextState.teamRotation,
+      servingTeam: nextState.servingTeam,
       lineup: this.teamRoster.getLineupSnapshot(),
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     });
 
     return true;
@@ -400,11 +428,11 @@ export class MatchEngineService {
 
     this.offlineSync.queueMatchEvent({
       id: this.createEventId('evt'),
-      match_id: this.offlineSync.getActiveMatchId(),
-      event_type: 'undo',
+      gameId: this.offlineSync.getActiveMatchId(),
+      type: 'undo',
       action: 'undo',
-      target_event_id: last.eventId,
-      created_at: new Date().toISOString(),
+      targetEventId: last.eventId,
+      createdAt: new Date().toISOString(),
     });
 
     return last;
@@ -444,7 +472,7 @@ export class MatchEngineService {
     return { impactedScore: false, sideOutWon: false, matchEnded: false, rotatedClockwise: false };
   }
 
-  private queueBoxScore(matchId: string): void {
+  private queuePlayerStats(matchId: string): void {
     if (this.boxScoreQueuedForMatchId === matchId) {
       return;
     }
@@ -456,26 +484,38 @@ export class MatchEngineService {
       .map((player) => {
         const stats = this.matchStats.getPlayerStats(player.id);
         return {
-          player_id: player.id,
-          jersey_number: player.jerseyNumber,
-          player_name: player.name,
+          playerId: player.id,
+          jerseyNumber: player.jerseyNumber,
+          playerName: player.name,
           kills: stats.kills,
-          attack_errors: stats.attackErrors,
-          total_attacks: stats.totalAttacks,
-          hitting_efficiency: this.matchStats.getHittingEfficiency(player.id),
-          serve_attempts: stats.serveAttempts,
-          serve_in_percentage: this.matchStats.getServeInPercentage(player.id),
-          side_out_percentage: this.matchStats.getSideOutPercentage(player.id),
+          attackErrors: stats.attackErrors,
+          totalAttacks: stats.totalAttacks,
+          hittingEfficiency: this.matchStats.getHittingEfficiency(player.id),
+          serveAttempts: stats.serveAttempts,
+          serveInPercentage: this.matchStats.getServeInPercentage(player.id),
+          sideOutPercentage: this.matchStats.getSideOutPercentage(player.id),
         };
       });
 
-    this.offlineSync.queueBoxScore({
-      id: this.createEventId('box'),
-      match_id: matchId,
-      final_team_sets: this.matchState.state().teamSets,
-      final_opponent_sets: this.matchState.state().opponentSets,
-      stats: rows,
-      created_at: new Date().toISOString(),
+    const updatedAt = new Date().toISOString();
+    rows.forEach((row) => {
+      this.offlineSync.queuePlayerSetStats({
+        id: `${matchId}-${row.playerId}-match`,
+        gameId: matchId,
+        playerId: row.playerId,
+        playerName: row.playerName,
+        jerseyNumber: row.jerseyNumber,
+        setNumber: null,
+        kills: row.kills,
+        attackErrors: row.attackErrors,
+        totalAttacks: row.totalAttacks,
+        hittingEfficiency: row.hittingEfficiency,
+        serveAttempts: row.serveAttempts,
+        serveInPercentage: row.serveInPercentage,
+        sideOutPercentage: row.sideOutPercentage,
+        createdAt: updatedAt,
+        updatedAt,
+      });
     });
     this.boxScoreQueuedForMatchId = matchId;
   }

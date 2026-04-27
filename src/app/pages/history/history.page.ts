@@ -55,10 +55,10 @@ export class HistoryPage {
     }
 
     return this.offlineSync.getMatchEvents(this.selectedMatchId).map((event) => {
-      const type = this.readString(event['event_type']) || 'event';
+      const type = event.type;
       return {
-        id: this.readString(event['id']) || `${type}-${this.readString(event['created_at'])}`,
-        createdAt: this.readString(event['created_at']) || '',
+        id: event.id || `${type}-${event.createdAt}`,
+        createdAt: event.createdAt,
         type,
         summary: this.describeEvent(type, event),
       };
@@ -70,21 +70,17 @@ export class HistoryPage {
       return [];
     }
 
-    const latest = this.offlineSync.getMatchBoxScores(this.selectedMatchId)[0];
-    if (!latest || !Array.isArray(latest['stats'])) {
-      return [];
-    }
-
-    return (latest['stats'] as Array<Record<string, unknown>>)
+    return this.offlineSync
+      .getPlayerSetStats(this.selectedMatchId)
       .map((row) => ({
-        playerName: this.readString(row['player_name']) || 'Player',
-        jerseyNumber: this.readNumber(row['jersey_number']),
-        kills: this.readNumber(row['kills']) ?? 0,
-        attackErrors: this.readNumber(row['attack_errors']) ?? 0,
-        totalAttacks: this.readNumber(row['total_attacks']) ?? 0,
-        serveAttempts: this.readNumber(row['serve_attempts']) ?? 0,
-        serveInPercentage: this.readNumber(row['serve_in_percentage']),
-        sideOutPercentage: this.readNumber(row['side_out_percentage']),
+        playerName: row.playerName,
+        jerseyNumber: row.jerseyNumber,
+        kills: row.kills,
+        attackErrors: row.attackErrors,
+        totalAttacks: row.totalAttacks,
+        serveAttempts: row.serveAttempts,
+        serveInPercentage: row.serveInPercentage,
+        sideOutPercentage: row.sideOutPercentage,
       }))
       .sort((a, b) => (a.jerseyNumber ?? 999) - (b.jerseyNumber ?? 999));
   }
@@ -100,25 +96,25 @@ export class HistoryPage {
     return `${(rate * 100).toFixed(1)}%`;
   }
 
-  private describeEvent(type: string, event: Record<string, unknown>): string {
+  private describeEvent(type: string, event: { action: string; teamSets?: number; opponentSets?: number; servingTeam?: string; timeoutTeam?: string }): string {
     switch (type) {
-      case 'match_started':
+      case 'matchStarted':
         return 'Match started';
-      case 'match_ended':
-        return `Match ended (${this.readNumber(event['team_sets']) ?? 0}-${this.readNumber(event['opponent_sets']) ?? 0})`;
-      case 'player_action':
-        return `Player action: ${this.toTitle(this.readString(event['action']) || 'unknown')}`;
-      case 'opponent_point':
+      case 'matchEnded':
+        return `Match ended (${event.teamSets ?? 0}-${event.opponentSets ?? 0})`;
+      case 'playerAction':
+        return `Player action: ${this.toTitle(event.action || 'unknown')}`;
+      case 'opponentPoint':
         return 'Opponent point';
       case 'substitution':
         return 'Substitution';
       case 'undo':
         return 'Undo action';
-      case 'serve_team_set':
-        return `Serve switched: ${this.toTitle(this.readString(event['serving_team']) || 'unknown')}`;
-      case 'timeout_called':
-        return `Timeout: ${this.toTitle(this.readString(event['timeout_team']) || 'unknown')}`;
-      case 'manual_rotation':
+      case 'serveTeamSet':
+        return `Serve switched: ${this.toTitle(event.servingTeam || 'unknown')}`;
+      case 'timeoutCalled':
+        return `Timeout: ${this.toTitle(event.timeoutTeam || 'unknown')}`;
+      case 'manualRotation':
         return 'Manual rotation';
       default:
         return this.toTitle(type);
@@ -130,13 +126,5 @@ export class HistoryPage {
       .replace(/[-_]/g, ' ')
       .trim()
       .replace(/\b\w/g, (char) => char.toUpperCase());
-  }
-
-  private readString(value: unknown): string | null {
-    return typeof value === 'string' ? value : null;
-  }
-
-  private readNumber(value: unknown): number | null {
-    return typeof value === 'number' ? value : null;
   }
 }

@@ -3,7 +3,7 @@ import { MatchStateService } from './match-state.service';
 import { MatchStatsService } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
 import { RotationService } from './rotation.service';
-import { SupabaseDbService } from './supabase-db.service';
+import { FirebaseDbService } from './firebase-db.service';
 import { TeamRosterService } from './team-roster.service';
 
 describe('MatchEngineService', () => {
@@ -14,8 +14,8 @@ describe('MatchEngineService', () => {
 
   beforeEach(() => {
     window.localStorage.clear();
-    const supabaseDb = new SupabaseDbService();
-    offlineSync = new OfflineSyncService(supabaseDb);
+    const firebaseDb = new FirebaseDbService();
+    offlineSync = new OfflineSyncService(firebaseDb);
     matchState = new MatchStateService();
     const matchStats = new MatchStatsService();
     teamRoster = new TeamRosterService(new RotationService());

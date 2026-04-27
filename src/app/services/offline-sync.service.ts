@@ -1,18 +1,36 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { SupabaseDbService, SupabaseTable } from './supabase-db.service';
+import {
+  Game,
+  GameEvent,
+  PlayerSetStats,
+} from '../models/firestore.models';
+import { FirebaseDbService } from './firebase-db.service';
 
-interface SyncQueueItem {
+type QueuedCollection = 'games' | 'events' | 'playerSetStats';
+
+interface QueuedDocumentMap {
+  games: Game;
+  events: GameEvent;
+  playerSetStats: PlayerSetStats;
+}
+
+interface SyncQueueItemBase<C extends QueuedCollection> {
   id: string;
-  table: SupabaseTable;
-  payload: Record<string, unknown>;
+  collection: C;
+  payload: QueuedDocumentMap[C];
   createdAt: string;
   retryCount: number;
   lastError?: string;
 }
 
+type SyncQueueItem =
+  | SyncQueueItemBase<'games'>
+  | SyncQueueItemBase<'events'>
+  | SyncQueueItemBase<'playerSetStats'>;
+
 interface ArchivedSyncState {
-  match_events: Record<string, unknown>[];
-  match_box_scores: Record<string, unknown>[];
+  events: GameEvent[];
+  playerSetStats: PlayerSetStats[];
 }
 
 export interface MatchArchiveSummary {
@@ -38,8 +56,8 @@ export class OfflineSyncService {
   private readonly lastErrorSignal = signal<string | null>(null);
   private readonly lastSuccessfulSyncAtSignal = signal<string | null>(null);
   private readonly archiveSignal = signal<ArchivedSyncState>({
-    match_events: [],
-    match_box_scores: [],
+    events: [],
+    playerSetStats: [],
   });
 
   readonly pendingCount = computed(() => this.queueSignal().length);
@@ -47,7 +65,7 @@ export class OfflineSyncService {
   readonly lastError = computed(() => this.lastErrorSignal());
   readonly lastSuccessfulSyncAt = computed(() => this.lastSuccessfulSyncAtSignal());
 
-  constructor(private readonly supabaseDb: SupabaseDbService) {
+  constructor(private readonly firebaseDb: FirebaseDbService) {
     this.restoreQueue();
     this.restoreLastSuccess();
     this.restoreArchive();
@@ -69,25 +87,29 @@ export class OfflineSyncService {
       return existing;
     }
 
-    const next = this.createId('match');
+    const next = this.createId('game');
     window.localStorage.setItem(OfflineSyncService.MATCH_ID_KEY, next);
     return next;
   }
 
   startNewMatch(): string {
-    const matchId = this.createId('match');
+    const matchId = this.createId('game');
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(OfflineSyncService.MATCH_ID_KEY, matchId);
     }
     return matchId;
   }
 
-  queueMatchEvent(payload: Record<string, unknown>): void {
-    this.enqueue('match_events', payload);
+  queueGame(payload: Game): void {
+    this.enqueue('games', payload);
   }
 
-  queueBoxScore(payload: Record<string, unknown>): void {
-    this.enqueue('match_box_scores', payload);
+  queueMatchEvent(payload: GameEvent): void {
+    this.enqueue('events', payload);
+  }
+
+  queuePlayerSetStats(payload: PlayerSetStats): void {
+    this.enqueue('playerSetStats', payload);
   }
 
   async flushQueue(): Promise<void> {
@@ -97,7 +119,7 @@ export class OfflineSyncService {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return;
     }
-    if (!this.supabaseDb.isConfigured()) {
+    if (!this.firebaseDb.isConfigured()) {
       return;
     }
 
@@ -108,7 +130,7 @@ export class OfflineSyncService {
       let queue = this.queueSignal();
       while (queue.length > 0) {
         const current = queue[0];
-        const ok = await this.pushToSupabase(current);
+        const ok = await this.pushToFirebase(current);
         if (!ok) {
           this.queueSignal.update((items) => {
             const [first, ...rest] = items;
@@ -142,98 +164,88 @@ export class OfflineSyncService {
   }
 
   getMatchSummaries(): MatchArchiveSummary[] {
-    const grouped = new Map<
-      string,
-      {
-        events: Record<string, unknown>[];
-        boxScores: Record<string, unknown>[];
-      }
-    >();
+    const grouped = new Map<string, { events: GameEvent[]; stats: PlayerSetStats[] }>();
 
-    this.archiveSignal().match_events.forEach((event) => {
-      const matchId = this.readMatchId(event);
-      if (!matchId) {
-        return;
-      }
-      const existing = grouped.get(matchId) ?? { events: [], boxScores: [] };
+    this.archiveSignal().events.forEach((event) => {
+      const existing = grouped.get(event.gameId) ?? { events: [], stats: [] };
       existing.events.push(event);
-      grouped.set(matchId, existing);
+      grouped.set(event.gameId, existing);
     });
 
-    this.archiveSignal().match_box_scores.forEach((boxScore) => {
-      const matchId = this.readMatchId(boxScore);
-      if (!matchId) {
-        return;
-      }
-      const existing = grouped.get(matchId) ?? { events: [], boxScores: [] };
-      existing.boxScores.push(boxScore);
-      grouped.set(matchId, existing);
+    this.archiveSignal().playerSetStats.forEach((stats) => {
+      const existing = grouped.get(stats.gameId) ?? { events: [], stats: [] };
+      existing.stats.push(stats);
+      grouped.set(stats.gameId, existing);
     });
 
     return Array.from(grouped.entries())
       .map(([matchId, state]) => {
-        const latestBox = state.boxScores
+        const latestStats = state.stats.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+        const latestEvent = state.events.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+        const finalEvent = state.events
           .slice()
-          .sort((a, b) => this.readCreatedAt(b).localeCompare(this.readCreatedAt(a)))[0];
-        const latestEvent = state.events
-          .slice()
-          .sort((a, b) => this.readCreatedAt(b).localeCompare(this.readCreatedAt(a)))[0];
+          .reverse()
+          .find((event) => event.type === 'matchEnded');
         return {
           matchId,
-          lastUpdatedAt: this.readCreatedAt(latestBox ?? latestEvent),
+          lastUpdatedAt: latestStats?.updatedAt ?? latestEvent?.createdAt ?? '',
           totalEvents: state.events.length,
-          isFinal: !!latestBox || state.events.some((event) => event['event_type'] === 'match_ended'),
-          finalTeamSets: latestBox ? this.readNumber(latestBox['final_team_sets']) : null,
-          finalOpponentSets: latestBox ? this.readNumber(latestBox['final_opponent_sets']) : null,
+          isFinal: !!finalEvent,
+          finalTeamSets: finalEvent?.teamSets ?? null,
+          finalOpponentSets: finalEvent?.opponentSets ?? null,
         };
       })
       .sort((a, b) => b.lastUpdatedAt.localeCompare(a.lastUpdatedAt));
   }
 
-  getMatchEvents(matchId: string): Record<string, unknown>[] {
+  getMatchEvents(matchId: string): GameEvent[] {
     return this.archiveSignal()
-      .match_events.filter((event) => event['match_id'] === matchId)
+      .events.filter((event) => event.gameId === matchId)
       .slice()
-      .sort((a, b) => this.readCreatedAt(a).localeCompare(this.readCreatedAt(b)));
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
-  getMatchBoxScores(matchId: string): Record<string, unknown>[] {
+  getPlayerSetStats(matchId: string): PlayerSetStats[] {
     return this.archiveSignal()
-      .match_box_scores.filter((boxScore) => boxScore['match_id'] === matchId)
+      .playerSetStats.filter((stats) => stats.gameId === matchId)
       .slice()
-      .sort((a, b) => this.readCreatedAt(b).localeCompare(this.readCreatedAt(a)));
+      .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
   }
 
-  private enqueue(table: SupabaseTable, payload: Record<string, unknown>): void {
+  private enqueue<C extends QueuedCollection>(collectionName: C, payload: QueuedDocumentMap[C]): void {
     const queueId = this.createId('sync');
-    const payloadWithId = {
-      id: typeof payload['id'] === 'string' ? payload['id'] : queueId,
-      ...payload,
-    };
     const item: SyncQueueItem = {
       id: queueId,
-      table,
-      payload: payloadWithId,
+      collection: collectionName,
+      payload,
       createdAt: new Date().toISOString(),
       retryCount: 0,
-    };
+    } as SyncQueueItem;
     this.queueSignal.update((items) => [...items, item]);
-    this.archive(table, payloadWithId);
+    this.archive(collectionName, payload);
     this.persistQueue();
     void this.flushQueue();
   }
 
-  private async pushToSupabase(item: SyncQueueItem): Promise<boolean> {
-    const result = await this.supabaseDb.writeRow(item.table, item.payload, {
-      upsert: true,
-      onConflict: 'id',
-    });
+  private async pushToFirebase(item: SyncQueueItem): Promise<boolean> {
+    const result = await this.writeQueuedDocument(item);
     if (result.ok) {
       return true;
     }
 
     this.lastErrorSignal.set(result.error ?? 'Network error while syncing');
     return false;
+  }
+
+  private writeQueuedDocument(item: SyncQueueItem): Promise<{ ok: boolean; error?: string }> {
+    switch (item.collection) {
+      case 'games':
+        return this.firebaseDb.writeDocument('games', item.payload.id, item.payload);
+      case 'events':
+        return this.firebaseDb.writeDocument('events', item.payload.id, item.payload);
+      case 'playerSetStats':
+        return this.firebaseDb.writeDocument('playerSetStats', item.payload.id, item.payload);
+    }
   }
 
   private persistQueue(): void {
@@ -289,11 +301,19 @@ export class OfflineSyncService {
     this.lastSuccessfulSyncAtSignal.set(raw);
   }
 
-  private archive(table: SupabaseTable, payload: Record<string, unknown>): void {
-    this.archiveSignal.update((state) => ({
-      ...state,
-      [table]: [...state[table], payload],
-    }));
+  private archive<C extends QueuedCollection>(collectionName: C, payload: QueuedDocumentMap[C]): void {
+    if (collectionName === 'events') {
+      this.archiveSignal.update((state) => ({
+        ...state,
+        events: [...state.events, payload as GameEvent],
+      }));
+    }
+    if (collectionName === 'playerSetStats') {
+      this.archiveSignal.update((state) => ({
+        ...state,
+        playerSetStats: [...state.playerSetStats, payload as PlayerSetStats],
+      }));
+    }
     this.persistArchive();
   }
 
@@ -317,31 +337,16 @@ export class OfflineSyncService {
 
     try {
       const parsed = JSON.parse(raw) as ArchivedSyncState;
-      if (!Array.isArray(parsed?.match_events) || !Array.isArray(parsed?.match_box_scores)) {
+      if (!Array.isArray(parsed?.events) || !Array.isArray(parsed?.playerSetStats)) {
         return;
       }
       this.archiveSignal.set({
-        match_events: parsed.match_events,
-        match_box_scores: parsed.match_box_scores,
+        events: parsed.events,
+        playerSetStats: parsed.playerSetStats,
       });
     } catch {
       // Ignore corrupted archive and continue with an empty in-memory cache.
     }
-  }
-
-  private readMatchId(payload: Record<string, unknown>): string | null {
-    return typeof payload['match_id'] === 'string' ? payload['match_id'] : null;
-  }
-
-  private readCreatedAt(payload: Record<string, unknown> | undefined): string {
-    if (!payload) {
-      return '';
-    }
-    return typeof payload['created_at'] === 'string' ? payload['created_at'] : '';
-  }
-
-  private readNumber(value: unknown): number | null {
-    return typeof value === 'number' ? value : null;
   }
 
   private createId(prefix: string): string {

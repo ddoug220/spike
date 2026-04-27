@@ -41,7 +41,7 @@ export class HomePage {
     }
 
     const events = this.offlineSync.getMatchEvents(this.offlineSync.getActiveMatchId());
-    return events.some((event) => event['event_type'] === 'match_started');
+    return events.some((event) => event.type === 'matchStarted');
   }
 
   get matchStatusText(): string {

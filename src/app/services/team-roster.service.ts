@@ -1,7 +1,8 @@
 import { Injectable, computed, signal } from '@angular/core';
+import { PrimaryPosition } from '../models/firestore.models';
 import { RotationService } from './rotation.service';
 
-export type PrimaryPosition = 'S' | 'OH' | 'MB' | 'OPP' | 'L' | 'DS';
+export type { PrimaryPosition };
 
 export interface RosterPlayer {
   id: string;

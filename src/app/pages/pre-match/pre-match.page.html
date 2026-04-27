@@ -1,28 +1,10 @@
 <ion-header [translucent]="true">
   <ion-toolbar class="prematch-toolbar">
-    <ion-title>Pre-Match Setup</ion-title>
-    <div slot="end" class="start-controls">
-      <ion-button fill="outline" [routerLink]="['/history']">History</ion-button>
-      <div class="readiness-list" aria-live="polite">
-        <span class="readiness-item" [ngClass]="{ ready: isLineupReady, notready: !isLineupReady }">
-          Lineup Ready {{ isLineupReady ? '✔' : '✖' }}
-        </span>
-        <span class="readiness-item" [ngClass]="{ ready: isRotationValid, notready: !isRotationValid }">
-          Rotation Valid {{ isRotationValid ? '✔' : '✖' }}
-        </span>
-      </div>
-      <span class="start-btn-wrap" [attr.title]="!canStartMatch ? startMatchDisabledReason : null">
-        <ion-button
-          class="start-btn"
-          (click)="startMatch()"
-          [disabled]="!canStartMatch"
-          [attr.title]="!canStartMatch ? startMatchDisabledReason : null"
-        >
-          <ion-icon slot="start" name="play"></ion-icon>
-          Start Match
-        </ion-button>
-      </span>
-    </div>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Set Up Lineup</ion-title>
+    <ion-button slot="end" fill="clear" class="toolbar-history-btn" [routerLink]="['/history']">History</ion-button>
   </ion-toolbar>
 </ion-header>
 
@@ -36,53 +18,57 @@
 
       <div class="lineup-court" [ngClass]="{ 'lineup-court-empty': !hasAssignedStarters }">
         <div class="court-lines"></div>
-        <div class="ghost-lineup" *ngIf="!hasAssignedStarters" aria-hidden="true">
+        @if (!hasAssignedStarters) {
+          <div class="ghost-lineup" aria-hidden="true">
+            @for (slot of courtSlots; track slot.position) {
+              <div
+                class="ghost-player"
+                [style.top]="slot.top"
+                [style.left]="slot.left"
+              >
+                <span class="ghost-head"></span>
+                <span class="ghost-body"></span>
+              </div>
+            }
+          </div>
+        }
+
+        @for (slot of courtSlots; track slot.position) {
           <div
-            *ngFor="let slot of courtSlots; trackBy: trackByPosition"
-            class="ghost-player"
+            class="drop-slot"
+            [ngClass]="{
+              'front-row-slot': slot.row === 'front',
+              'back-row-slot': slot.row === 'back',
+              'serving-slot': slot.isServingFirst
+            }"
             [style.top]="slot.top"
             [style.left]="slot.left"
+            (dragover)="allowDrop($event)"
+            (drop)="dropOnPosition($event, slot.position)"
+            (click)="assignSelectedToPosition(slot.position)"
           >
-            <span class="ghost-head"></span>
-            <span class="ghost-body"></span>
+            <div class="slot-number">P{{ slot.position }}</div>
+            <div class="slot-role">{{ slot.roleLabel }}</div>
+            @if (slot.isServingFirst) {
+              <div class="serving-badge">
+                <span class="serving-dot" aria-hidden="true"></span>
+                Serving first
+              </div>
+            }
+            @if (getSlotPlayer(slot.position); as player) {
+              <div
+                class="slot-player"
+                draggable="true"
+                (dragstart)="onDragStart($event, player.id)"
+              >
+                <div class="slot-name">{{ player.name }}</div>
+                <div class="slot-meta">#{{ player.jerseyNumber }} | {{ player.primaryPosition }}</div>
+              </div>
+            } @else {
+              <div class="slot-empty">Assign Starter</div>
+            }
           </div>
-        </div>
-
-        <div
-          *ngFor="let slot of courtSlots; trackBy: trackByPosition"
-          class="drop-slot"
-          [ngClass]="{
-            'front-row-slot': slot.row === 'front',
-            'back-row-slot': slot.row === 'back',
-            'serving-slot': slot.isServingFirst
-          }"
-          [style.top]="slot.top"
-          [style.left]="slot.left"
-          (dragover)="allowDrop($event)"
-          (drop)="dropOnPosition($event, slot.position)"
-          (click)="assignSelectedToPosition(slot.position)"
-        >
-          <div class="slot-number">P{{ slot.position }}</div>
-          <div class="slot-role">{{ slot.roleLabel }}</div>
-          <div *ngIf="slot.isServingFirst" class="serving-badge">
-            <span class="serving-dot" aria-hidden="true"></span>
-            Serving first
-          </div>
-
-          <div
-            *ngIf="getSlotPlayer(slot.position) as player; else emptySlot"
-            class="slot-player"
-            draggable="true"
-            (dragstart)="onDragStart($event, player.id)"
-          >
-            <div class="slot-name">{{ player.name }}</div>
-            <div class="slot-meta">#{{ player.jerseyNumber }} | {{ player.primaryPosition }}</div>
-          </div>
-
-          <ng-template #emptySlot>
-            <div class="slot-empty">Assign Starter</div>
-          </ng-template>
-        </div>
+        }
       </div>
     </section>
 
@@ -93,7 +79,9 @@
       </div>
 
       <form class="player-form" (ngSubmit)="submitPlayer()">
-        <p class="form-mode" *ngIf="editingPlayerId">Editing player details</p>
+        @if (editingPlayerId) {
+          <p class="form-mode">Editing player details</p>
+        }
         <label class="field">
           <span>Player Name</span>
           <input type="text" name="name" [(ngModel)]="draft.name" placeholder="e.g. Ava Johnson" required />
@@ -107,7 +95,9 @@
         <label class="field">
           <span>Primary Position</span>
           <select name="primaryPosition" [(ngModel)]="draft.primaryPosition">
-            <option *ngFor="let position of primaryPositions" [value]="position">{{ position }}</option>
+            @for (position of primaryPositions; track position) {
+              <option [value]="position">{{ position }}</option>
+            }
           </select>
         </label>
 
@@ -116,10 +106,12 @@
           {{ editingPlayerId ? 'Save Player' : 'Add Player' }}
         </ion-button>
 
-        <ion-button *ngIf="editingPlayerId" expand="block" type="button" fill="outline" class="cancel-edit-btn" (click)="cancelEdit()">
-          <ion-icon name="close" slot="start"></ion-icon>
-          Cancel Edit
-        </ion-button>
+        @if (editingPlayerId) {
+          <ion-button expand="block" type="button" fill="outline" class="cancel-edit-btn" (click)="cancelEdit()">
+            <ion-icon name="close" slot="start"></ion-icon>
+            Cancel Edit
+          </ion-button>
+        }
 
         <ion-button expand="block" type="button" class="qa-btn" (click)="generateFakeTeam()">
           <ion-icon name="flask" slot="start"></ion-icon>
@@ -135,33 +127,57 @@
       </ion-button>
 
       <div class="roster-list">
-        <div
-          *ngFor="let player of players; trackBy: trackByPlayer"
-          class="roster-item"
-          draggable="true"
-          (dragstart)="onDragStart($event, player.id)"
-          (click)="selectBenchPlayer(player.id)"
-          [ngClass]="{
-            assigned: teamRoster.isAssigned(player.id),
-            selected: selectedBenchPlayerId === player.id,
-            editing: editingPlayerId === player.id
-          }"
-        >
-          <div class="player-info">
-            <div class="name">{{ player.name }}</div>
-            <div class="meta">#{{ player.jerseyNumber }} | {{ player.primaryPosition }}</div>
+        @for (player of players; track player.id) {
+          <div
+            class="roster-item"
+            draggable="true"
+            (dragstart)="onDragStart($event, player.id)"
+            (click)="selectBenchPlayer(player.id)"
+            [ngClass]="{
+              assigned: teamRoster.isAssigned(player.id),
+              selected: selectedBenchPlayerId === player.id,
+              editing: editingPlayerId === player.id
+            }"
+          >
+            <div class="player-info">
+              <div class="name">{{ player.name }}</div>
+              <div class="meta">#{{ player.jerseyNumber }} | {{ player.primaryPosition }}</div>
+            </div>
+            <div class="item-actions">
+              <span class="assignment">{{ teamRoster.isAssigned(player.id) ? 'On Court' : 'Bench' }}</span>
+              <button type="button" class="edit-btn" (click)="startEditPlayer(player.id, $event)">
+                <ion-icon name="create"></ion-icon>
+              </button>
+              <button type="button" class="remove-btn" (click)="removePlayer(player.id, $event)">
+                <ion-icon name="trash"></ion-icon>
+              </button>
+            </div>
           </div>
-          <div class="item-actions">
-            <span class="assignment">{{ teamRoster.isAssigned(player.id) ? 'On Court' : 'Bench' }}</span>
-            <button type="button" class="edit-btn" (click)="startEditPlayer(player.id, $event)">
-              <ion-icon name="create"></ion-icon>
-            </button>
-            <button type="button" class="remove-btn" (click)="removePlayer(player.id, $event)">
-              <ion-icon name="trash"></ion-icon>
-            </button>
-          </div>
-        </div>
+        }
       </div>
     </section>
   </div>
 </ion-content>
+
+<ion-footer class="start-footer">
+  <div class="footer-readiness" aria-live="polite">
+    <span class="readiness-check" [ngClass]="{ 'readiness-check--ok': isLineupReady }">
+      <ion-icon [name]="isLineupReady ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+      Lineup
+    </span>
+    <span class="readiness-check" [ngClass]="{ 'readiness-check--ok': isRotationValid }">
+      <ion-icon [name]="isRotationValid ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+      Rotation
+    </span>
+  </div>
+  <ion-button
+    expand="block"
+    class="footer-start-btn"
+    (click)="startMatch()"
+    [disabled]="!canStartMatch"
+    [title]="!canStartMatch ? startMatchDisabledReason : ''"
+  >
+    <ion-icon slot="start" name="play"></ion-icon>
+    Start Match
+  </ion-button>
+</ion-footer>

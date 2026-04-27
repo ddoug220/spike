@@ -1,10 +1,10 @@
-import { NgClass, NgFor, NgIf } from '@angular/common';
+import { NgClass } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
+import { IonBackButton, IonButton, IonButtons, IonContent, IonFooter, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { close, create, flask, play, personAdd, trash } from 'ionicons/icons';
+import { arrowBack, checkmarkCircle, close, create, ellipseOutline, flask, play, personAdd, trash } from 'ionicons/icons';
 import { MatchEngineService } from '../../services/match-engine.service';
 import {
   NewRosterPlayer,
@@ -32,10 +32,11 @@ interface CourtSlot {
     IonToolbar,
     IonTitle,
     IonContent,
+    IonFooter,
     IonButton,
+    IonButtons,
+    IonBackButton,
     IonIcon,
-    NgFor,
-    NgIf,
     NgClass,
     FormsModule,
     RouterLink,
@@ -80,7 +81,7 @@ export class PreMatchPage {
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
-    addIcons({ personAdd, trash, play, flask, create, close });
+    addIcons({ personAdd, trash, play, flask, create, close, checkmarkCircle, ellipseOutline, arrowBack });
   }
 
   get players(): RosterPlayer[] {

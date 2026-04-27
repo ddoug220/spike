@@ -29,6 +29,7 @@ type SyncQueueItem =
   | SyncQueueItemBase<'playerSetStats'>;
 
 interface ArchivedSyncState {
+  games: Game[];
   events: GameEvent[];
   playerSetStats: PlayerSetStats[];
 }
@@ -56,6 +57,7 @@ export class OfflineSyncService {
   private readonly lastErrorSignal = signal<string | null>(null);
   private readonly lastSuccessfulSyncAtSignal = signal<string | null>(null);
   private readonly archiveSignal = signal<ArchivedSyncState>({
+    games: [],
     events: [],
     playerSetStats: [],
   });
@@ -104,12 +106,66 @@ export class OfflineSyncService {
     this.enqueue('games', payload);
   }
 
+  logEvent(payload: GameEvent): void {
+    this.enqueue('events', {
+      ...payload,
+      isDeleted: payload.isDeleted,
+      deletedAt: payload.deletedAt ?? null,
+    });
+  }
+
   queueMatchEvent(payload: GameEvent): void {
-    this.enqueue('events', payload);
+    this.logEvent(payload);
   }
 
   queuePlayerSetStats(payload: PlayerSetStats): void {
     this.enqueue('playerSetStats', payload);
+  }
+
+  undoLastEvent(eventId?: string): GameEvent | null {
+    const matchId = this.getActiveMatchId();
+    const event = this.archiveSignal()
+      .events.filter((entry) => entry.gameId === matchId && !entry.isDeleted)
+      .slice()
+      .reverse()
+      .find((entry) => !eventId || entry.id === eventId);
+
+    if (!event) {
+      return null;
+    }
+
+    const deletedEvent: GameEvent = {
+      ...event,
+      isDeleted: true,
+      deletedAt: new Date().toISOString(),
+    };
+
+    this.archiveSignal.update((state) => ({
+      ...state,
+      events: state.events.map((entry) => (entry.id === deletedEvent.id ? deletedEvent : entry)),
+    }));
+    this.persistArchive();
+    this.enqueue('events', deletedEvent, false);
+    return deletedEvent;
+  }
+
+  markEventDeleted(event: GameEvent): GameEvent {
+    const deletedEvent: GameEvent = {
+      ...event,
+      isDeleted: true,
+      deletedAt: new Date().toISOString(),
+    };
+
+    this.archiveSignal.update((state) => ({
+      ...state,
+      events: [
+        ...state.events.filter((entry) => entry.id !== deletedEvent.id),
+        deletedEvent,
+      ],
+    }));
+    this.persistArchive();
+    this.enqueue('events', deletedEvent, false);
+    return deletedEvent;
   }
 
   async flushQueue(): Promise<void> {
@@ -166,7 +222,7 @@ export class OfflineSyncService {
   getMatchSummaries(): MatchArchiveSummary[] {
     const grouped = new Map<string, { events: GameEvent[]; stats: PlayerSetStats[] }>();
 
-    this.archiveSignal().events.forEach((event) => {
+    this.archiveSignal().events.filter((event) => !event.isDeleted).forEach((event) => {
       const existing = grouped.get(event.gameId) ?? { events: [], stats: [] };
       existing.events.push(event);
       grouped.set(event.gameId, existing);
@@ -201,8 +257,18 @@ export class OfflineSyncService {
   getMatchEvents(matchId: string): GameEvent[] {
     return this.archiveSignal()
       .events.filter((event) => event.gameId === matchId)
+      .filter((event) => !event.isDeleted)
       .slice()
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  getGame(matchId: string): Game | null {
+    return (
+      this.archiveSignal()
+        .games.filter((game) => game.id === matchId)
+        .slice()
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null
+    );
   }
 
   getPlayerSetStats(matchId: string): PlayerSetStats[] {
@@ -212,7 +278,11 @@ export class OfflineSyncService {
       .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
   }
 
-  private enqueue<C extends QueuedCollection>(collectionName: C, payload: QueuedDocumentMap[C]): void {
+  private enqueue<C extends QueuedCollection>(
+    collectionName: C,
+    payload: QueuedDocumentMap[C],
+    shouldArchive = true,
+  ): void {
     const queueId = this.createId('sync');
     const item: SyncQueueItem = {
       id: queueId,
@@ -222,7 +292,9 @@ export class OfflineSyncService {
       retryCount: 0,
     } as SyncQueueItem;
     this.queueSignal.update((items) => [...items, item]);
-    this.archive(collectionName, payload);
+    if (shouldArchive) {
+      this.archive(collectionName, payload);
+    }
     this.persistQueue();
     void this.flushQueue();
   }
@@ -242,7 +314,7 @@ export class OfflineSyncService {
       case 'games':
         return this.firebaseDb.writeDocument('games', item.payload.id, item.payload);
       case 'events':
-        return this.firebaseDb.writeDocument('events', item.payload.id, item.payload);
+        return this.firebaseDb.writeEvent(item.payload);
       case 'playerSetStats':
         return this.firebaseDb.writeDocument('playerSetStats', item.payload.id, item.payload);
     }
@@ -302,6 +374,13 @@ export class OfflineSyncService {
   }
 
   private archive<C extends QueuedCollection>(collectionName: C, payload: QueuedDocumentMap[C]): void {
+    if (collectionName === 'games') {
+      const game = payload as Game;
+      this.archiveSignal.update((state) => ({
+        ...state,
+        games: [...state.games.filter((entry) => entry.id !== game.id), game],
+      }));
+    }
     if (collectionName === 'events') {
       this.archiveSignal.update((state) => ({
         ...state,
@@ -341,6 +420,7 @@ export class OfflineSyncService {
         return;
       }
       this.archiveSignal.set({
+        games: Array.isArray(parsed.games) ? parsed.games : [],
         events: parsed.events,
         playerSetStats: parsed.playerSetStats,
       });

@@ -15,11 +15,11 @@
     <div class="game-context-grid">
       <div class="context-item context-score">
         <span class="context-label">Score (H/A)</span>
-        <span class="context-value">{{ matchState.state().teamPoints }} / {{ matchState.state().opponentPoints }}</span>
+        <span class="context-value">{{ gameState.teamPoints }} / {{ gameState.opponentPoints }}</span>
       </div>
       <div class="context-item">
         <span class="context-label">Set</span>
-        <span class="context-value">#{{ matchState.state().currentSet }}</span>
+        <span class="context-value">#{{ gameState.currentSet }}</span>
       </div>
       <div class="context-item">
         <span class="context-label">Rotation</span>
@@ -42,7 +42,7 @@
     <div class="scoreboard-head">
       <span class="label">Match State</span>
       <div class="scoreboard-head-right">
-        <span class="set-label">Set {{ matchState.state().currentSet }}</span>
+        <span class="set-label">Set {{ gameState.currentSet }}</span>
       </div>
     </div>
     <div class="match-over-banner" *ngIf="isMatchOver">&#9888; Match is final. Start a new match to continue tracking.</div>
@@ -50,14 +50,14 @@
     <div class="scoreboard-main">
       <div class="score-team">
         <span class="team-name">Your Team</span>
-        <span class="points">{{ matchState.state().teamPoints }}</span>
-        <span class="sets">Sets {{ matchState.state().teamSets }}</span>
+        <span class="points">{{ gameState.teamPoints }}</span>
+        <span class="sets">Sets {{ gameState.teamSets }}</span>
       </div>
       <div class="divider">:</div>
       <div class="score-team opponent">
         <span class="team-name">Opponent</span>
-        <span class="points">{{ matchState.state().opponentPoints }}</span>
-        <span class="sets">Sets {{ matchState.state().opponentSets }}</span>
+        <span class="points">{{ gameState.opponentPoints }}</span>
+        <span class="sets">Sets {{ gameState.opponentSets }}</span>
       </div>
     </div>
     <div class="scoreboard-meta">
@@ -78,10 +78,10 @@
         <div class="court-wrap" [ngClass]="{ 'sub-overlay-active': isSubOverlayOpen }">
           <div class="court-lines"></div>
           <div class="serve-indicator" [ngClass]="getServeIndicatorClass()">
-            <span>Serve: {{ matchState.state().servingTeam === 'team' ? 'Our Team' : 'Opponent' }}</span>
+            <span>Serve: {{ gameState.servingTeam === 'team' ? 'Our Team' : 'Opponent' }}</span>
           </div>
           <div class="front-row-tint" *ngIf="isFrontRow(activePlayer)"></div>
-          <div class="rotation-arrows" *ngIf="matchState.state().servingTeam === 'opponent'">
+          <div class="rotation-arrows" *ngIf="gameState.servingTeam === 'opponent'">
             <ion-icon name="play-forward" class="arrow arrow-5"></ion-icon>
             <ion-icon name="play-forward" class="arrow arrow-6"></ion-icon>
             <ion-icon name="play-forward" class="arrow arrow-1"></ion-icon>
@@ -91,7 +91,7 @@
             class="player-chip"
             [ngClass]="{
               selected: player.id === activePlayer,
-              'current-server': player.id === 1 && matchState.state().servingTeam === 'team',
+              'current-server': player.id === 1 && gameState.servingTeam === 'team',
               dimmed: player.id !== activePlayer,
               'sub-out-selected': isSelectedOutPlayer(player.id)
             }"
@@ -109,7 +109,7 @@
                 [attr.aria-label]="getPlayerTileEfficiencyLabel(player.id)"
                 title="{{ getPlayerTileEfficiencyLabel(player.id) }}"
               ></span>
-              <span *ngIf="player.id === 1 && matchState.state().servingTeam === 'team'" class="server-tag">SERVE</span>
+              <span *ngIf="player.id === 1 && gameState.servingTeam === 'team'" class="server-tag">SERVE</span>
               <span *ngIf="isSelectedOutPlayer(player.id)" class="sub-out-tag">OUT</span>
             </ng-container>
             <ng-template #unassignedPlayer>
@@ -117,7 +117,7 @@
               <span class="position">{{ player.label }}</span>
               <span class="stat-line">{{ getPlayerTileStatLine(player.id) }}</span>
               <span class="efficiency-dot eff-neutral" aria-label="No assigned player" title="No assigned player"></span>
-              <span *ngIf="player.id === 1 && matchState.state().servingTeam === 'team'" class="server-tag">SERVE</span>
+              <span *ngIf="player.id === 1 && gameState.servingTeam === 'team'" class="server-tag">SERVE</span>
             </ng-template>
           </button>
 
@@ -262,7 +262,7 @@
             <div class="serve-toggle">
               <ion-button
                 size="small"
-                [ngClass]="{ active: matchState.state().servingTeam === 'team' }"
+                [ngClass]="{ active: gameState.servingTeam === 'team' }"
                 (click)="setServingTeam('team')"
                 [disabled]="isMatchOver"
               >
@@ -270,7 +270,7 @@
               </ion-button>
               <ion-button
                 size="small"
-                [ngClass]="{ active: matchState.state().servingTeam === 'opponent' }"
+                [ngClass]="{ active: gameState.servingTeam === 'opponent' }"
                 (click)="setServingTeam('opponent')"
                 [disabled]="isMatchOver"
               >
@@ -281,14 +281,14 @@
               <ion-button
                 size="small"
                 (click)="callTimeout('team')"
-                [disabled]="isMatchOver || matchState.state().teamTimeoutsRemaining === 0"
+                [disabled]="isMatchOver || gameState.teamTimeoutsRemaining === 0"
               >
                 Home Timeout
               </ion-button>
               <ion-button
                 size="small"
                 (click)="callTimeout('opponent')"
-                [disabled]="isMatchOver || matchState.state().opponentTimeoutsRemaining === 0"
+                [disabled]="isMatchOver || gameState.opponentTimeoutsRemaining === 0"
               >
                 Away Timeout
               </ion-button>
@@ -374,7 +374,7 @@
       </div>
     </section>
 
-    <section *ngIf="matchState.state().isMatchOver" class="box-score-panel">
+    <section *ngIf="gameState.isMatchOver" class="box-score-panel">
       <div class="box-head">
         <h2>Post-Match Box Score</h2>
         <p>Hitting Efficiency = (Kills - Attack Errors) / Total Attacks</p>

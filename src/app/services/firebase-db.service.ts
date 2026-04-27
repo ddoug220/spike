@@ -7,6 +7,7 @@ import {
   FirestoreDataConverter,
   QueryDocumentSnapshot,
   SnapshotOptions,
+  Unsubscribe,
   WithFieldValue,
   collection,
   doc,
@@ -15,6 +16,7 @@ import {
   getFirestore,
   orderBy,
   query,
+  onSnapshot,
   setDoc,
   where,
 } from 'firebase/firestore';
@@ -23,6 +25,7 @@ import {
   FIRESTORE_COLLECTIONS,
   FirestoreCollection,
   FirestoreDocumentMap,
+  Game,
   GameEvent,
   PlayerSetStats,
 } from '../models/firestore.models';
@@ -121,7 +124,48 @@ export class FirebaseDbService {
   }
 
   async writeEvent(event: GameEvent): Promise<FirebaseResult<string>> {
-    return this.writeDocument(FIRESTORE_COLLECTIONS.events, event.id, event);
+    if (!this.isConfigured()) {
+      return {
+        ok: false,
+        error: 'Firebase environment values are not configured.',
+      };
+    }
+
+    try {
+      await setDoc(doc(this.gameEventsRef(event.gameId), event.id), event, { merge: true });
+      return { ok: true, data: event.id };
+    } catch (error) {
+      return {
+        ok: false,
+        error: this.toErrorMessage(error, 'Firestore event write failed.'),
+      };
+    }
+  }
+
+  async markEventDeleted(gameId: string, eventId: string, deletedAt: string): Promise<FirebaseResult<string>> {
+    if (!this.isConfigured()) {
+      return {
+        ok: false,
+        error: 'Firebase environment values are not configured.',
+      };
+    }
+
+    try {
+      await setDoc(
+        doc(this.gameEventsRef(gameId), eventId),
+        {
+          isDeleted: true,
+          deletedAt,
+        },
+        { merge: true },
+      );
+      return { ok: true, data: eventId };
+    } catch (error) {
+      return {
+        ok: false,
+        error: this.toErrorMessage(error, 'Firestore event delete marker write failed.'),
+      };
+    }
   }
 
   async writePlayerSetStats(stats: PlayerSetStats): Promise<FirebaseResult<string>> {
@@ -138,9 +182,9 @@ export class FirebaseDbService {
 
     try {
       const snapshot = await getDocs(
-        query(this.collectionRef('events'), where('gameId', '==', gameId), orderBy('createdAt', 'asc')),
+        query(this.gameEventsRef(gameId), orderBy('createdAt', 'asc')),
       );
-      return { ok: true, data: snapshot.docs.map((entry) => entry.data()) };
+      return { ok: true, data: snapshot.docs.map((entry) => entry.data()).filter((event) => !event.isDeleted) };
     } catch (error) {
       return {
         ok: false,
@@ -174,8 +218,50 @@ export class FirebaseDbService {
     }
   }
 
+  subscribeGame(gameId: string, onData: (game: Game | null) => void): Unsubscribe {
+    if (!this.isConfigured()) {
+      onData(null);
+      return () => undefined;
+    }
+
+    return onSnapshot(doc(this.collectionRef('games'), gameId), (snapshot) => {
+      onData(snapshot.exists() ? snapshot.data() : null);
+    });
+  }
+
+  subscribeEvents(gameId: string, onData: (events: GameEvent[]) => void): Unsubscribe {
+    if (!this.isConfigured()) {
+      onData([]);
+      return () => undefined;
+    }
+
+    return onSnapshot(query(this.gameEventsRef(gameId), orderBy('createdAt', 'asc')), (snapshot) => {
+      onData(snapshot.docs.map((entry) => entry.data()).filter((event) => !event.isDeleted));
+    });
+  }
+
+  subscribePlayerSetStats(gameId: string, onData: (stats: PlayerSetStats[]) => void): Unsubscribe {
+    if (!this.isConfigured()) {
+      onData([]);
+      return () => undefined;
+    }
+
+    return onSnapshot(
+      query(this.collectionRef('playerSetStats'), where('gameId', '==', gameId), orderBy('jerseyNumber', 'asc')),
+      (snapshot) => {
+        onData(snapshot.docs.map((entry) => entry.data()));
+      },
+    );
+  }
+
   private collectionRef<C extends FirestoreCollection>(collectionName: C): CollectionReference<FirestoreDocumentMap[C]> {
     return collection(this.getDb(), collectionName).withConverter(this.converter<FirestoreDocumentMap[C]>());
+  }
+
+  private gameEventsRef(gameId: string): CollectionReference<GameEvent> {
+    return collection(doc(this.collectionRef(FIRESTORE_COLLECTIONS.games), gameId), FIRESTORE_COLLECTIONS.events).withConverter(
+      this.converter<GameEvent>(),
+    );
   }
 
   private converter<T extends DocumentData>(): FirestoreDataConverter<T> {

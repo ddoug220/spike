@@ -54,6 +54,7 @@ describe('FirebaseDbService', () => {
       action: 'match-started',
       servingTeam: 'team',
       createdAt: '2026-02-10T10:00:00.000Z',
+      isDeleted: false,
     };
 
     const result = await service.createDocument('events', event);

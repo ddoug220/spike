@@ -125,6 +125,12 @@ export class MatchStateService {
     this.persist();
   }
 
+  hydrateState(state: MatchScoreState): void {
+    this.historySignal.set([]);
+    this.stateSignal.set(this.normalizeState(state));
+    this.persist();
+  }
+
   private recordPoint(winner: PointWinner): PointResult {
     const current = this.stateSignal();
     if (current.isMatchOver) {

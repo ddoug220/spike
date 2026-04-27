@@ -14,6 +14,14 @@ class FakeFirebaseDbService {
     _documentId: string,
     _payload: FirestoreDocumentMap[C],
   ): Promise<{ ok: boolean; error?: string }> {
+    return this.writeResult();
+  }
+
+  async writeEvent(_payload: GameEvent): Promise<{ ok: boolean; error?: string }> {
+    return this.writeResult();
+  }
+
+  private writeResult(): { ok: boolean; error?: string } {
     if (this.shouldSucceed) {
       return { ok: true };
     }
@@ -31,6 +39,7 @@ describe('OfflineSyncService', () => {
     type,
     action: type,
     createdAt,
+    isDeleted: false,
   });
 
   const playerStats = (id: string, gameId: string, updatedAt: string): PlayerSetStats => ({
@@ -43,9 +52,16 @@ describe('OfflineSyncService', () => {
     kills: 0,
     attackErrors: 0,
     totalAttacks: 0,
+    aces: 0,
     hittingEfficiency: null,
     serveAttempts: 0,
+    servesIn: 0,
     serveInPercentage: null,
+    blocks: 0,
+    digs: 0,
+    serviceErrors: 0,
+    sideOutOpportunities: 0,
+    sideOutConversions: 0,
     sideOutPercentage: null,
     createdAt: updatedAt,
     updatedAt,
@@ -85,6 +101,7 @@ describe('OfflineSyncService', () => {
       teamSets: 3,
       opponentSets: 1,
       createdAt: '2026-02-10T10:30:00.000Z',
+      isDeleted: false,
     });
     service.queuePlayerSetStats(playerStats('stats-1', 'm-archive', '2026-02-10T10:31:00.000Z'));
 
@@ -95,6 +112,17 @@ describe('OfflineSyncService', () => {
     expect(summaries[0].finalTeamSets).toBe(3);
     expect(service.getMatchEvents('m-archive').length).toBe(2);
     expect(service.getPlayerSetStats('m-archive').length).toBe(1);
+  });
+
+  it('optimistically hides undone events and queues the delete marker', async () => {
+    service.queueMatchEvent(event('evt-delete', service.getActiveMatchId(), 'playerAction', '2026-02-10T10:00:00.000Z'));
+    await waitForIdle();
+
+    const deleted = service.undoLastEvent('evt-delete');
+
+    expect(deleted?.isDeleted).toBeTrue();
+    expect(deleted?.deletedAt).toBeTruthy();
+    expect(service.getMatchEvents(service.getActiveMatchId())).toEqual([]);
   });
 
   it('supports explicit retry after failure', async () => {

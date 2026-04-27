@@ -1,7 +1,9 @@
-import { NgClass, NgIf } from '@angular/common';
+import { NgClass } from '@angular/common';
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { IonButton, IonContent, IonHeader, IonTitle, IonToolbar } from '@ionic/angular/standalone';
+import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import { createOutline, people, play, playCircle, timeOutline } from 'ionicons/icons';
 import { MatchStateService } from '../../services/match-state.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { TeamRosterService } from '../../services/team-roster.service';
@@ -11,14 +13,16 @@ import { TeamRosterService } from '../../services/team-roster.service';
   templateUrl: './home.page.html',
   styleUrls: ['./home.page.scss'],
   standalone: true,
-  imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButton, NgIf, NgClass, RouterLink],
+  imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonIcon, NgClass, RouterLink],
 })
 export class HomePage {
   constructor(
     public readonly teamRoster: TeamRosterService,
     public readonly matchState: MatchStateService,
     public readonly offlineSync: OfflineSyncService,
-  ) {}
+  ) {
+    addIcons({ timeOutline, playCircle, people, createOutline, play });
+  }
 
   get hasValidLineup(): boolean {
     const lineup = this.teamRoster.lineup();
@@ -67,7 +71,11 @@ export class HomePage {
     return 'No successful sync yet';
   }
 
+  get hasActiveMatch(): boolean {
+    return this.hasMatchStarted && !this.matchState.state().isMatchOver;
+  }
+
   get liveMatchButtonText(): string {
-    return this.hasMatchStarted && !this.matchState.state().isMatchOver ? 'Resume Live Match' : 'Open Live Match';
+    return this.hasActiveMatch ? 'Resume Live Match' : 'Open Live Match';
   }
 }

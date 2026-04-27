@@ -14,25 +14,24 @@ import {
 import { addIcons } from 'ionicons';
 import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward } from 'ionicons/icons';
 import { GameEvent as FirestoreGameEvent } from '../../models/firestore.models';
+import {
+  AnalyticsTabId,
+  EventProfile,
+  LiveLastEvent,
+  LiveMatchStoreService,
+  PlayerListFilter,
+  SurfaceMode,
+} from '../../services/live-match-store.service';
 import { MatchEngineService } from '../../services/match-engine.service';
-import { MatchStateService } from '../../services/match-state.service';
-import { MatchStatsService, StatsAction } from '../../services/match-stats.service';
+import { MatchScoreState } from '../../services/match-state.service';
+import { StatsAction } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
 
 type QuickAction = StatsAction;
-type EventProfile = 'simple' | 'standard' | 'advanced';
 type StandardOutcomeAction = 'kill' | 'attack-error' | 'block' | 'opponent-point';
-type SurfaceMode = 'live' | 'review';
-type PlayerListFilter = 'all' | 'starters' | 'bench';
-type AnalyticsTabId = 'efficiency' | 'rotation' | 'serve-receive' | 'errors' | 'sets';
 type ExitAction = 'home' | 'lineup' | 'history' | 'end-home';
 type TileEfficiencyState = 'neutral' | 'low' | 'medium' | 'high';
-type MatchEvent =
-  | { kind: 'player-action'; playerId: number; action: QuickAction; impactedScore: boolean; impactedStats: boolean }
-  | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean }
-  | { kind: 'manual-rotation'; impactedScore: false; impactedStats: false }
-  | { kind: 'timeout'; team: 'team' | 'opponent'; impactedScore: false; impactedStats: false };
 
 interface PlayerPosition {
   id: number;
@@ -132,21 +131,6 @@ interface SetBreakdownRow {
   ],
 })
 export class CourtPage {
-  public activePlayer = 1;
-  public lastEvent?: MatchEvent;
-  public selectedProfile: EventProfile = 'standard';
-  public activePrimaryGroupId = 'attack';
-  public isSubOverlayOpen = false;
-  public substitutionOutPlayerId: string | null = null;
-  public substitutionStatus = '';
-  public showAdvancedControls = false;
-  public activeSurfaceMode: SurfaceMode = 'live';
-  public playerListFilter: PlayerListFilter = 'all';
-  public playerSearchQuery = '';
-  public activeAnalyticsTab: AnalyticsTabId = 'efficiency';
-  public reviewLoadMs = 0;
-  public isExitSheetOpen = false;
-
   public readonly analyticsTabs: Array<{ id: AnalyticsTabId; label: string }> = [
     { id: 'efficiency', label: 'Efficiency' },
     { id: 'rotation', label: 'Rotation Performance' },
@@ -197,13 +181,129 @@ export class CourtPage {
 
   constructor(
     public readonly teamRoster: TeamRosterService,
-    public readonly matchState: MatchStateService,
-    public readonly matchStats: MatchStatsService,
+    public readonly liveStore: LiveMatchStoreService,
     public readonly offlineSync: OfflineSyncService,
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
     addIcons({'arrowUndo':arrowUndo,flash,'closeCircle':closeCircle,baseball,'handLeft':handLeft,'addCircle':addCircle,'playForward':playForward,});
+    this.liveStore.syncActiveGame();
+  }
+
+  get gameState(): MatchScoreState {
+    return this.liveStore.gameState();
+  }
+
+  get activePlayer(): number {
+    return this.liveStore.ui().activePlayer;
+  }
+
+  set activePlayer(activePlayer: number) {
+    this.liveStore.setUi({ activePlayer });
+  }
+
+  get lastEvent(): LiveLastEvent | undefined {
+    return this.liveStore.ui().lastEvent;
+  }
+
+  set lastEvent(lastEvent: LiveLastEvent | undefined) {
+    this.liveStore.setUi({ lastEvent });
+  }
+
+  get selectedProfile(): EventProfile {
+    return this.liveStore.ui().selectedProfile;
+  }
+
+  set selectedProfile(selectedProfile: EventProfile) {
+    this.liveStore.setUi({ selectedProfile });
+  }
+
+  get activePrimaryGroupId(): string {
+    return this.liveStore.ui().activePrimaryGroupId;
+  }
+
+  set activePrimaryGroupId(activePrimaryGroupId: string) {
+    this.liveStore.setUi({ activePrimaryGroupId });
+  }
+
+  get isSubOverlayOpen(): boolean {
+    return this.liveStore.ui().isSubOverlayOpen;
+  }
+
+  set isSubOverlayOpen(isSubOverlayOpen: boolean) {
+    this.liveStore.setUi({ isSubOverlayOpen });
+  }
+
+  get substitutionOutPlayerId(): string | null {
+    return this.liveStore.ui().substitutionOutPlayerId;
+  }
+
+  set substitutionOutPlayerId(substitutionOutPlayerId: string | null) {
+    this.liveStore.setUi({ substitutionOutPlayerId });
+  }
+
+  get substitutionStatus(): string {
+    return this.liveStore.ui().substitutionStatus;
+  }
+
+  set substitutionStatus(substitutionStatus: string) {
+    this.liveStore.setUi({ substitutionStatus });
+  }
+
+  get showAdvancedControls(): boolean {
+    return this.liveStore.ui().showAdvancedControls;
+  }
+
+  set showAdvancedControls(showAdvancedControls: boolean) {
+    this.liveStore.setUi({ showAdvancedControls });
+  }
+
+  get activeSurfaceMode(): SurfaceMode {
+    return this.liveStore.ui().activeSurfaceMode;
+  }
+
+  set activeSurfaceMode(activeSurfaceMode: SurfaceMode) {
+    this.liveStore.setUi({ activeSurfaceMode });
+  }
+
+  get playerListFilter(): PlayerListFilter {
+    return this.liveStore.ui().playerListFilter;
+  }
+
+  set playerListFilter(playerListFilter: PlayerListFilter) {
+    this.liveStore.setUi({ playerListFilter });
+  }
+
+  get playerSearchQuery(): string {
+    return this.liveStore.ui().playerSearchQuery;
+  }
+
+  set playerSearchQuery(playerSearchQuery: string) {
+    this.liveStore.setUi({ playerSearchQuery });
+  }
+
+  get activeAnalyticsTab(): AnalyticsTabId {
+    return this.liveStore.ui().activeAnalyticsTab;
+  }
+
+  set activeAnalyticsTab(activeAnalyticsTab: AnalyticsTabId) {
+    this.liveStore.setUi({ activeAnalyticsTab });
+  }
+
+  get reviewLoadMs(): number {
+    return this.liveStore.ui().reviewLoadMs;
+  }
+
+  set reviewLoadMs(reviewLoadMs: number) {
+    this.liveStore.setUi({ reviewLoadMs });
+  }
+
+  get isExitSheetOpen(): boolean {
+    return this.liveStore.ui().isExitSheetOpen;
+  }
+
+  set isExitSheetOpen(isExitSheetOpen: boolean) {
+    this.liveStore.setUi({ isExitSheetOpen });
   }
 
   get exitSheetSubHeader(): string {
@@ -314,7 +414,8 @@ export class CourtPage {
       return;
     }
 
-    this.matchEngine.startMatch(this.matchState.state().servingTeam);
+    this.matchEngine.startMatch(this.gameState.servingTeam);
+    this.liveStore.syncActiveGame();
     this.lastEvent = undefined;
     this.substitutionStatus = '';
     this.isSubOverlayOpen = false;
@@ -362,7 +463,7 @@ export class CourtPage {
       return;
     }
 
-    this.matchEngine.undoLastEvent();
+    this.matchEngine.undoLastEvent(this.liveStore.events());
     this.lastEvent = undefined;
     this.refreshReviewLoadMetricIfVisible();
   }
@@ -377,7 +478,7 @@ export class CourtPage {
   }
 
   getServeIndicatorClass(): string {
-    return this.matchState.state().servingTeam === 'team' ? 'serve-team' : 'serve-opponent';
+    return this.gameState.servingTeam === 'team' ? 'serve-team' : 'serve-opponent';
   }
 
   getPlayerTileStatLine(position: number): string {
@@ -385,7 +486,7 @@ export class CourtPage {
     if (!player) {
       return '0K / 0E';
     }
-    const setStats = this.matchStats.getPlayerSetStats(player.id, this.matchState.state().currentSet);
+    const setStats = this.liveStore.getPlayerSetStats(player.id, this.gameState.currentSet);
     return `${setStats.kills}K / ${setStats.attackErrors}E`;
   }
 
@@ -395,7 +496,7 @@ export class CourtPage {
       return 'neutral';
     }
 
-    const setStats = this.matchStats.getPlayerSetStats(player.id, this.matchState.state().currentSet);
+    const setStats = this.liveStore.getPlayerSetStats(player.id, this.gameState.currentSet);
     if (setStats.totalAttacks === 0) {
       return 'neutral';
     }
@@ -641,43 +742,43 @@ export class CourtPage {
   }
 
   get isMatchOver(): boolean {
-    return this.matchState.state().isMatchOver;
+    return this.gameState.isMatchOver;
   }
 
   get rotationIndicatorText(): string {
-    const rotation = this.matchState.state().teamRotation;
+    const rotation = this.gameState.teamRotation;
     const server = this.getPlayerForPosition(1);
     const serverText = server ? `#${server.jerseyNumber}` : 'P1 Open';
     return `R${rotation} ${serverText}`;
   }
 
   get timeoutIndicatorText(): string {
-    const state = this.matchState.state();
+    const state = this.gameState;
     return `${state.teamTimeoutsRemaining} / ${state.opponentTimeoutsRemaining}`;
   }
 
   get servePossessionText(): string {
-    return this.matchState.state().servingTeam === 'team' ? 'Home' : 'Away';
+    return this.gameState.servingTeam === 'team' ? 'Home' : 'Away';
   }
 
   get teamSetKills(): number {
-    const currentSet = this.matchState.state().currentSet;
+    const currentSet = this.gameState.currentSet;
     return this.teamRoster
       .players()
-      .reduce((total, player) => total + this.matchStats.getPlayerSetStats(player.id, currentSet).kills, 0);
+      .reduce((total, player) => total + this.liveStore.getPlayerSetStats(player.id, currentSet).kills, 0);
   }
 
   get teamSetAttackErrors(): number {
-    const currentSet = this.matchState.state().currentSet;
+    const currentSet = this.gameState.currentSet;
     return this.teamRoster
       .players()
-      .reduce((total, player) => total + this.matchStats.getPlayerSetStats(player.id, currentSet).attackErrors, 0);
+      .reduce((total, player) => total + this.liveStore.getPlayerSetStats(player.id, currentSet).attackErrors, 0);
   }
 
   get teamSideOutRate(): number | null {
     const totals = this.teamRoster.players().reduce(
       (acc, player) => {
-        const stats = this.matchStats.getPlayerStats(player.id);
+        const stats = this.liveStore.getPlayerStats(player.id);
         return {
           opportunities: acc.opportunities + stats.sideOutOpportunities,
           conversions: acc.conversions + stats.sideOutConversions,
@@ -692,9 +793,8 @@ export class CourtPage {
   }
 
   get recentEvents(): LiveEventRow[] {
-    const matchId = this.offlineSync.getActiveMatchId();
-    const events = this.offlineSync.getMatchEvents(matchId);
-    return events
+    return this.liveStore
+      .events()
       .slice(-8)
       .reverse()
       .map((event) => ({
@@ -778,16 +878,16 @@ export class CourtPage {
       .slice()
       .sort((a, b) => a.jerseyNumber - b.jerseyNumber)
       .map((player) => {
-        const stats = this.matchStats.getPlayerStats(player.id);
+        const stats = this.liveStore.getPlayerStats(player.id);
         return {
           player,
           kills: stats.kills,
           attackErrors: stats.attackErrors,
           totalAttacks: stats.totalAttacks,
-          hittingEfficiency: this.matchStats.getHittingEfficiency(player.id),
-          sideOutPercentage: this.matchStats.getSideOutPercentage(player.id),
+          hittingEfficiency: this.liveStore.getHittingEfficiency(player.id),
+          sideOutPercentage: this.liveStore.getSideOutPercentage(player.id),
           serveAttempts: stats.serveAttempts,
-          serveInPercentage: this.matchStats.getServeInPercentage(player.id),
+          serveInPercentage: this.liveStore.getServeInPercentage(player.id),
         };
       });
   }
@@ -795,7 +895,7 @@ export class CourtPage {
   get reviewPlayers(): ReviewPlayerRow[] {
     const starters = new Set(this.onCourtPlayers.map((player) => player.id));
     return this.boxScoreRows.map((row) => {
-      const sideOutStats = this.matchStats.getPlayerStats(row.player.id);
+      const sideOutStats = this.liveStore.getPlayerStats(row.player.id);
       return {
         id: row.player.id,
         name: row.player.name,
@@ -909,7 +1009,7 @@ export class CourtPage {
   get errorBreakdownBars(): ReviewBarDatum[] {
     const totals = this.teamRoster.players().reduce(
       (acc, player) => {
-        const stats = this.matchStats.getPlayerStats(player.id);
+        const stats = this.liveStore.getPlayerStats(player.id);
         return {
           attackErrors: acc.attackErrors + stats.attackErrors,
           serviceErrors: acc.serviceErrors + stats.serviceErrors,
@@ -947,13 +1047,13 @@ export class CourtPage {
   }
 
   get setBreakdownRows(): SetBreakdownRow[] {
-    const maxSet = Math.max(1, this.matchState.state().currentSet);
+    const maxSet = Math.max(1, this.gameState.currentSet);
     const players = this.teamRoster.players();
     const rows: SetBreakdownRow[] = [];
     for (let setNumber = 1; setNumber <= maxSet; setNumber += 1) {
       const totals = players.reduce(
         (acc, player) => {
-          const setStats = this.matchStats.getPlayerSetStats(player.id, setNumber);
+          const setStats = this.liveStore.getPlayerSetStats(player.id, setNumber);
           return {
             kills: acc.kills + setStats.kills,
             attackErrors: acc.attackErrors + setStats.attackErrors,
@@ -1056,14 +1156,6 @@ export class CourtPage {
     return 'Event';
   }
 
-  private readString(value: unknown): string | null {
-    return typeof value === 'string' ? value : null;
-  }
-
-  private readNumber(value: unknown): number | null {
-    return typeof value === 'number' ? value : null;
-  }
-
   private formatEfficiencyDecimal(value: number | null): string {
     if (value === null) {
       return '.000';
@@ -1094,7 +1186,7 @@ export class CourtPage {
   }
 
   private getActiveMatchEvents(): FirestoreGameEvent[] {
-    return this.offlineSync.getMatchEvents(this.offlineSync.getActiveMatchId());
+    return this.liveStore.events();
   }
 
   private toBarData(

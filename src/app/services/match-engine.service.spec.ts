@@ -5,10 +5,12 @@ import { OfflineSyncService } from './offline-sync.service';
 import { RotationService } from './rotation.service';
 import { FirebaseDbService } from './firebase-db.service';
 import { TeamRosterService } from './team-roster.service';
+import type { GameEvent } from '../models/firestore.models';
 
 describe('MatchEngineService', () => {
   let service: MatchEngineService;
   let matchState: MatchStateService;
+  let matchStats: MatchStatsService;
   let teamRoster: TeamRosterService;
   let offlineSync: OfflineSyncService;
 
@@ -17,7 +19,7 @@ describe('MatchEngineService', () => {
     const firebaseDb = new FirebaseDbService();
     offlineSync = new OfflineSyncService(firebaseDb);
     matchState = new MatchStateService();
-    const matchStats = new MatchStatsService();
+    matchStats = new MatchStatsService();
     teamRoster = new TeamRosterService(new RotationService());
     service = new MatchEngineService(matchState, matchStats, teamRoster, offlineSync);
   });
@@ -100,5 +102,95 @@ describe('MatchEngineService', () => {
     expect(event.impactedStats).toBeFalse();
     expect(after.teamPoints).toBe(before.teamPoints);
     expect(after.opponentPoints).toBe(before.opponentPoints);
+  });
+
+  it('undoes the latest synced event when the in-memory undo stack is empty', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({ name: `P${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    const matchId = service.startMatch('team');
+
+    service.recordPlayerAction(1, 'kill');
+    expect(matchStats.getPlayerStats(players[0].id).kills).toBe(1);
+    expect(matchState.state().teamPoints).toBe(1);
+
+    const restoredState = new MatchStateService();
+    const restoredStats = new MatchStatsService();
+    const restoredEngine = new MatchEngineService(restoredState, restoredStats, teamRoster, offlineSync);
+    restoredEngine.undoLastEvent(offlineSync.getMatchEvents(matchId));
+
+    expect(offlineSync.getMatchEvents(matchId).some((event) => event.type === 'playerAction')).toBeFalse();
+    expect(restoredStats.getPlayerStats(players[0].id).kills).toBe(0);
+    expect(restoredState.state().teamPoints).toBe(0);
+  });
+
+  it('undoes a store-provided synced event when it is not already archived locally', () => {
+    const matchId = offlineSync.startNewMatch();
+    const syncedEvents: GameEvent[] = [
+      {
+        id: 'evt-start',
+        gameId: matchId,
+        type: 'matchStarted',
+        action: 'match-started',
+        servingTeam: 'team',
+        teamPoints: 0,
+        opponentPoints: 0,
+        teamSets: 0,
+        opponentSets: 0,
+        currentSet: 1,
+        isMatchOver: false,
+        teamTimeoutsRemaining: 2,
+        opponentTimeoutsRemaining: 2,
+        teamRotation: 1,
+        createdAt: '2026-02-10T10:00:00.000Z',
+        isDeleted: false,
+      },
+      {
+        id: 'evt-kill',
+        gameId: matchId,
+        type: 'playerAction',
+        action: 'kill',
+        playerId: 'p1',
+        servingTeam: 'team',
+        teamPoints: 1,
+        opponentPoints: 0,
+        teamSets: 0,
+        opponentSets: 0,
+        currentSet: 1,
+        isMatchOver: false,
+        teamTimeoutsRemaining: 2,
+        opponentTimeoutsRemaining: 2,
+        teamRotation: 1,
+        wasReceiving: false,
+        sideOutWon: false,
+        actionSetNumber: 1,
+        createdAt: '2026-02-10T10:01:00.000Z',
+        isDeleted: false,
+      },
+    ];
+
+    const restoredState = new MatchStateService();
+    const restoredStats = new MatchStatsService();
+    const restoredEngine = new MatchEngineService(restoredState, restoredStats, teamRoster, offlineSync);
+    const undone = restoredEngine.undoLastEvent(syncedEvents);
+
+    expect(undone?.eventId).toBe('evt-kill');
+    expect(offlineSync.pendingCount()).toBe(2);
+    expect(offlineSync.getMatchEvents(matchId)).toEqual([]);
+    expect(restoredStats.getPlayerStats('p1').kills).toBe(0);
+    expect(restoredState.state().teamPoints).toBe(0);
+  });
+
+  it('preserves the original start time when a resumed match queues a new game snapshot', () => {
+    const matchId = service.startMatch('team');
+    const startedAt = offlineSync.getGame(matchId)?.startedAt;
+    expect(startedAt).toBeTruthy();
+
+    const restoredEngine = new MatchEngineService(new MatchStateService(), new MatchStatsService(), teamRoster, offlineSync);
+    restoredEngine.recordOpponentPoint();
+
+    expect(offlineSync.getGame(matchId)?.startedAt).toBe(startedAt);
   });
 });

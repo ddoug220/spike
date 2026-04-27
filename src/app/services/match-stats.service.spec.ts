@@ -55,4 +55,42 @@ describe('MatchStatsService', () => {
     expect(stats.attackErrors).toBe(0);
     expect(stats.totalAttacks).toBe(1);
   });
+
+  it('hydrates the complete synced stat line', () => {
+    service.hydrateFromPlayerSetStats([
+      {
+        id: 'stats-1',
+        gameId: 'game-1',
+        playerId: 'p1',
+        playerName: 'Player One',
+        jerseyNumber: 1,
+        setNumber: null,
+        kills: 4,
+        attackErrors: 1,
+        totalAttacks: 8,
+        aces: 2,
+        hittingEfficiency: 0.375,
+        serveAttempts: 5,
+        servesIn: 4,
+        serveInPercentage: 0.8,
+        blocks: 1,
+        digs: 3,
+        serviceErrors: 1,
+        sideOutOpportunities: 6,
+        sideOutConversions: 4,
+        sideOutPercentage: 2 / 3,
+        createdAt: '2026-02-10T10:00:00.000Z',
+        updatedAt: '2026-02-10T10:01:00.000Z',
+      },
+    ]);
+
+    const stats = service.getPlayerStats('p1');
+    expect(stats.kills).toBe(4);
+    expect(stats.aces).toBe(2);
+    expect(stats.blocks).toBe(1);
+    expect(stats.digs).toBe(3);
+    expect(stats.serviceErrors).toBe(1);
+    expect(stats.sideOutOpportunities).toBe(6);
+    expect(stats.sideOutConversions).toBe(4);
+  });
 });

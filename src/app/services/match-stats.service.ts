@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { GameEvent, PlayerSetStats } from '../models/firestore.models';
 
 export type StatsAction =
   | 'kill'
@@ -23,8 +24,8 @@ export interface PlayerStatLine {
   sideOutConversions: number;
 }
 
-type StatsState = Record<string, PlayerStatLine>;
-type SetStatsState = Record<string, Record<number, { kills: number; attackErrors: number; totalAttacks: number }>>;
+export type StatsState = Record<string, PlayerStatLine>;
+export type SetStatsState = Record<string, Record<number, { kills: number; attackErrors: number; totalAttacks: number }>>;
 interface StatsSnapshot {
   stats: StatsState;
   setStats: SetStatsState;
@@ -191,6 +192,116 @@ export class MatchStatsService {
     this.persist();
   }
 
+  hydrateFromPlayerSetStats(playerSetStats: PlayerSetStats[]): void {
+    const stats: StatsState = {};
+    const setStats: SetStatsState = {};
+
+    playerSetStats.forEach((entry) => {
+      if (entry.setNumber === null) {
+        stats[entry.playerId] = {
+          kills: entry.kills,
+          attackErrors: entry.attackErrors,
+          totalAttacks: entry.totalAttacks,
+          aces: entry.aces,
+          serveAttempts: entry.serveAttempts,
+          servesIn: entry.servesIn,
+          blocks: entry.blocks,
+          digs: entry.digs,
+          serviceErrors: entry.serviceErrors,
+          sideOutOpportunities: entry.sideOutOpportunities,
+          sideOutConversions: entry.sideOutConversions,
+        };
+        return;
+      }
+
+      setStats[entry.playerId] = {
+        ...(setStats[entry.playerId] ?? {}),
+        [entry.setNumber]: {
+          kills: entry.kills,
+          attackErrors: entry.attackErrors,
+          totalAttacks: entry.totalAttacks,
+        },
+      };
+    });
+
+    this.replaceSnapshot(stats, setStats);
+  }
+
+  hydrateFromEvents(events: GameEvent[]): void {
+    const stats: StatsState = {};
+    const setStats: SetStatsState = {};
+
+    events
+      .filter((event) => !event.isDeleted)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .forEach((event) => {
+        if (event.type !== 'playerAction' || !event.playerId || !this.isStatsAction(event.action)) {
+          return;
+        }
+
+        const line = stats[event.playerId] ?? this.createEmptyLine();
+        if (event.wasReceiving) {
+          line.sideOutOpportunities += 1;
+        }
+        if (event.sideOutWon) {
+          line.sideOutConversions += 1;
+        }
+        if (event.action === 'kill') {
+          line.kills += 1;
+          line.totalAttacks += 1;
+        }
+        if (event.action === 'attack-error') {
+          line.attackErrors += 1;
+          line.totalAttacks += 1;
+        }
+        if (event.action === 'ace') {
+          line.aces += 1;
+          line.serveAttempts += 1;
+          line.servesIn += 1;
+        }
+        if (event.action === 'block') {
+          line.blocks += 1;
+        }
+        if (event.action === 'dig') {
+          line.digs += 1;
+        }
+        if (event.action === 'service-error') {
+          line.serviceErrors += 1;
+          line.serveAttempts += 1;
+        }
+        stats[event.playerId] = line;
+
+        if (event.inferredServeInServerPlayerId) {
+          const serveLine = stats[event.inferredServeInServerPlayerId] ?? this.createEmptyLine();
+          serveLine.serveAttempts += 1;
+          serveLine.servesIn += 1;
+          stats[event.inferredServeInServerPlayerId] = serveLine;
+        }
+
+        if (event.action === 'kill' || event.action === 'attack-error') {
+          const setNumber = event.actionSetNumber ?? event.currentSet ?? 1;
+          const current = setStats[event.playerId]?.[setNumber] ?? { kills: 0, attackErrors: 0, totalAttacks: 0 };
+          setStats[event.playerId] = {
+            ...(setStats[event.playerId] ?? {}),
+            [setNumber]: {
+              kills: current.kills + (event.action === 'kill' ? 1 : 0),
+              attackErrors: current.attackErrors + (event.action === 'attack-error' ? 1 : 0),
+              totalAttacks: current.totalAttacks + 1,
+            },
+          };
+        }
+      });
+
+    this.replaceSnapshot(stats, setStats);
+  }
+
+  replaceSnapshot(stats: StatsState, setStats: SetStatsState): void {
+    this.historySignal.set([]);
+    this.statsSignal.set(this.cloneState(stats));
+    this.setStatsSignal.set(this.cloneSetState(setStats));
+    this.persist();
+  }
+
   recordInferredServeIn(playerId: string): void {
     this.historySignal.update((history) => [...history, this.snapshot()]);
     this.statsSignal.update((state) => {
@@ -218,6 +329,18 @@ export class MatchStatsService {
       sideOutOpportunities: 0,
       sideOutConversions: 0,
     };
+  }
+
+  private isStatsAction(action: string): action is StatsAction {
+    return (
+      action === 'kill' ||
+      action === 'service-error' ||
+      action === 'attack-error' ||
+      action === 'ace' ||
+      action === 'block' ||
+      action === 'opponent-error' ||
+      action === 'dig'
+    );
   }
 
   private cloneState(state: StatsState): StatsState {

@@ -12,6 +12,11 @@
   --accent-green: #059669;
   --accent-amber: #d97706;
   --toolbar-bg: rgba(255, 255, 255, 0.72);
+  --court-hero: linear-gradient(165deg, #d4a96a 0%, #c49a5c 30%, #b88c4e 60%, #a67b3f 100%);
+  --court-line-hero: rgba(255, 255, 255, 0.55);
+  // Accessible text colors for semantic status — darker than the raw accent for light-mode contrast
+  --status-text-ok: #047857;   // 5.5:1 on white
+  --status-text-warn: #92400e; // 6.4:1 on white
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,6 +34,11 @@
     --accent-green: #34d399;
     --accent-amber: #f59e0b;
     --toolbar-bg: rgba(14, 18, 25, 0.82);
+    --court-hero: linear-gradient(165deg, #9a7a50 0%, #876a42 30%, #745a36 60%, #624c2c 100%);
+    --court-line-hero: rgba(255, 255, 255, 0.35);
+    // In dark mode the vivid accents already pass against the dark surface
+    --status-text-ok: #34d399;
+    --status-text-warn: #f59e0b;
   }
 }
 
@@ -38,162 +48,311 @@ ion-toolbar.home-toolbar {
   --border-color: var(--panel-border);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
+}
 
-  ion-title {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
+.app-wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
 
-  ion-button {
-    margin-right: 8px;
-    --background: var(--accent-blue);
-    --color: #ffffff;
-    --border-radius: var(--radius-sm);
-    font-weight: 700;
-    font-size: 0.8rem;
-  }
+.history-nav-btn {
+  margin-right: 8px;
+  --color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.82rem;
 }
 
 ion-content {
   --background:
     radial-gradient(ellipse at 18% 8%, var(--app-bg-accent) 0%, transparent 50%),
-    radial-gradient(ellipse at 82% 88%, rgba(255, 184, 77, 0.02) 0%, transparent 40%),
     var(--app-bg);
-  color: var(--text-primary);
 }
 
-.home-layout {
-  padding: 16px;
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 16px;
+.home-scroll {
+  padding-bottom: 36px;
 }
 
-.home-panel {
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-xl);
-  background: var(--panel-bg);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
-  box-shadow: var(--panel-shadow);
-  padding: 18px;
+// ─── Hero band ───────────────────────────────────────────────────────────────
+
+.hero-band {
+  position: relative;
+  height: 192px;
+  overflow: hidden;
+  background: var(--court-hero);
+  isolation: isolate;
 }
 
-h1 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+// Dark gradient over the text area so white text passes contrast on every gradient stop.
+// 42% opacity gives ~6:1 on the lightest stop (#d4a96a → effective ~#7b6234).
+.hero-band::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(165deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.18) 58%, transparent 100%);
+  pointer-events: none;
 }
 
-h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+.hero-court {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
 }
 
-.subtitle {
-  margin-top: 6px;
-  color: var(--text-secondary);
-  font-size: 0.86rem;
+.hero-court-border {
+  position: absolute;
+  inset: 12px;
+  border: 2px solid var(--court-line-hero);
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
-.status-grid {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
+.hero-court-net {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: var(--court-line-hero);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.18);
 
-.status-card {
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.44);
-  padding: 12px;
-  display: grid;
-  gap: 4px;
-}
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    width: 2px;
+    height: 64px;
+    background: var(--court-line-hero);
+  }
 
-@media (prefers-color-scheme: dark) {
-  .status-card {
-    background: rgba(255, 255, 255, 0.02);
+  &::before {
+    left: 18%;
+  }
+
+  &::after {
+    right: 18%;
   }
 }
 
-.status-card.ready {
-  border-color: color-mix(in oklab, var(--accent-green) 45%, var(--panel-border));
+.hero-text {
+  position: relative;
+  z-index: 2;
+  padding: 26px 20px 20px;
 }
 
-.status-card.warning {
-  border-color: color-mix(in oklab, var(--accent-amber) 45%, var(--panel-border));
-}
-
-.status-card .label {
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 11px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
   font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.status-card .value {
+.hero-title {
+  margin: 10px 0 5px;
   font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+  line-height: 1.1;
 }
 
-.status-card .detail {
-  font-size: 0.74rem;
+.hero-sub {
+  margin: 0;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+// ─── Status strip ─────────────────────────────────────────────────────────────
+
+.status-strip {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 4px;
+  flex-wrap: wrap;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--text-secondary);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-.actions-panel {
+.chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.status-chip--ok {
+  border-color: color-mix(in oklab, var(--status-text-ok) 35%, var(--panel-border));
+  color: var(--status-text-ok);
+
+  .chip-dot {
+    background: var(--status-text-ok);
+  }
+}
+
+.status-chip--warn {
+  border-color: color-mix(in oklab, var(--status-text-warn) 35%, var(--panel-border));
+  color: var(--status-text-warn);
+
+  .chip-dot {
+    background: var(--status-text-warn);
+  }
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+
+.action-section {
+  padding: 12px 16px 0;
   display: grid;
-  align-content: start;
   gap: 10px;
 }
 
-.primary-action {
-  margin-top: 6px;
-  --background: var(--accent-blue);
-  --color: #ffffff;
+.action-btn {
   --border-radius: var(--radius-md);
   font-family: var(--font-display);
-  font-size: 0.95rem;
   font-weight: 700;
+  font-size: 0.97rem;
+  height: 52px;
+  margin: 0;
+  letter-spacing: 0.01em;
 }
 
-.secondary-action {
+.action-btn--resume {
+  --background: var(--accent-green);
+  --color: #ffffff;
+}
+
+.action-btn--start {
+  --background: var(--accent-blue);
+  --color: #ffffff;
+}
+
+.action-btn--setup {
+  --background: var(--accent-blue);
+  --color: #ffffff;
+}
+
+.action-btn--edit {
   --border-color: var(--panel-border);
   --color: var(--text-primary);
-  --border-radius: var(--radius-md);
+}
+
+.action-btn--ghost {
+  --color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+// ─── Setup guide ──────────────────────────────────────────────────────────────
+
+.setup-guide {
+  margin: 16px 16px 0;
+  padding: 16px 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-xl);
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--panel-shadow);
+}
+
+.guide-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 14px;
+}
+
+.guide-steps {
+  display: grid;
+  gap: 12px;
+}
+
+.guide-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.step-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  background: transparent;
+  transition: background var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out);
+}
+
+.guide-step--done .step-marker {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: #ffffff;
+}
+
+.step-check {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.step-text {
+  font-size: 0.87rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  line-height: 1.3;
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+}
+
+.guide-step--done .step-text {
+  color: var(--text-primary);
   font-weight: 600;
 }
 
-.hint {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-}
+// ─── Focus ────────────────────────────────────────────────────────────────────
 
 button:focus-visible,
 ion-button:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-}
-
-@media (max-width: 980px) {
-  .home-layout {
-    padding: 10px;
-    grid-template-columns: 1fr;
-  }
-
-  .status-grid {
-    grid-template-columns: 1fr;
-  }
 }

@@ -26,8 +26,15 @@ export interface Game {
   opponentName: string;
   status: GameStatus;
   servingTeam: TeamSide;
+  teamPoints: number;
+  opponentPoints: number;
   teamSets: number;
   opponentSets: number;
+  currentSet: number;
+  isMatchOver: boolean;
+  teamTimeoutsRemaining: number;
+  opponentTimeoutsRemaining: number;
+  teamRotation: number;
   startedAt: string;
   endedAt: string | null;
   createdAt: string;
@@ -72,6 +79,8 @@ export interface GameEvent {
   type: GameEventType;
   action: string;
   createdAt: string;
+  isDeleted: boolean;
+  deletedAt?: string | null;
   playerId?: string | null;
   rotationPosition?: number;
   servingTeam?: TeamSide;
@@ -82,13 +91,17 @@ export interface GameEvent {
   opponentPoints?: number;
   teamSets?: number;
   opponentSets?: number;
+  currentSet?: number;
+  isMatchOver?: boolean;
   teamRotation?: number;
+  teamTimeoutsRemaining?: number;
+  opponentTimeoutsRemaining?: number;
   outPlayerId?: string;
   inPlayerId?: string;
   timeoutTeam?: TeamSide;
-  teamTimeoutsRemaining?: number;
-  opponentTimeoutsRemaining?: number;
   targetEventId?: string;
+  inferredServeInServerPlayerId?: string;
+  actionSetNumber?: number;
 }
 
 export interface PlayerSetStats {
@@ -101,9 +114,16 @@ export interface PlayerSetStats {
   kills: number;
   attackErrors: number;
   totalAttacks: number;
+  aces: number;
   hittingEfficiency: number | null;
   serveAttempts: number;
+  servesIn: number;
   serveInPercentage: number | null;
+  blocks: number;
+  digs: number;
+  serviceErrors: number;
+  sideOutOpportunities: number;
+  sideOutConversions: number;
   sideOutPercentage: number | null;
   createdAt: string;
   updatedAt: string;

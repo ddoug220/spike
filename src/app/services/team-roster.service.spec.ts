@@ -9,6 +9,38 @@ describe('TeamRosterService', () => {
     service = new TeamRosterService(new RotationService());
   });
 
+  it('creates a persistent team profile for the saved player pool', () => {
+    const initialTeam = service.team();
+
+    expect(initialTeam.id).toMatch(/^team-/);
+    expect(initialTeam.name).toBe('My Team');
+
+    const didUpdate = service.updateTeamName('  Falcons  ');
+
+    expect(didUpdate).toBeTrue();
+    expect(service.team().id).toBe(initialTeam.id);
+    expect(service.team().name).toBe('Falcons');
+
+    const restored = new TeamRosterService(new RotationService());
+    expect(restored.team()).toEqual(service.team());
+  });
+
+  it('restores legacy roster data that does not have a team profile', () => {
+    window.localStorage.setItem(
+      'spike-volleyball-roster-v1',
+      JSON.stringify({
+        players: [{ id: 'p-1', name: 'Ava Johnson', jerseyNumber: 4, primaryPosition: 'OH' }],
+        lineup: ['p-1', null, null, null, null, null],
+      }),
+    );
+
+    const restored = new TeamRosterService(new RotationService());
+
+    expect(restored.team().name).toBe('My Team');
+    expect(restored.players()[0].name).toBe('Ava Johnson');
+    expect(restored.lineup()[0]).toBe('p-1');
+  });
+
   it('rotates lineup clockwise for side-out behavior', () => {
     for (let i = 1; i <= 6; i += 1) {
       service.addPlayer({

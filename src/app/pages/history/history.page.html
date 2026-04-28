@@ -16,9 +16,15 @@
         [ngClass]="{ selected: selectedMatchId === match.matchId }"
         (click)="selectMatch(match.matchId)"
       >
-        <span class="match-id">{{ match.matchId }}</span>
-        <span class="match-meta">Events: {{ match.totalEvents }}</span>
-        <span class="match-meta">Updated: {{ match.lastUpdatedAt | date:'medium' }}</span>
+        <span class="match-opponent">vs {{ match.opponentName }}</span>
+        <span class="match-result" *ngIf="match.isFinal; else liveMatchResult">
+          Final {{ match.finalTeamSets ?? match.teamSets }} - {{ match.finalOpponentSets ?? match.opponentSets }}
+        </span>
+        <ng-template #liveMatchResult>
+          <span class="match-result">Live {{ match.teamPoints }} - {{ match.opponentPoints }}</span>
+        </ng-template>
+        <span class="match-meta">{{ match.startedAt | date:'mediumDate' }} | {{ match.totalEvents }} events</span>
+        <span class="match-meta">Updated: {{ match.lastUpdatedAt | date:'short' }}</span>
         <span class="match-meta" *ngIf="match.isFinal">
           Final: {{ match.finalTeamSets ?? 0 }} - {{ match.finalOpponentSets ?? 0 }}
         </span>
@@ -28,8 +34,15 @@
     <section class="review-panel" *ngIf="selectedMatchSummary as selected; else selectPrompt">
       <h2>Review</h2>
       <p class="summary">
-        Match {{ selected.matchId }} | {{ selected.totalEvents }} events | Last update {{ selected.lastUpdatedAt | date:'medium' }}
+        vs {{ selected.opponentName }} | {{ selected.totalEvents }} events | Last update {{ selected.lastUpdatedAt | date:'medium' }}
       </p>
+
+      <div class="recap-grid" *ngIf="selectedLeaders.length > 0">
+        <div class="recap-card" *ngFor="let leader of selectedLeaders">
+          <span>{{ leader.label }}</span>
+          <strong>{{ leader.value }}</strong>
+        </div>
+      </div>
 
       <h3>Event Timeline</h3>
       <div class="timeline-list">
@@ -47,6 +60,7 @@
           <span>K</span>
           <span>E</span>
           <span>TA</span>
+          <span>Eff</span>
           <span>SA</span>
           <span>Serve In %</span>
           <span>Side-Out %</span>
@@ -56,6 +70,7 @@
           <span>{{ row.kills }}</span>
           <span>{{ row.attackErrors }}</span>
           <span>{{ row.totalAttacks }}</span>
+          <span>{{ formatEfficiency(row.hittingEfficiency) }}</span>
           <span>{{ row.serveAttempts }}</span>
           <span>{{ formatRate(row.serveInPercentage) }}</span>
           <span>{{ formatRate(row.sideOutPercentage) }}</span>

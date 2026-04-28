@@ -11,9 +11,75 @@
 <ion-content [fullscreen]="true">
   <div class="prematch-layout">
     <section class="panel court-panel">
+      <form class="team-details" (ngSubmit)="saveTeam()">
+        <div>
+          <span class="detail-label">Team</span>
+          <strong>{{ team.name }}</strong>
+          <span>{{ rosterSummaryText }}</span>
+        </div>
+        <label class="team-field">
+          <span>Team Name</span>
+          <input
+            type="text"
+            name="teamName"
+            [(ngModel)]="teamNameDraft"
+            placeholder="Team name"
+            autocomplete="organization"
+            required
+          />
+        </label>
+        <ion-button type="submit" class="team-save-btn">
+          <ion-icon name="save" slot="start"></ion-icon>
+          Save Team
+        </ion-button>
+      </form>
+
+      <div class="match-details">
+        <div>
+          <span class="detail-label">Match</span>
+          <strong>{{ matchDetails.opponentName.trim() || 'Opponent' }}</strong>
+          <span>Today</span>
+        </div>
+        <label class="opponent-field">
+          <span>Opponent Name</span>
+          <input
+            type="text"
+            name="opponentName"
+            [(ngModel)]="matchDetails.opponentName"
+            placeholder="Opponent"
+            autocomplete="off"
+          />
+        </label>
+        <div class="serve-selector" role="radiogroup" aria-label="First serve team">
+          <span class="serve-selector-label">First Serve</span>
+          <div class="serve-selector-options">
+            <button
+              type="button"
+              class="serve-selector-option"
+              [ngClass]="{ 'serve-selector-option-active': firstServeTeam === 'team' }"
+              [attr.aria-checked]="firstServeTeam === 'team'"
+              role="radio"
+              (click)="setFirstServeTeam('team')"
+            >
+              Your Team
+            </button>
+            <button
+              type="button"
+              class="serve-selector-option"
+              [ngClass]="{ 'serve-selector-option-active': firstServeTeam === 'opponent' }"
+              [attr.aria-checked]="firstServeTeam === 'opponent'"
+              role="radio"
+              (click)="setFirstServeTeam('opponent')"
+            >
+              Opponent
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="panel-head">
         <h2>Starting Lineup</h2>
-        <p>Drag players into positions 1-6</p>
+        <p>Select a roster player, then tap a court slot. Drag and drop still works.</p>
       </div>
 
       <div class="lineup-court" [ngClass]="{ 'lineup-court-empty': !hasAssignedStarters }">
@@ -39,7 +105,7 @@
             [ngClass]="{
               'front-row-slot': slot.row === 'front',
               'back-row-slot': slot.row === 'back',
-              'serving-slot': slot.isServingFirst
+              'serving-slot': slot.isTeamServerSlot && doesTeamServeFirst
             }"
             [style.top]="slot.top"
             [style.left]="slot.left"
@@ -49,10 +115,10 @@
           >
             <div class="slot-number">P{{ slot.position }}</div>
             <div class="slot-role">{{ slot.roleLabel }}</div>
-            @if (slot.isServingFirst) {
-              <div class="serving-badge">
+            @if (slot.isTeamServerSlot) {
+              <div class="serving-badge" [ngClass]="{ 'serving-badge-muted': !doesTeamServeFirst }">
                 <span class="serving-dot" aria-hidden="true"></span>
-                Serving first
+                {{ doesTeamServeFirst ? 'Serving first' : 'First server spot' }}
               </div>
             }
             @if (getSlotPlayer(slot.position); as player) {
@@ -74,9 +140,16 @@
 
     <section class="panel roster-panel">
       <div class="panel-head">
-        <h2>Roster</h2>
-        <p>Add players, then drag to the court</p>
+        <h2>Player Pool</h2>
+        <p>Add players to {{ team.name }}, then select one and tap a slot to assign.</p>
       </div>
+
+      @if (players.length === 0) {
+        <div class="roster-empty-guide">
+          <strong>Add your first player</strong>
+          <span>Enter the team once here. Future lineups pull from this saved pool.</span>
+        </div>
+      }
 
       <form class="player-form" (ngSubmit)="submitPlayer()">
         @if (editingPlayerId) {
@@ -113,10 +186,6 @@
           </ion-button>
         }
 
-        <ion-button expand="block" type="button" class="qa-btn" (click)="generateFakeTeam()">
-          <ion-icon name="flask" slot="start"></ion-icon>
-          Generate Fake Team
-        </ion-button>
       </form>
 
       <div class="bench-dropzone" (dragover)="allowDrop($event)" (drop)="dropToBench($event)">

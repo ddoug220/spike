@@ -6,6 +6,11 @@ import { OfflineSyncService } from './offline-sync.service';
 import { RosterPlayer, TeamRosterService } from './team-roster.service';
 
 type PointSide = 'team' | 'opponent';
+
+export interface StartMatchOptions {
+  opponentName?: string;
+}
+
 type EngineEvent =
   | {
       kind: 'player-action';
@@ -56,6 +61,7 @@ export class MatchEngineService {
   private boxScoreQueuedForMatchId: string | null = null;
   private matchEndedEventQueuedForMatchId: string | null = null;
   private matchStartedAtByMatchId = new Map<string, string>();
+  private opponentNameByMatchId = new Map<string, string>();
   private undoStack: EngineEvent[] = [];
 
   constructor(
@@ -65,9 +71,10 @@ export class MatchEngineService {
     private readonly offlineSync: OfflineSyncService,
   ) {}
 
-  startMatch(initialServe: PointSide = 'team'): string {
+  startMatch(initialServe: PointSide = 'team', options: StartMatchOptions = {}): string {
     const matchId = this.offlineSync.startNewMatch();
     const createdAt = new Date().toISOString();
+    const opponentName = this.normalizeOpponentName(options.opponentName);
     this.matchState.resetMatch();
     this.matchState.setServingTeam(initialServe);
     this.matchStats.resetMatch();
@@ -76,6 +83,7 @@ export class MatchEngineService {
     this.boxScoreQueuedForMatchId = null;
     this.matchEndedEventQueuedForMatchId = null;
     this.matchStartedAtByMatchId.set(matchId, createdAt);
+    this.opponentNameByMatchId.set(matchId, opponentName);
 
     this.queueGameSnapshot(matchId, 'live', createdAt);
     this.offlineSync.logEvent({
@@ -154,7 +162,8 @@ export class MatchEngineService {
     const servingTeamBefore = this.matchState.state().servingTeam;
     const currentSetBefore = this.matchState.state().currentSet;
     const wasReceiving = servingTeamBefore === 'opponent';
-    const selectedPlayer = this.getPlayerAtRotation(rotationPosition);
+    const isTeamPointFromOpponentError = action === 'opponent-error';
+    const selectedPlayer = isTeamPointFromOpponentError ? null : this.getPlayerAtRotation(rotationPosition);
     const serverPlayer = this.getPlayerAtRotation(1);
 
     let inferredServeInServerPlayerId: string | undefined;
@@ -416,7 +425,9 @@ export class MatchEngineService {
       }
 
       const deleted = this.offlineSync.markEventDeleted(latestEvent);
-      this.replayLocalStateFromEvents(syncedEvents.filter((event) => event.id !== deleted.id));
+      const remainingEvents = syncedEvents.filter((event) => event.id !== deleted.id);
+      this.replayLocalStateFromEvents(remainingEvents);
+      this.replayLineupFromEvents(remainingEvents);
       this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), this.matchState.state().isMatchOver ? 'final' : 'live');
       return this.toEngineEvent(deleted);
     }
@@ -542,11 +553,15 @@ export class MatchEngineService {
     const state = this.matchState.state();
     const existingGame = this.offlineSync.getGame(matchId);
     const startedAt = this.matchStartedAtByMatchId.get(matchId) ?? existingGame?.startedAt ?? timestamp;
+    const opponentName =
+      this.opponentNameByMatchId.get(matchId) ??
+      this.normalizeOpponentName(existingGame?.opponentName);
     this.matchStartedAtByMatchId.set(matchId, startedAt);
+    this.opponentNameByMatchId.set(matchId, opponentName);
     this.offlineSync.queueGame({
       id: matchId,
-      teamId: 'local-team',
-      opponentName: 'Opponent',
+      teamId: this.teamRoster.team().id,
+      opponentName,
       status,
       servingTeam: state.servingTeam,
       teamPoints: state.teamPoints,
@@ -563,6 +578,11 @@ export class MatchEngineService {
       createdAt: startedAt,
       updatedAt: timestamp,
     });
+  }
+
+  private normalizeOpponentName(value: string | undefined): string {
+    const trimmed = value?.trim() ?? '';
+    return trimmed || 'Opponent';
   }
 
   private eventStateSnapshot(event: GameEvent): MatchScoreState | null {
@@ -679,6 +699,65 @@ export class MatchEngineService {
       }
     });
     this.matchStats.replaceSnapshot(stats, setStats);
+  }
+
+  private replayLineupFromEvents(events: GameEvent[]): void {
+    const ordered = events.slice().filter((event) => !event.isDeleted).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const seedEvent = ordered.find((event) => event.type === 'matchStarted' && this.isValidLineup(event.lineup));
+    const fallbackSeed = ordered
+      .slice()
+      .reverse()
+      .find((event) => event.type === 'manualRotation' && this.isValidLineup(event.lineup));
+    const seeded = seedEvent?.lineup ?? fallbackSeed?.lineup;
+    if (!seeded) {
+      return;
+    }
+
+    let lineup = this.normalizeLineup(seeded);
+    ordered.forEach((event) => {
+      if (event.type === 'matchStarted' && this.isValidLineup(event.lineup)) {
+        lineup = this.normalizeLineup(event.lineup);
+        return;
+      }
+
+      if (event.type === 'playerAction' && event.sideOutWon) {
+        lineup = this.rotateLineupClockwise(lineup);
+        return;
+      }
+
+      if (event.type === 'manualRotation') {
+        if (this.isValidLineup(event.lineup)) {
+          lineup = this.normalizeLineup(event.lineup);
+        } else {
+          lineup = this.rotateLineupClockwise(lineup);
+        }
+        return;
+      }
+
+      if (event.type === 'substitution' && event.outPlayerId && event.inPlayerId) {
+        const outIndex = lineup.findIndex((id) => id === event.outPlayerId);
+        if (outIndex >= 0 && !lineup.includes(event.inPlayerId)) {
+          lineup[outIndex] = event.inPlayerId;
+        }
+      }
+    });
+
+    this.teamRoster.setLineup(lineup);
+  }
+
+  private isValidLineup(lineup: unknown): lineup is Array<string | null> {
+    if (!Array.isArray(lineup) || lineup.length !== 6) {
+      return false;
+    }
+    return lineup.every((id) => id === null || typeof id === 'string');
+  }
+
+  private normalizeLineup(lineup: Array<string | null>): Array<string | null> {
+    return lineup.map((id) => (typeof id === 'string' ? id : null));
+  }
+
+  private rotateLineupClockwise(lineup: Array<string | null>): Array<string | null> {
+    return lineup.map((_, index) => lineup[(index + 1) % 6] ?? null);
   }
 
   private createEmptyStatLine(): StatsState[string] {

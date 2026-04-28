@@ -12,11 +12,10 @@ import {
   IonToolbar,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward } from 'ionicons/icons';
+import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward, star } from 'ionicons/icons';
 import { GameEvent as FirestoreGameEvent } from '../../models/firestore.models';
 import {
   AnalyticsTabId,
-  EventProfile,
   LiveLastEvent,
   LiveMatchStoreService,
   PlayerListFilter,
@@ -29,8 +28,8 @@ import { OfflineSyncService } from '../../services/offline-sync.service';
 import { RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
 
 type QuickAction = StatsAction;
-type StandardOutcomeAction = 'kill' | 'attack-error' | 'block' | 'opponent-point';
-type ExitAction = 'home' | 'lineup' | 'history' | 'end-home';
+type StandardOutcomeAction = 'kill' | 'attack-error' | 'block' | 'ace' | 'opponent-error' | 'opponent-point';
+type ExitAction = 'home' | 'lineup' | 'history' | 'end-home' | 'new-match';
 type TileEfficiencyState = 'neutral' | 'low' | 'medium' | 'high';
 
 interface PlayerPosition {
@@ -55,14 +54,6 @@ interface ActionMeta {
   label: string;
   icon: string;
   accent: string;
-  minProfile: EventProfile;
-}
-
-interface PrimaryActionGroup {
-  id: string;
-  label: string;
-  icon: string;
-  actionIds: QuickAction[];
 }
 
 interface StandardOutcomeMeta {
@@ -140,35 +131,26 @@ export class CourtPage {
   ];
 
   public readonly actionMeta: Record<QuickAction, ActionMeta> = {
-    kill: { label: '+ Kill', icon: 'flash', accent: 'action-kill', minProfile: 'simple' },
+    kill: { label: '+ Kill', icon: 'flash', accent: 'action-kill' },
     'attack-error': {
       label: '\u2212 Att Error',
       icon: 'close-circle',
       accent: 'action-error',
-      minProfile: 'simple',
     },
-    ace: { label: '+ Ace', icon: 'baseball', accent: 'action-ace', minProfile: 'simple' },
+    ace: { label: '+ Ace', icon: 'baseball', accent: 'action-ace' },
     'service-error': {
       label: '\u2212 Svc Error',
       icon: 'close-circle',
       accent: 'action-error',
-      minProfile: 'standard',
     },
-    block: { label: '+ Block', icon: 'hand-left', accent: 'action-block', minProfile: 'standard' },
-    dig: { label: 'Dig', icon: 'baseball', accent: 'action-dig', minProfile: 'standard' },
+    block: { label: '+ Block', icon: 'hand-left', accent: 'action-block' },
+    dig: { label: 'Dig', icon: 'baseball', accent: 'action-dig' },
     'opponent-error': {
-      label: '+ Opp Error',
+      label: '+ Opp UE',
       icon: 'close-circle',
       accent: 'action-opponent-error',
-      minProfile: 'simple',
     },
   };
-
-  public readonly primaryActionGroups: PrimaryActionGroup[] = [
-    { id: 'attack', label: 'Attack', icon: 'flash', actionIds: ['kill', 'attack-error', 'block'] },
-    { id: 'serve', label: 'Serve', icon: 'baseball', actionIds: ['ace', 'service-error'] },
-    { id: 'rally', label: 'Rally', icon: 'close-circle', actionIds: ['opponent-error', 'dig'] },
-  ];
 
   public readonly playerPositions: PlayerPosition[] = [
     { id: 4, label: 'LF', top: '34%', left: '19%' },
@@ -186,7 +168,7 @@ export class CourtPage {
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
-    addIcons({'arrowUndo':arrowUndo,flash,'closeCircle':closeCircle,baseball,'handLeft':handLeft,'addCircle':addCircle,'playForward':playForward,});
+    addIcons({'arrowUndo':arrowUndo,flash,'closeCircle':closeCircle,baseball,'handLeft':handLeft,'addCircle':addCircle,'playForward':playForward,star});
     this.liveStore.syncActiveGame();
   }
 
@@ -208,22 +190,6 @@ export class CourtPage {
 
   set lastEvent(lastEvent: LiveLastEvent | undefined) {
     this.liveStore.setUi({ lastEvent });
-  }
-
-  get selectedProfile(): EventProfile {
-    return this.liveStore.ui().selectedProfile;
-  }
-
-  set selectedProfile(selectedProfile: EventProfile) {
-    this.liveStore.setUi({ selectedProfile });
-  }
-
-  get activePrimaryGroupId(): string {
-    return this.liveStore.ui().activePrimaryGroupId;
-  }
-
-  set activePrimaryGroupId(activePrimaryGroupId: string) {
-    this.liveStore.setUi({ activePrimaryGroupId });
   }
 
   get isSubOverlayOpen(): boolean {
@@ -248,14 +214,6 @@ export class CourtPage {
 
   set substitutionStatus(substitutionStatus: string) {
     this.liveStore.setUi({ substitutionStatus });
-  }
-
-  get showAdvancedControls(): boolean {
-    return this.liveStore.ui().showAdvancedControls;
-  }
-
-  set showAdvancedControls(showAdvancedControls: boolean) {
-    this.liveStore.setUi({ showAdvancedControls });
   }
 
   get activeSurfaceMode(): SurfaceMode {
@@ -329,13 +287,18 @@ export class CourtPage {
         data: { action: 'history' },
       },
       {
+        text: 'Start New Match',
+        role: 'destructive',
+        data: { action: 'new-match' },
+      },
+      {
         text: 'Cancel',
         role: 'cancel',
       },
     ];
 
     if (!this.isMatchOver) {
-      buttons.splice(3, 0, {
+      buttons.splice(4, 0, {
         text: 'End Match + Go Home',
         role: 'destructive',
         data: { action: 'end-home' },
@@ -434,6 +397,16 @@ export class CourtPage {
     }
 
     const event = this.matchEngine.recordPlayerAction(this.activePlayer, action);
+    if (action === 'opponent-error') {
+      this.lastEvent = {
+        kind: 'opponent-error-point',
+        impactedScore: event.impactedScore,
+        impactedStats: event.impactedStats,
+      };
+      this.refreshReviewLoadMetricIfVisible();
+      return;
+    }
+
     this.lastEvent = {
       kind: 'player-action',
       playerId: this.activePlayer,
@@ -540,7 +513,10 @@ export class CourtPage {
     }
 
     if (this.lastEvent.kind === 'opponent-point') {
-      return 'Last: Opponent Point';
+      return 'Last: Opponent Winner';
+    }
+    if (this.lastEvent.kind === 'opponent-error-point') {
+      return 'Last: Opponent Unforced Error';
     }
     if (this.lastEvent.kind === 'manual-rotation') {
       return 'Last: Manual Rotation';
@@ -598,18 +574,6 @@ export class CourtPage {
     this.refreshReviewLoadMetricIfVisible();
   }
 
-  setProfile(profile: EventProfile): void {
-    if (this.isMatchOver) {
-      return;
-    }
-
-    this.selectedProfile = profile;
-  }
-
-  setPrimaryGroup(groupId: string): void {
-    this.activePrimaryGroupId = this.activePrimaryGroupId === groupId ? '' : groupId;
-  }
-
   setSurfaceMode(mode: SurfaceMode): void {
     if (this.activeSurfaceMode === mode) {
       return;
@@ -618,7 +582,6 @@ export class CourtPage {
     this.activeSurfaceMode = mode;
     if (mode !== 'live') {
       this.isSubOverlayOpen = false;
-      this.showAdvancedControls = false;
       this.resetSubSelection();
     }
     if (mode === 'review') {
@@ -632,14 +595,6 @@ export class CourtPage {
 
   setAnalyticsTab(tabId: AnalyticsTabId): void {
     this.activeAnalyticsTab = tabId;
-  }
-
-  toggleAdvancedControls(): void {
-    this.showAdvancedControls = !this.showAdvancedControls;
-  }
-
-  get isStandardMode(): boolean {
-    return this.selectedProfile === 'standard';
   }
 
   get standardOutcomeActions(): StandardOutcomeMeta[] {
@@ -663,8 +618,20 @@ export class CourtPage {
         accent: this.actionMeta.block.accent,
       },
       {
+        id: 'ace',
+        label: this.actionMeta.ace.label,
+        icon: this.actionMeta.ace.icon,
+        accent: this.actionMeta.ace.accent,
+      },
+      {
+        id: 'opponent-error',
+        label: this.actionMeta['opponent-error'].label,
+        icon: this.actionMeta['opponent-error'].icon,
+        accent: this.actionMeta['opponent-error'].accent,
+      },
+      {
         id: 'opponent-point',
-        label: '\u2212 Opp Point',
+        label: '\u2212 Opp Winner',
         icon: 'add-circle',
         accent: 'action-opponent-point',
       },
@@ -678,28 +645,6 @@ export class CourtPage {
     }
 
     this.recordAction(action);
-  }
-
-  get visibleContextActions(): Array<{ id: QuickAction; label: string; icon: string; accent: string }> {
-    const group = this.primaryActionGroups.find((item) => item.id === this.activePrimaryGroupId);
-    if (!group) {
-      return [];
-    }
-
-    return group.actionIds
-      .filter((actionId) => this.isActionVisible(actionId))
-      .map((actionId) => ({
-        id: actionId,
-        label: this.actionMeta[actionId].label,
-        icon: this.actionMeta[actionId].icon,
-        accent: this.actionMeta[actionId].accent,
-      }));
-  }
-
-  get visiblePrimaryGroups(): PrimaryActionGroup[] {
-    return this.primaryActionGroups.filter((group) =>
-      group.actionIds.some((actionId) => this.isActionVisible(actionId)),
-    );
   }
 
   get onCourtPlayers(): RosterPlayer[] {
@@ -720,7 +665,6 @@ export class CourtPage {
       return;
     }
 
-    this.showAdvancedControls = false;
     this.openSubOverlay();
   }
 
@@ -743,6 +687,10 @@ export class CourtPage {
 
   get isMatchOver(): boolean {
     return this.gameState.isMatchOver;
+  }
+
+  get opponentName(): string {
+    return this.liveStore.game()?.opponentName?.trim() || 'Opponent';
   }
 
   get rotationIndicatorText(): string {
@@ -848,6 +796,11 @@ export class CourtPage {
 
     if (action === 'home') {
       await this.router.navigate(['/home']);
+      return;
+    }
+
+    if (action === 'new-match') {
+      this.startNewMatch();
       return;
     }
 
@@ -1038,8 +991,8 @@ export class CourtPage {
         displayValue: `${totals.serviceErrors}`,
       },
       {
-        label: 'Opponent Point Events',
-        detail: 'Logged opponent points',
+        label: 'Opponent Winner Events',
+        detail: 'Logged opponent winner points',
         value: opponentPoints,
         displayValue: `${opponentPoints}`,
       },
@@ -1111,24 +1064,17 @@ export class CourtPage {
     return this.actionMeta[action]?.label ?? action;
   }
 
-  private isActionVisible(action: QuickAction): boolean {
-    const rank: Record<EventProfile, number> = {
-      simple: 1,
-      standard: 2,
-      advanced: 3,
-    };
-
-    return rank[this.selectedProfile] >= rank[this.actionMeta[action].minProfile];
-  }
-
   private describeEvent(event: { type: string; action: string; servingTeam?: string; timeoutTeam?: string }): string {
     const type = event.type;
     if (type === 'playerAction') {
       const action = event.action || 'action';
+      if (action === 'opponent-error') {
+        return 'Team: Opponent Unforced Error';
+      }
       return `Player: ${this.getActionLabel(action as QuickAction)}`;
     }
     if (type === 'opponentPoint') {
-      return 'Opponent Point';
+      return 'Opponent Winner';
     }
     if (type === 'substitution') {
       return 'Substitution';

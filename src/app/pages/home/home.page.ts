@@ -38,6 +38,10 @@ export class HomePage {
     return this.teamRoster.lineup().filter((playerId) => !!playerId).length;
   }
 
+  get playerPoolCount(): number {
+    return this.teamRoster.players().length;
+  }
+
   get hasMatchStarted(): boolean {
     const state = this.matchState.state();
     if (state.teamPoints > 0 || state.opponentPoints > 0 || state.teamSets > 0 || state.opponentSets > 0 || state.currentSet > 1) {
@@ -51,12 +55,12 @@ export class HomePage {
   get matchStatusText(): string {
     const state = this.matchState.state();
     if (state.isMatchOver) {
-      return `Final: ${state.teamSets}-${state.opponentSets} sets`;
+      return `Final vs ${this.opponentName}: ${state.teamSets}-${state.opponentSets} sets`;
     }
     if (!this.hasMatchStarted) {
       return 'No live match in progress';
     }
-    return `Live: ${state.teamPoints}-${state.opponentPoints} in set ${state.currentSet}`;
+    return `Live vs ${this.opponentName}: ${state.teamPoints}-${state.opponentPoints} in set ${state.currentSet}`;
   }
 
   get syncStatusText(): string {
@@ -73,6 +77,10 @@ export class HomePage {
 
   get hasActiveMatch(): boolean {
     return this.hasMatchStarted && !this.matchState.state().isMatchOver;
+  }
+
+  get opponentName(): string {
+    return this.offlineSync.getGame(this.offlineSync.getActiveMatchId())?.opponentName?.trim() || 'Opponent';
   }
 
   get liveMatchButtonText(): string {

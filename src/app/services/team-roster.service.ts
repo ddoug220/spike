@@ -11,6 +11,13 @@ export interface RosterPlayer {
   primaryPosition: PrimaryPosition;
 }
 
+export interface RosterTeam {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface NewRosterPlayer {
   name: string;
   jerseyNumber: number;
@@ -23,6 +30,7 @@ export interface LineupSlot {
 }
 
 interface PersistedRosterState {
+  team?: Partial<RosterTeam>;
   players: RosterPlayer[];
   lineup: Array<string | null>;
 }
@@ -32,14 +40,31 @@ interface PersistedRosterState {
 })
 export class TeamRosterService {
   private static readonly STORAGE_KEY = 'spike-volleyball-roster-v1';
+  private readonly teamSignal = signal<RosterTeam>(this.createDefaultTeam());
   private readonly playersSignal = signal<RosterPlayer[]>([]);
   private readonly lineupSignal = signal<Array<string | null>>([null, null, null, null, null, null]);
 
+  readonly team = computed(() => this.teamSignal());
   readonly players = computed(() => this.playersSignal());
   readonly lineup = computed(() => this.lineupSignal());
 
   constructor(private readonly rotationService: RotationService) {
     this.restore();
+  }
+
+  updateTeamName(name: string): boolean {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return false;
+    }
+
+    this.teamSignal.update((team) => ({
+      ...team,
+      name: trimmedName,
+      updatedAt: new Date().toISOString(),
+    }));
+    this.persist();
+    return true;
   }
 
   addPlayer(player: NewRosterPlayer): void {
@@ -225,6 +250,7 @@ export class TeamRosterService {
     }
 
     const state: PersistedRosterState = {
+      team: this.teamSignal(),
       players: this.playersSignal(),
       lineup: this.lineupSignal(),
     };
@@ -249,9 +275,43 @@ export class TeamRosterService {
 
       this.playersSignal.set(parsed.players);
       this.lineupSignal.set(parsed.lineup.map((id) => (typeof id === 'string' ? id : null)));
+      this.teamSignal.set(this.normalizeTeam(parsed.team));
     } catch {
       // Ignore invalid persisted data and continue with defaults.
     }
+  }
+
+  private createDefaultTeam(): RosterTeam {
+    const now = new Date().toISOString();
+    return {
+      id: this.createTeamId(),
+      name: 'My Team',
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  private normalizeTeam(team: Partial<RosterTeam> | undefined): RosterTeam {
+    const fallback = this.teamSignal();
+    const name = typeof team?.name === 'string' && team.name.trim() ? team.name.trim() : fallback.name;
+    const id = typeof team?.id === 'string' && team.id.trim() ? team.id : fallback.id;
+    const createdAt = typeof team?.createdAt === 'string' && team.createdAt ? team.createdAt : fallback.createdAt;
+    const updatedAt = typeof team?.updatedAt === 'string' && team.updatedAt ? team.updatedAt : fallback.updatedAt;
+
+    return {
+      id,
+      name,
+      createdAt,
+      updatedAt,
+    };
+  }
+
+  private createTeamId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `team-${crypto.randomUUID()}`;
+    }
+
+    return `team-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   }
 
   private createPlayerId(): string {

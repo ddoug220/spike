@@ -4,12 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { IonBackButton, IonButton, IonButtons, IonContent, IonFooter, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { arrowBack, checkmarkCircle, close, create, ellipseOutline, flask, play, personAdd, trash } from 'ionicons/icons';
+import { arrowBack, checkmarkCircle, close, create, ellipseOutline, play, personAdd, save, trash } from 'ionicons/icons';
 import { MatchEngineService } from '../../services/match-engine.service';
 import {
   NewRosterPlayer,
   PrimaryPosition,
   RosterPlayer,
+  RosterTeam,
   TeamRosterService,
 } from '../../services/team-roster.service';
 
@@ -17,10 +18,12 @@ interface CourtSlot {
   position: number;
   roleLabel: string;
   row: 'front' | 'back';
-  isServingFirst: boolean;
+  isTeamServerSlot: boolean;
   top: string;
   left: string;
 }
+
+type FirstServeTeam = 'team' | 'opponent';
 
 @Component({
   selector: 'app-pre-match',
@@ -43,27 +46,14 @@ interface CourtSlot {
   ],
 })
 export class PreMatchPage {
-  private static readonly QA_FAKE_TEAM: NewRosterPlayer[] = [
-    { name: 'Ava Johnson', jerseyNumber: 1, primaryPosition: 'S' },
-    { name: 'Mia Patel', jerseyNumber: 2, primaryPosition: 'OH' },
-    { name: 'Zoe Ramirez', jerseyNumber: 3, primaryPosition: 'MB' },
-    { name: 'Nora Kim', jerseyNumber: 4, primaryPosition: 'OH' },
-    { name: 'Ella Nguyen', jerseyNumber: 5, primaryPosition: 'OPP' },
-    { name: 'Lily Carter', jerseyNumber: 6, primaryPosition: 'MB' },
-    { name: 'Ruby Brooks', jerseyNumber: 7, primaryPosition: 'DS' },
-    { name: 'Emma Cooper', jerseyNumber: 8, primaryPosition: 'L' },
-    { name: 'Chloe Diaz', jerseyNumber: 9, primaryPosition: 'OH' },
-    { name: 'Sofia Price', jerseyNumber: 10, primaryPosition: 'MB' },
-  ];
-
   readonly primaryPositions: PrimaryPosition[] = ['S', 'OH', 'MB', 'OPP', 'L', 'DS'];
   readonly courtSlots: CourtSlot[] = [
-    { position: 4, roleLabel: 'Front Left', row: 'front', isServingFirst: false, top: '24%', left: '18%' },
-    { position: 3, roleLabel: 'Front Middle', row: 'front', isServingFirst: false, top: '24%', left: '50%' },
-    { position: 2, roleLabel: 'Front Right', row: 'front', isServingFirst: false, top: '24%', left: '82%' },
-    { position: 5, roleLabel: 'Back Left', row: 'back', isServingFirst: false, top: '76%', left: '18%' },
-    { position: 6, roleLabel: 'Back Middle', row: 'back', isServingFirst: false, top: '76%', left: '50%' },
-    { position: 1, roleLabel: 'Back Right', row: 'back', isServingFirst: true, top: '76%', left: '82%' },
+    { position: 4, roleLabel: 'Front Left', row: 'front', isTeamServerSlot: false, top: '24%', left: '18%' },
+    { position: 3, roleLabel: 'Front Middle', row: 'front', isTeamServerSlot: false, top: '24%', left: '50%' },
+    { position: 2, roleLabel: 'Front Right', row: 'front', isTeamServerSlot: false, top: '24%', left: '82%' },
+    { position: 5, roleLabel: 'Back Left', row: 'back', isTeamServerSlot: false, top: '76%', left: '18%' },
+    { position: 6, roleLabel: 'Back Middle', row: 'back', isTeamServerSlot: false, top: '76%', left: '50%' },
+    { position: 1, roleLabel: 'Back Right', row: 'back', isTeamServerSlot: true, top: '76%', left: '82%' },
   ];
 
   draft: NewRosterPlayer = {
@@ -71,6 +61,11 @@ export class PreMatchPage {
     jerseyNumber: 1,
     primaryPosition: 'OH',
   };
+  matchDetails = {
+    opponentName: '',
+  };
+  teamNameDraft = '';
+  firstServeTeam: FirstServeTeam = 'team';
 
   private draggedPlayerId: string | null = null;
   public selectedBenchPlayerId: string | null = null;
@@ -81,11 +76,22 @@ export class PreMatchPage {
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
-    addIcons({ personAdd, trash, play, flask, create, close, checkmarkCircle, ellipseOutline, arrowBack });
+    addIcons({ personAdd, trash, play, create, close, checkmarkCircle, ellipseOutline, arrowBack, save });
+    this.teamNameDraft = this.teamRoster.team().name;
+  }
+
+  get team(): RosterTeam {
+    return this.teamRoster.team();
   }
 
   get players(): RosterPlayer[] {
     return this.teamRoster.players();
+  }
+
+  get rosterSummaryText(): string {
+    const playerCount = this.players.length;
+    const assignedCount = this.teamRoster.lineup().filter((playerId) => !!playerId).length;
+    return `${playerCount} player${playerCount === 1 ? '' : 's'} in pool - ${assignedCount}/6 starters set`;
   }
 
   get hasAssignedStarters(): boolean {
@@ -110,6 +116,10 @@ export class PreMatchPage {
     return this.isLineupReady && this.isRotationValid;
   }
 
+  get doesTeamServeFirst(): boolean {
+    return this.firstServeTeam === 'team';
+  }
+
   get startMatchDisabledReason(): string {
     if (!this.isLineupReady) {
       return 'Assign 6 starters to begin';
@@ -120,6 +130,15 @@ export class PreMatchPage {
     }
 
     return '';
+  }
+
+  saveTeam(): void {
+    const didSave = this.teamRoster.updateTeamName(this.teamNameDraft);
+    if (!didSave) {
+      this.teamNameDraft = this.team.name;
+      return;
+    }
+    this.teamNameDraft = this.team.name;
   }
 
   submitPlayer(): void {
@@ -179,22 +198,6 @@ export class PreMatchPage {
     }
   }
 
-  generateFakeTeam(): void {
-    this.cancelEdit();
-    const existingPlayers = this.teamRoster.players().map((player) => player.id);
-    existingPlayers.forEach((playerId) => this.teamRoster.removePlayer(playerId));
-
-    PreMatchPage.QA_FAKE_TEAM.forEach((player) => this.teamRoster.addPlayer(player));
-
-    const seededPlayers = this.teamRoster.players();
-    this.courtSlots.forEach((slot, index) => {
-      const starter = seededPlayers[index];
-      if (starter) {
-        this.teamRoster.assignPlayerToPosition(starter.id, slot.position);
-      }
-    });
-  }
-
   allowDrop(event: DragEvent): void {
     event.preventDefault();
   }
@@ -251,12 +254,18 @@ export class PreMatchPage {
     this.selectedBenchPlayerId = null;
   }
 
+  setFirstServeTeam(team: FirstServeTeam): void {
+    this.firstServeTeam = team;
+  }
+
   async startMatch(): Promise<void> {
     if (!this.canStartMatch) {
       return;
     }
 
-    this.matchEngine.startMatch('team');
+    this.matchEngine.startMatch(this.firstServeTeam, {
+      opponentName: this.matchDetails.opponentName,
+    });
     await this.router.navigate(['/court']);
   }
 

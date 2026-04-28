@@ -34,6 +34,21 @@ describe('MatchEngineService', () => {
     expect(matchState.state().opponentPoints).toBe(0);
   });
 
+  it('persists opponent name into the active game snapshot', () => {
+    const matchId = service.startMatch('team', { opponentName: 'Central High' });
+
+    expect(offlineSync.getGame(matchId)?.opponentName).toBe('Central High');
+    expect(offlineSync.getMatchSummaries()[0].opponentName).toBe('Central High');
+  });
+
+  it('attaches the saved team id to new game snapshots', () => {
+    teamRoster.updateTeamName('North High');
+
+    const matchId = service.startMatch('team');
+
+    expect(offlineSync.getGame(matchId)?.teamId).toBe(teamRoster.team().id);
+  });
+
   it('undoes lineup rotation when undoing a side-out scoring action', () => {
     for (let i = 1; i <= 6; i += 1) {
       teamRoster.addPlayer({ name: `P${i}`, jerseyNumber: i, primaryPosition: 'OH' });
@@ -126,6 +141,25 @@ describe('MatchEngineService', () => {
     expect(restoredState.state().teamPoints).toBe(0);
   });
 
+  it('replays lineup state when synced fallback undo removes a side-out event', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({ name: `P${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    const initialLineup = [...teamRoster.lineup()];
+    const matchId = service.startMatch('team');
+    service.setServingTeam('opponent');
+
+    service.recordPlayerAction(1, 'kill');
+    expect(teamRoster.lineup()[0]).toBe(players[1].id);
+
+    const restoredEngine = new MatchEngineService(new MatchStateService(), new MatchStatsService(), teamRoster, offlineSync);
+    restoredEngine.undoLastEvent(offlineSync.getMatchEvents(matchId));
+
+    expect(teamRoster.lineup()).toEqual(initialLineup);
+  });
+
   it('undoes a store-provided synced event when it is not already archived locally', () => {
     const matchId = offlineSync.startNewMatch();
     const syncedEvents: GameEvent[] = [
@@ -192,5 +226,22 @@ describe('MatchEngineService', () => {
     restoredEngine.recordOpponentPoint();
 
     expect(offlineSync.getGame(matchId)?.startedAt).toBe(startedAt);
+  });
+
+  it('does not attribute opponent unforced error points to the selected team player', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({ name: `P${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    service.startMatch('opponent');
+
+    service.recordPlayerAction(3, 'opponent-error');
+
+    const selectedPlayerStats = matchStats.getPlayerStats(players[2].id);
+    expect(selectedPlayerStats.sideOutOpportunities).toBe(0);
+    expect(selectedPlayerStats.sideOutConversions).toBe(0);
+    expect(selectedPlayerStats.attackErrors).toBe(0);
+    expect(selectedPlayerStats.totalAttacks).toBe(0);
   });
 });

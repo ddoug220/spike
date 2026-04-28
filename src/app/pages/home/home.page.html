@@ -18,7 +18,7 @@
         <div class="hero-court-net"></div>
       </div>
       <div class="hero-text">
-        <span class="hero-eyebrow">Volleyball</span>
+        <span class="hero-eyebrow">{{ teamRoster.team().name }}</span>
         <h1 class="hero-title">
           @if (hasActiveMatch) { <span>Match in Progress</span> }
           @else if (matchState.state().isMatchOver) { <span>Final Score</span> }
@@ -29,7 +29,7 @@
         } @else if (matchState.state().isMatchOver) {
           <p class="hero-sub">{{ matchStatusText }}</p>
         } @else {
-          <p class="hero-sub">Set up your lineup and track the match live.</p>
+          <p class="hero-sub">Set up your lineup, name the opponent, and track the match live.</p>
         }
       </div>
     </div>
@@ -39,6 +39,10 @@
       <div class="status-chip" [ngClass]="{ 'status-chip--ok': hasValidLineup, 'status-chip--warn': !hasValidLineup }">
         <span class="chip-dot"></span>
         <span>Lineup {{ lineupAssignedCount }}/6{{ hasValidLineup ? ' ✓' : '' }}</span>
+      </div>
+      <div class="status-chip" [ngClass]="{ 'status-chip--ok': playerPoolCount >= 6, 'status-chip--warn': playerPoolCount < 6 }">
+        <span class="chip-dot"></span>
+        <span>Player Pool {{ playerPoolCount }}</span>
       </div>
       <div class="status-chip" [ngClass]="{ 'status-chip--ok': offlineSync.pendingCount() === 0, 'status-chip--warn': offlineSync.pendingCount() > 0 }">
         <span class="chip-dot"></span>
@@ -65,7 +69,7 @@
         <ion-button
           expand="block"
           class="action-btn action-btn--start"
-          [routerLink]="['/court']"
+          [routerLink]="['/pre-match']"
         >
           <ion-icon slot="start" name="play-circle"></ion-icon>
           Start Match
@@ -112,7 +116,7 @@
               @if (lineupAssignedCount > 0) { <span class="step-check">✓</span> }
               @else { <span>1</span> }
             </span>
-            <span class="step-text">Add players to the roster</span>
+            <span class="step-text">Add players to {{ teamRoster.team().name }}</span>
           </div>
           <div class="guide-step" [ngClass]="{ 'guide-step--done': lineupAssignedCount >= 6 }">
             <span class="step-marker">

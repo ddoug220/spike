@@ -11,6 +11,7 @@ describe('CourtPage', () => {
   let matchState: MatchStateService;
 
   beforeEach(async () => {
+    window.localStorage.clear();
     await TestBed.configureTestingModule({
       providers: [provideRouter([])],
     }).compileComponents();
@@ -55,6 +56,45 @@ describe('CourtPage', () => {
     expect(component.activePlayer).toBe(4);
   });
 
+  it('renders the standard scoring actions and prominent undo control', () => {
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+
+    expect(text).toContain('+ Kill');
+    expect(text).toContain('\u2212 Att Error');
+    expect(text).toContain('+ Block');
+    expect(text).toContain('+ Ace');
+    expect(text).toContain('+ Opp UE');
+    expect(text).toContain('\u2212 Opp Winner');
+    expect(text).toContain('Undo');
+  });
+
+  it('updates last-action feedback after an immediate scoring tap', () => {
+    component.activePlayer = 2;
+
+    component.recordStandardOutcome('ace');
+
+    expect(component.getLastEventText()).toBe('Last: Player #2 - + Ace');
+  });
+
+  it('tracks an opponent winner point separately from team-error actions', () => {
+    const before = matchState.state().opponentPoints;
+
+    component.recordStandardOutcome('opponent-point');
+
+    expect(matchState.state().opponentPoints).toBe(before + 1);
+    expect(component.getLastEventText()).toBe('Last: Opponent Winner');
+  });
+
+  it('tracks a team point from opponent unforced error', () => {
+    const before = matchState.state().teamPoints;
+
+    component.recordStandardOutcome('opponent-error');
+
+    expect(matchState.state().teamPoints).toBe(before + 1);
+    expect(component.getLastEventText()).toBe('Last: Opponent Unforced Error');
+  });
+
   it('allows manual rotation during live play', () => {
     for (let i = 1; i <= 6; i += 1) {
       teamRoster.addPlayer({
@@ -95,5 +135,14 @@ describe('CourtPage', () => {
     expect(component.isSubOverlayOpen).toBeFalse();
     expect(teamRoster.lineup()[0]).toBe(benchInPlayer.id);
     expect(component.substitutionStatus).toContain('Substituted:');
+  });
+
+  it('keeps Start New Match available in exit actions after the match is final', () => {
+    matchState.endMatch();
+    fixture.detectChanges();
+
+    const actions = component.exitSheetButtons.map((button) => button.data?.action);
+    expect(actions).toContain('new-match');
+    expect(actions).not.toContain('end-home');
   });
 });

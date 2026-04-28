@@ -23,6 +23,7 @@ describe('FirebaseDbService', () => {
       storageBucket: '',
       messagingSenderId: '',
       appId: '',
+      measurementId: '',
     };
     expect(service.isConfigured()).toBeFalse();
 
@@ -33,6 +34,7 @@ describe('FirebaseDbService', () => {
       storageBucket: 'example.appspot.com',
       messagingSenderId: 'sender-id',
       appId: 'app-id',
+      measurementId: 'measurement-id',
     };
     expect(service.isConfigured()).toBeTrue();
   });
@@ -45,6 +47,7 @@ describe('FirebaseDbService', () => {
       storageBucket: '',
       messagingSenderId: '',
       appId: '',
+      measurementId: '',
     };
 
     const event: GameEvent = {

@@ -11,59 +11,38 @@
     </div>
     <ion-button slot="end" class="exit-link" (click)="openExitSheet()">Exit</ion-button>
   </ion-toolbar>
-  <ion-toolbar class="game-context-toolbar" aria-label="Critical game context">
-    <div class="game-context-grid">
-      <div class="context-item context-score">
-        <span class="context-label">Score (H/A)</span>
-        <span class="context-value">{{ gameState.teamPoints }} / {{ gameState.opponentPoints }}</span>
-      </div>
-      <div class="context-item">
-        <span class="context-label">Set</span>
-        <span class="context-value">#{{ gameState.currentSet }}</span>
-      </div>
-      <div class="context-item">
-        <span class="context-label">Rotation</span>
-        <span class="context-value">{{ rotationIndicatorText }}</span>
-      </div>
-      <div class="context-item">
-        <span class="context-label">Timeouts (H/A)</span>
-        <span class="context-value">{{ timeoutIndicatorText }}</span>
-      </div>
-      <div class="context-item">
-        <span class="context-label">Serve</span>
-        <span class="context-value">{{ servePossessionText }}</span>
-      </div>
-    </div>
-  </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <section class="scoreboard-panel">
-    <div class="scoreboard-head">
-      <span class="label">Match State</span>
-      <div class="scoreboard-head-right">
-        <span class="set-label">Set {{ gameState.currentSet }}</span>
-      </div>
-    </div>
+  <section class="scoreboard-banner">
     <div class="match-over-banner" *ngIf="isMatchOver">&#9888; Match is final. Start a new match to continue tracking.</div>
-
-    <div class="scoreboard-main">
-      <div class="score-team">
-        <span class="team-name">Your Team</span>
-        <span class="points">{{ gameState.teamPoints }}</span>
-        <span class="sets">Sets {{ gameState.teamSets }}</span>
+    <div class="score-layout">
+      <div class="score-side home">
+        <span class="score-team-name">Your Team</span>
+        <span class="score-points">{{ gameState.teamPoints }}</span>
+        <div class="score-set-dots">
+          <span class="set-dot" [class.won]="gameState.teamSets >= 1"></span>
+          <span class="set-dot" [class.won]="gameState.teamSets >= 2"></span>
+          <span class="set-dot" [class.won]="gameState.teamSets >= 3"></span>
+        </div>
       </div>
-      <div class="divider">:</div>
-      <div class="score-team opponent">
-        <span class="team-name">Opponent</span>
-        <span class="points">{{ gameState.opponentPoints }}</span>
-        <span class="sets">Sets {{ gameState.opponentSets }}</span>
+      <div class="score-center">
+        <span class="score-set-label">SET {{ gameState.currentSet }}</span>
+        <div class="score-meta-row">
+          <span class="meta-badge" [ngClass]="{ serving: gameState.servingTeam === 'team' }">{{ servePossessionText }}</span>
+          <span class="meta-badge">{{ rotationIndicatorText }}</span>
+          <span class="meta-badge">T {{ timeoutIndicatorText }}</span>
+        </div>
       </div>
-    </div>
-    <div class="scoreboard-meta">
-      <span>Rotation: {{ rotationIndicatorText }}</span>
-      <span>Serve: {{ servePossessionText }}</span>
-      <span>Timeouts: {{ timeoutIndicatorText }}</span>
+      <div class="score-side away">
+        <span class="score-team-name">{{ opponentName }}</span>
+        <span class="score-points">{{ gameState.opponentPoints }}</span>
+        <div class="score-set-dots">
+          <span class="set-dot" [class.won]="gameState.opponentSets >= 1"></span>
+          <span class="set-dot" [class.won]="gameState.opponentSets >= 2"></span>
+          <span class="set-dot" [class.won]="gameState.opponentSets >= 3"></span>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -93,31 +72,34 @@
               selected: player.id === activePlayer,
               'current-server': player.id === 1 && gameState.servingTeam === 'team',
               dimmed: player.id !== activePlayer,
-              'sub-out-selected': isSelectedOutPlayer(player.id)
+              'sub-out-selected': isSelectedOutPlayer(player.id),
+              'eff-high': getPlayerTileEfficiencyState(player.id) === 'high',
+              'eff-medium': getPlayerTileEfficiencyState(player.id) === 'medium',
+              'eff-low': getPlayerTileEfficiencyState(player.id) === 'low'
             }"
             [style.top]="player.top"
             [style.left]="player.left"
             (click)="handleCourtPlayerTap(player.id)"
           >
+            <span class="chip-eff-bar"></span>
             <ng-container *ngIf="getPlayerForPosition(player.id) as assigned; else unassignedPlayer">
-              <span class="jersey">#{{ assigned.jerseyNumber }}</span>
-              <span class="position">{{ assigned.primaryPosition }}</span>
-              <span class="stat-line">{{ getPlayerTileStatLine(player.id) }}</span>
-              <span
-                class="efficiency-dot"
-                [ngClass]="'eff-' + getPlayerTileEfficiencyState(player.id)"
-                [attr.aria-label]="getPlayerTileEfficiencyLabel(player.id)"
-                title="{{ getPlayerTileEfficiencyLabel(player.id) }}"
-              ></span>
-              <span *ngIf="player.id === 1 && gameState.servingTeam === 'team'" class="server-tag">SERVE</span>
+              <span class="chip-meta">
+                <span class="chip-jersey">#{{ assigned.jerseyNumber }}</span>
+                <span class="chip-pos">{{ assigned.primaryPosition }}</span>
+                <ion-icon *ngIf="player.id === 1 && gameState.servingTeam === 'team'" name="star" class="chip-serve-star"></ion-icon>
+              </span>
+              <span class="chip-name">{{ assigned.name }}</span>
+              <span class="chip-stats">{{ getPlayerTileStatLine(player.id) }}</span>
               <span *ngIf="isSelectedOutPlayer(player.id)" class="sub-out-tag">OUT</span>
             </ng-container>
             <ng-template #unassignedPlayer>
-              <span class="jersey">P{{ player.id }}</span>
-              <span class="position">{{ player.label }}</span>
-              <span class="stat-line">{{ getPlayerTileStatLine(player.id) }}</span>
-              <span class="efficiency-dot eff-neutral" aria-label="No assigned player" title="No assigned player"></span>
-              <span *ngIf="player.id === 1 && gameState.servingTeam === 'team'" class="server-tag">SERVE</span>
+              <span class="chip-meta">
+                <span class="chip-jersey">P{{ player.id }}</span>
+                <span class="chip-pos">{{ player.label }}</span>
+                <ion-icon *ngIf="player.id === 1 && gameState.servingTeam === 'team'" name="star" class="chip-serve-star"></ion-icon>
+              </span>
+              <span class="chip-name">—</span>
+              <span class="chip-stats">{{ getPlayerTileStatLine(player.id) }}</span>
             </ng-template>
           </button>
 
@@ -131,56 +113,19 @@
           <p class="score-line">Set K/E: {{ teamSetKills }} / {{ teamSetAttackErrors }} | Side-Out: {{ formatRate(teamSideOutRate) }}</p>
         </div>
 
-        <ng-container *ngIf="isStandardMode; else groupedActionFlow">
-          <div class="direct-actions-grid">
-            <ion-button
-              *ngFor="let action of standardOutcomeActions"
-              expand="block"
-              class="action-btn"
-              [ngClass]="action.accent"
-              (click)="recordStandardOutcome(action.id)"
-              [disabled]="isMatchOver"
-            >
-              <ion-icon [name]="action.icon" slot="start"></ion-icon>
-              {{ action.label }}
-            </ion-button>
-          </div>
-        </ng-container>
-
-        <ng-template #groupedActionFlow>
-          <div class="primary-actions-grid">
-            <ion-button
-              *ngFor="let group of visiblePrimaryGroups"
-              expand="block"
-              class="primary-action-btn"
-              [ngClass]="{ active: activePrimaryGroupId === group.id }"
-              (click)="setPrimaryGroup(group.id)"
-              [disabled]="isMatchOver"
-            >
-              <ion-icon [name]="group.icon" slot="start"></ion-icon>
-              {{ group.label }}
-            </ion-button>
-          </div>
-
-          <div class="context-actions-grid" *ngIf="visibleContextActions.length > 0">
-            <ion-button
-              *ngFor="let action of visibleContextActions"
-              expand="block"
-              class="action-btn"
-              [ngClass]="action.accent"
-              (click)="recordAction(action.id)"
-              [disabled]="isMatchOver"
-            >
-              <ion-icon [name]="action.icon" slot="start"></ion-icon>
-              {{ action.label }}
-            </ion-button>
-          </div>
-
-          <ion-button expand="block" fill="solid" class="opponent-point-btn" (click)="recordOpponentPoint()" [disabled]="isMatchOver">
-            <ion-icon name="add-circle" slot="start"></ion-icon>
-            &minus; Opp Point
+        <div class="direct-actions-grid">
+          <ion-button
+            *ngFor="let action of standardOutcomeActions"
+            expand="block"
+            class="action-btn"
+            [ngClass]="action.accent"
+            (click)="recordStandardOutcome(action.id)"
+            [disabled]="isMatchOver"
+          >
+            <ion-icon [name]="action.icon" slot="start"></ion-icon>
+            {{ action.label }}
           </ion-button>
-        </ng-template>
+        </div>
 
         <div class="command-row">
           <ion-button expand="block" fill="solid" class="undo-btn" (click)="undoLastAction()" [disabled]="isMatchOver">
@@ -198,16 +143,6 @@
           >
             {{ isSubOverlayOpen ? 'Close Sub Panel' : 'Substitute' }}
           </ion-button>
-
-          <ion-button
-            expand="block"
-            fill="outline"
-            class="advanced-toggle"
-            [ngClass]="{ active: showAdvancedControls }"
-            (click)="toggleAdvancedControls()"
-          >
-            {{ showAdvancedControls ? 'Hide Command' : 'Open Command' }}
-          </ion-button>
         </div>
 
         <div class="last-action" [ngClass]="{ empty: !lastEvent }">
@@ -216,112 +151,17 @@
 
         <p class="sub-status" [ngClass]="{ empty: !substitutionStatus }">{{ substitutionStatus || 'No substitutions yet' }}</p>
 
-        <section class="command-panel" *ngIf="showAdvancedControls">
-          <div class="command-block">
-            <h3>Match Control</h3>
-            <div class="command-actions two-col">
-              <ion-button size="small" class="match-ctl" (click)="startNewMatch()">New Match</ion-button>
-              <ion-button size="small" class="match-ctl secondary" (click)="endMatch()" [disabled]="isMatchOver">
-                End Match
-              </ion-button>
-            </div>
-          </div>
+        <div class="quiet-sync" [ngClass]="{ pending: offlineSync.pendingCount() > 0, error: offlineSync.lastError() }">
+          <span>{{ syncStatusText }}</span>
+          <button *ngIf="offlineSync.lastError()" type="button" (click)="retrySync()">Retry</button>
+        </div>
 
-          <div class="command-block">
-            <h3>Action Profile</h3>
-            <div class="profile-toggle">
-              <ion-button
-                size="small"
-                [ngClass]="{ active: selectedProfile === 'simple' }"
-                (click)="setProfile('simple')"
-                [disabled]="isMatchOver"
-              >
-                Simple
-              </ion-button>
-              <ion-button
-                size="small"
-                [ngClass]="{ active: selectedProfile === 'standard' }"
-                (click)="setProfile('standard')"
-                [disabled]="isMatchOver"
-              >
-                Standard
-              </ion-button>
-              <ion-button
-                size="small"
-                [ngClass]="{ active: selectedProfile === 'advanced' }"
-                (click)="setProfile('advanced')"
-                [disabled]="isMatchOver"
-              >
-                Advanced
-              </ion-button>
-            </div>
+        <div class="event-log-list compact" *ngIf="recentCommandEvents.length > 0">
+          <div class="event-log-row" *ngFor="let event of recentCommandEvents">
+            <span class="event-time">{{ event.createdAt | date:'shortTime' }}</span>
+            <span class="event-label">{{ event.label }}</span>
           </div>
-
-          <div class="command-block">
-            <h3>Flow Control</h3>
-            <div class="serve-toggle">
-              <ion-button
-                size="small"
-                [ngClass]="{ active: gameState.servingTeam === 'team' }"
-                (click)="setServingTeam('team')"
-                [disabled]="isMatchOver"
-              >
-                Our Serve
-              </ion-button>
-              <ion-button
-                size="small"
-                [ngClass]="{ active: gameState.servingTeam === 'opponent' }"
-                (click)="setServingTeam('opponent')"
-                [disabled]="isMatchOver"
-              >
-                Their Serve
-              </ion-button>
-            </div>
-            <div class="timeout-toggle">
-              <ion-button
-                size="small"
-                (click)="callTimeout('team')"
-                [disabled]="isMatchOver || gameState.teamTimeoutsRemaining === 0"
-              >
-                Home Timeout
-              </ion-button>
-              <ion-button
-                size="small"
-                (click)="callTimeout('opponent')"
-                [disabled]="isMatchOver || gameState.opponentTimeoutsRemaining === 0"
-              >
-                Away Timeout
-              </ion-button>
-              <ion-button size="small" (click)="manualRotate()" [disabled]="isMatchOver">
-                Manual Rotate
-              </ion-button>
-            </div>
-          </div>
-
-          <div class="command-block">
-            <h3>System</h3>
-            <div class="sync-status" [ngClass]="{ pending: offlineSync.pendingCount() > 0 }">
-              <span *ngIf="offlineSync.pendingCount() === 0" aria-hidden="true">&check;</span>
-              <span *ngIf="offlineSync.pendingCount() > 0" aria-hidden="true">&#9203;</span>
-              Queue: {{ offlineSync.pendingCount() }} | {{ syncStatusText }}
-            </div>
-            <div class="sync-status error" *ngIf="offlineSync.lastError() as syncError">
-              <span aria-hidden="true">&#9888;</span> Sync error: {{ syncError }}
-              <ion-button size="small" fill="clear" (click)="retrySync()">Retry</ion-button>
-            </div>
-            <div class="sync-status">{{ lastSyncText }}</div>
-          </div>
-
-          <div class="command-block" *ngIf="recentCommandEvents.length > 0">
-            <h3>Recent Events</h3>
-            <div class="event-log-list compact">
-              <div class="event-log-row" *ngFor="let event of recentCommandEvents">
-                <span class="event-time">{{ event.createdAt | date:'shortTime' }}</span>
-                <span class="event-label">{{ event.label }}</span>
-              </div>
-            </div>
-          </div>
-        </section>
+        </div>
       </aside>
     </div>
 

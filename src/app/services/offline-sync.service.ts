@@ -36,9 +36,15 @@ interface ArchivedSyncState {
 
 export interface MatchArchiveSummary {
   matchId: string;
+  opponentName: string;
+  startedAt: string;
   lastUpdatedAt: string;
   totalEvents: number;
   isFinal: boolean;
+  teamPoints: number;
+  opponentPoints: number;
+  teamSets: number;
+  opponentSets: number;
   finalTeamSets: number | null;
   finalOpponentSets: number | null;
 }
@@ -220,35 +226,49 @@ export class OfflineSyncService {
   }
 
   getMatchSummaries(): MatchArchiveSummary[] {
-    const grouped = new Map<string, { events: GameEvent[]; stats: PlayerSetStats[] }>();
+    const grouped = new Map<string, { games: Game[]; events: GameEvent[]; stats: PlayerSetStats[] }>();
+
+    this.archiveSignal().games.forEach((game) => {
+      const existing = grouped.get(game.id) ?? { games: [], events: [], stats: [] };
+      existing.games.push(game);
+      grouped.set(game.id, existing);
+    });
 
     this.archiveSignal().events.filter((event) => !event.isDeleted).forEach((event) => {
-      const existing = grouped.get(event.gameId) ?? { events: [], stats: [] };
+      const existing = grouped.get(event.gameId) ?? { games: [], events: [], stats: [] };
       existing.events.push(event);
       grouped.set(event.gameId, existing);
     });
 
     this.archiveSignal().playerSetStats.forEach((stats) => {
-      const existing = grouped.get(stats.gameId) ?? { events: [], stats: [] };
+      const existing = grouped.get(stats.gameId) ?? { games: [], events: [], stats: [] };
       existing.stats.push(stats);
       grouped.set(stats.gameId, existing);
     });
 
     return Array.from(grouped.entries())
       .map(([matchId, state]) => {
+        const latestGame = state.games.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
         const latestStats = state.stats.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
         const latestEvent = state.events.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+        const firstEvent = state.events.slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
         const finalEvent = state.events
           .slice()
           .reverse()
           .find((event) => event.type === 'matchEnded');
         return {
           matchId,
-          lastUpdatedAt: latestStats?.updatedAt ?? latestEvent?.createdAt ?? '',
+          opponentName: latestGame?.opponentName?.trim() || 'Opponent',
+          startedAt: latestGame?.startedAt ?? firstEvent?.createdAt ?? '',
+          lastUpdatedAt: latestGame?.updatedAt ?? latestStats?.updatedAt ?? latestEvent?.createdAt ?? '',
           totalEvents: state.events.length,
-          isFinal: !!finalEvent,
-          finalTeamSets: finalEvent?.teamSets ?? null,
-          finalOpponentSets: finalEvent?.opponentSets ?? null,
+          isFinal: latestGame?.isMatchOver ?? !!finalEvent,
+          teamPoints: latestGame?.teamPoints ?? finalEvent?.teamPoints ?? latestEvent?.teamPoints ?? 0,
+          opponentPoints: latestGame?.opponentPoints ?? finalEvent?.opponentPoints ?? latestEvent?.opponentPoints ?? 0,
+          teamSets: latestGame?.teamSets ?? finalEvent?.teamSets ?? latestEvent?.teamSets ?? 0,
+          opponentSets: latestGame?.opponentSets ?? finalEvent?.opponentSets ?? latestEvent?.opponentSets ?? 0,
+          finalTeamSets: latestGame?.isMatchOver ? latestGame.teamSets : finalEvent?.teamSets ?? null,
+          finalOpponentSets: latestGame?.isMatchOver ? latestGame.opponentSets : finalEvent?.opponentSets ?? null,
         };
       })
       .sort((a, b) => b.lastUpdatedAt.localeCompare(a.lastUpdatedAt));

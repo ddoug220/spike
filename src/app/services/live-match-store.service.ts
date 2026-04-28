@@ -6,13 +6,13 @@ import { MatchScoreState, MatchStateService } from './match-state.service';
 import { MatchStatsService, PlayerStatLine, StatsAction } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
 
-export type EventProfile = 'simple' | 'standard' | 'advanced';
 export type SurfaceMode = 'live' | 'review';
 export type PlayerListFilter = 'all' | 'starters' | 'bench';
 export type AnalyticsTabId = 'efficiency' | 'rotation' | 'serve-receive' | 'errors' | 'sets';
 
 export type LiveLastEvent =
   | { kind: 'player-action'; playerId: number; action: StatsAction; impactedScore: boolean; impactedStats: boolean }
+  | { kind: 'opponent-error-point'; impactedScore: boolean; impactedStats: boolean }
   | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean }
   | { kind: 'manual-rotation'; impactedScore: false; impactedStats: false }
   | { kind: 'timeout'; team: 'team' | 'opponent'; impactedScore: false; impactedStats: false };
@@ -20,12 +20,9 @@ export type LiveLastEvent =
 export interface LiveMatchUiState {
   activePlayer: number;
   lastEvent?: LiveLastEvent;
-  selectedProfile: EventProfile;
-  activePrimaryGroupId: string;
   isSubOverlayOpen: boolean;
   substitutionOutPlayerId: string | null;
   substitutionStatus: string;
-  showAdvancedControls: boolean;
   activeSurfaceMode: SurfaceMode;
   playerListFilter: PlayerListFilter;
   playerSearchQuery: string;
@@ -217,12 +214,9 @@ export class LiveMatchStoreService implements OnDestroy {
   private createInitialUiState(): LiveMatchUiState {
     return {
       activePlayer: 1,
-      selectedProfile: 'standard',
-      activePrimaryGroupId: 'attack',
       isSubOverlayOpen: false,
       substitutionOutPlayerId: null,
       substitutionStatus: '',
-      showAdvancedControls: false,
       activeSurfaceMode: 'live',
       playerListFilter: 'all',
       playerSearchQuery: '',

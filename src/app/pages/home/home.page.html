@@ -9,129 +9,99 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <div class="home-scroll">
+  <main class="home-shell">
+    <section class="home-hero">
+      <div class="hero-copy">
+        <span class="hero-kicker">{{ teamRoster.team().name }}</span>
+        <h1>Track a volleyball match without losing the court.</h1>
+        <p>
+          Build your roster, set the six starters, then score points, substitutions,
+          timeouts, and player stats from one live court.
+        </p>
+      </div>
 
-    <!-- Hero band with court motif -->
-    <div class="hero-band" [ngClass]="{ 'hero-band--active': hasActiveMatch }">
       <div class="hero-court" aria-hidden="true">
-        <div class="hero-court-border"></div>
-        <div class="hero-court-net"></div>
+        <div class="court-outline"></div>
+        <div class="court-net"></div>
+        <div class="court-attack court-attack-left"></div>
+        <div class="court-attack court-attack-right"></div>
+        <div class="court-player court-player-1"></div>
+        <div class="court-player court-player-2"></div>
+        <div class="court-player court-player-3"></div>
+        <div class="court-player court-player-4"></div>
+        <div class="court-player court-player-5"></div>
+        <div class="court-player court-player-6"></div>
       </div>
-      <div class="hero-text">
-        <span class="hero-eyebrow">{{ teamRoster.team().name }}</span>
-        <h1 class="hero-title">
-          @if (hasActiveMatch) { <span>Match in Progress</span> }
-          @else if (matchState.state().isMatchOver) { <span>Final Score</span> }
-          @else { <span>Ready to play?</span> }
-        </h1>
-        @if (hasActiveMatch) {
-          <p class="hero-sub">{{ matchStatusText }}</p>
-        } @else if (matchState.state().isMatchOver) {
-          <p class="hero-sub">{{ matchStatusText }}</p>
-        } @else {
-          <p class="hero-sub">Set up your lineup, name the opponent, and track the match live.</p>
-        }
-      </div>
-    </div>
+    </section>
 
-    <!-- Status chips strip -->
-    <div class="status-strip">
-      <div class="status-chip" [ngClass]="{ 'status-chip--ok': hasValidLineup, 'status-chip--warn': !hasValidLineup }">
-        <span class="chip-dot"></span>
-        <span>Lineup {{ lineupAssignedCount }}/6{{ hasValidLineup ? ' ✓' : '' }}</span>
-      </div>
-      <div class="status-chip" [ngClass]="{ 'status-chip--ok': playerPoolCount >= 6, 'status-chip--warn': playerPoolCount < 6 }">
-        <span class="chip-dot"></span>
-        <span>Player Pool {{ playerPoolCount }}</span>
-      </div>
-      <div class="status-chip" [ngClass]="{ 'status-chip--ok': offlineSync.pendingCount() === 0, 'status-chip--warn': offlineSync.pendingCount() > 0 }">
-        <span class="chip-dot"></span>
-        <span>{{ syncStatusText }}</span>
-      </div>
-    </div>
+    <section class="home-grid" aria-label="Match day dashboard">
+      <article class="next-card">
+        <span class="section-label">Next step</span>
+        <h2>{{ nextActionTitle }}</h2>
+        <p>{{ nextActionDetail }}</p>
 
-    <!-- Action buttons -->
-    <div class="action-section">
-
-      @if (hasActiveMatch) {
-        <ion-button
-          expand="block"
-          class="action-btn action-btn--resume"
-          [routerLink]="['/court']"
-          [disabled]="!hasValidLineup"
-        >
-          <ion-icon slot="start" name="play"></ion-icon>
-          Resume Match
-        </ion-button>
-      }
-
-      @if (hasValidLineup && !hasActiveMatch) {
-        <ion-button
-          expand="block"
-          class="action-btn action-btn--start"
-          [routerLink]="['/pre-match']"
-        >
-          <ion-icon slot="start" name="play-circle"></ion-icon>
-          Start Match
-        </ion-button>
-      }
-
-      @if (!hasValidLineup) {
-        <ion-button
-          expand="block"
-          class="action-btn action-btn--setup"
-          [routerLink]="['/pre-match']"
-        >
-          <ion-icon slot="start" name="people"></ion-icon>
-          Set Up Lineup
-        </ion-button>
-      }
-
-      @if (hasValidLineup) {
-        <ion-button
-          expand="block"
-          fill="outline"
-          class="action-btn action-btn--edit"
-          [routerLink]="['/pre-match']"
-        >
-          <ion-icon slot="start" name="create-outline"></ion-icon>
-          Edit Lineup
-        </ion-button>
-      }
-
-      <ion-button expand="block" fill="clear" class="action-btn action-btn--ghost" [routerLink]="['/history']">
-        <ion-icon slot="start" name="time-outline"></ion-icon>
-        Match History
-      </ion-button>
-
-    </div>
-
-    <!-- Getting started checklist -->
-    @if (!hasValidLineup && !matchState.state().isMatchOver) {
-      <div class="setup-guide">
-        <div class="guide-label">Get started</div>
-        <div class="guide-steps">
-          <div class="guide-step" [ngClass]="{ 'guide-step--done': lineupAssignedCount > 0 }">
-            <span class="step-marker">
-              @if (lineupAssignedCount > 0) { <span class="step-check">✓</span> }
-              @else { <span>1</span> }
-            </span>
-            <span class="step-text">Add players to {{ teamRoster.team().name }}</span>
-          </div>
-          <div class="guide-step" [ngClass]="{ 'guide-step--done': lineupAssignedCount >= 6 }">
-            <span class="step-marker">
-              @if (lineupAssignedCount >= 6) { <span class="step-check">✓</span> }
-              @else { <span>2</span> }
-            </span>
-            <span class="step-text">Place 6 starters on the court</span>
-          </div>
-          <div class="guide-step">
-            <span class="step-marker"><span>3</span></span>
-            <span class="step-text">Hit <strong>Start Match</strong> and go!</span>
-          </div>
+        <div class="next-actions">
+          <ion-button class="primary-action" [routerLink]="primaryActionRoute">
+            <ion-icon slot="start" [name]="hasActiveMatch ? 'play' : 'play-circle'"></ion-icon>
+            {{ primaryActionText }}
+          </ion-button>
+          <ion-button fill="outline" class="secondary-action" [routerLink]="['/pre-match']">
+            <ion-icon slot="start" name="create-outline"></ion-icon>
+            Edit Lineup
+          </ion-button>
         </div>
-      </div>
-    }
+      </article>
 
-  </div>
+      <article class="setup-card">
+        <span class="section-label">Setup path</span>
+        <div class="setup-list">
+          @for (step of setupSteps; track step.label; let i = $index) {
+            <div class="setup-step" [ngClass]="'setup-step--' + step.state">
+              <span class="step-index">
+                @if (step.state === 'complete') { <span>✓</span> }
+                @else { <span>{{ i + 1 }}</span> }
+              </span>
+              <span class="step-copy">
+                <strong>{{ step.label }}</strong>
+                <span>{{ step.detail }}</span>
+              </span>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="status-card">
+        <span class="section-label">Match status</span>
+        <h3>{{ matchCardTitle }}</h3>
+        <p>{{ matchCardDetail }}</p>
+        <div class="metric-row">
+          <span>
+            <strong>{{ playerPoolCount }}</strong>
+            Players
+          </span>
+          <span>
+            <strong>{{ lineupAssignedCount }}/6</strong>
+            Starters
+          </span>
+          <span>
+            <strong>{{ hasActiveMatch ? 'Live' : 'Ready' }}</strong>
+            Court
+          </span>
+        </div>
+      </article>
+
+      <article class="sync-card" [ngClass]="{ 'sync-card--warn': offlineSync.pendingCount() > 0 || offlineSync.lastError() }">
+        <span class="section-label">Cloud save</span>
+        <div class="sync-line">
+          <ion-icon [name]="syncIconName"></ion-icon>
+          <p>{{ syncStatusText }}</p>
+        </div>
+        @if (offlineSync.lastError()) {
+          <ion-button fill="clear" size="small" (click)="offlineSync.retryNow()">
+            Retry Sync
+          </ion-button>
+        }
+      </article>
+    </section>
+  </main>
 </ion-content>

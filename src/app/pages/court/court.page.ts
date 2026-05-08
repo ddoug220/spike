@@ -28,7 +28,16 @@ import { OfflineSyncService } from '../../services/offline-sync.service';
 import { RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
 
 type QuickAction = StatsAction;
-type StandardOutcomeAction = 'kill' | 'attack-error' | 'block' | 'ace' | 'opponent-error' | 'opponent-point';
+type StandardOutcomeAction =
+  | 'kill'
+  | 'attack-error'
+  | 'block'
+  | 'ace'
+  | 'service-error'
+  | 'opponent-error'
+  | 'opponent-point'
+  | 'receive-error';
+type StatOnlyAction = 'dig';
 type ExitAction = 'home' | 'lineup' | 'history' | 'end-home' | 'new-match';
 type TileEfficiencyState = 'neutral' | 'low' | 'medium' | 'high';
 
@@ -48,6 +57,7 @@ interface BoxScoreRow {
   sideOutPercentage: number | null;
   serveAttempts: number;
   serveInPercentage: number | null;
+  receiveErrors: number;
 }
 
 interface ActionMeta {
@@ -58,6 +68,13 @@ interface ActionMeta {
 
 interface StandardOutcomeMeta {
   id: StandardOutcomeAction;
+  label: string;
+  icon: string;
+  accent: string;
+}
+
+interface StatOnlyActionMeta {
+  id: StatOnlyAction;
   label: string;
   icon: string;
   accent: string;
@@ -131,24 +148,29 @@ export class CourtPage {
   ];
 
   public readonly actionMeta: Record<QuickAction, ActionMeta> = {
-    kill: { label: '+ Kill', icon: 'flash', accent: 'action-kill' },
+    kill: { label: 'Kill', icon: 'flash', accent: 'action-kill' },
     'attack-error': {
-      label: '\u2212 Att Error',
+      label: 'Attack Error',
       icon: 'close-circle',
       accent: 'action-error',
     },
-    ace: { label: '+ Ace', icon: 'baseball', accent: 'action-ace' },
+    ace: { label: 'Ace', icon: 'baseball', accent: 'action-ace' },
     'service-error': {
-      label: '\u2212 Svc Error',
+      label: 'Service Error',
       icon: 'close-circle',
       accent: 'action-error',
     },
-    block: { label: '+ Block', icon: 'hand-left', accent: 'action-block' },
+    block: { label: 'Block', icon: 'hand-left', accent: 'action-block' },
     dig: { label: 'Dig', icon: 'baseball', accent: 'action-dig' },
     'opponent-error': {
-      label: '+ Opp UE',
+      label: 'Opponent Error',
       icon: 'close-circle',
       accent: 'action-opponent-error',
+    },
+    'receive-error': {
+      label: 'Receive Error',
+      icon: 'close-circle',
+      accent: 'action-receive-error',
     },
   };
 
@@ -624,6 +646,12 @@ export class CourtPage {
         accent: this.actionMeta.ace.accent,
       },
       {
+        id: 'service-error',
+        label: this.actionMeta['service-error'].label,
+        icon: this.actionMeta['service-error'].icon,
+        accent: this.actionMeta['service-error'].accent,
+      },
+      {
         id: 'opponent-error',
         label: this.actionMeta['opponent-error'].label,
         icon: this.actionMeta['opponent-error'].icon,
@@ -631,9 +659,26 @@ export class CourtPage {
       },
       {
         id: 'opponent-point',
-        label: '\u2212 Opp Winner',
+        label: 'Opponent Winner',
         icon: 'add-circle',
         accent: 'action-opponent-point',
+      },
+      {
+        id: 'receive-error',
+        label: this.actionMeta['receive-error'].label,
+        icon: this.actionMeta['receive-error'].icon,
+        accent: this.actionMeta['receive-error'].accent,
+      },
+    ];
+  }
+
+  get statOnlyActions(): StatOnlyActionMeta[] {
+    return [
+      {
+        id: 'dig',
+        label: this.actionMeta.dig.label,
+        icon: this.actionMeta.dig.icon,
+        accent: this.actionMeta.dig.accent,
       },
     ];
   }
@@ -691,6 +736,44 @@ export class CourtPage {
 
   get opponentName(): string {
     return this.liveStore.game()?.opponentName?.trim() || 'Opponent';
+  }
+
+  get teamDisplayName(): string {
+    return this.teamRoster.team().name.trim() || 'Your Team';
+  }
+
+  get liveCourtSubtitle(): string {
+    if (this.isMatchOver) {
+      return 'Match is final. Review stats or start a new match from Exit.';
+    }
+
+    return 'Tap a player on the court, then tap the outcome of the rally.';
+  }
+
+  get scoreSituationText(): string {
+    if (this.isMatchOver) {
+      return 'Final';
+    }
+
+    const servingName = this.gameState.servingTeam === 'team' ? this.teamDisplayName : this.opponentName;
+    return `${servingName} serving`;
+  }
+
+  get selectedPlayerDetail(): string {
+    const selectedPlayer = this.getPlayerForPosition(this.activePlayer);
+    if (!selectedPlayer) {
+      return `Position ${this.activePlayer} is empty`;
+    }
+
+    return `#${selectedPlayer.jerseyNumber} ${selectedPlayer.name} - ${selectedPlayer.primaryPosition}`;
+  }
+
+  get commandInstructionText(): string {
+    if (this.isMatchOver) {
+      return 'Scoring is locked because the match is final.';
+    }
+
+    return 'Point outcome buttons update the score. Stat taps only add player context.';
   }
 
   get rotationIndicatorText(): string {
@@ -757,6 +840,9 @@ export class CourtPage {
   }
 
   get syncStatusText(): string {
+    if (this.offlineSync.lastError()) {
+      return 'Saved on this device. Cloud sync failed.';
+    }
     if (this.offlineSync.isSyncing()) {
       return 'Syncing...';
     }
@@ -841,6 +927,7 @@ export class CourtPage {
           sideOutPercentage: this.liveStore.getSideOutPercentage(player.id),
           serveAttempts: stats.serveAttempts,
           serveInPercentage: this.liveStore.getServeInPercentage(player.id),
+          receiveErrors: stats.receiveErrors,
         };
       });
   }
@@ -925,7 +1012,7 @@ export class CourtPage {
       if (action === 'kill' || action === 'ace' || action === 'block' || action === 'opponent-error') {
         bucket.wins += 1;
       }
-      if (action === 'attack-error' || action === 'service-error') {
+      if (action === 'attack-error' || action === 'service-error' || action === 'receive-error') {
         bucket.errors += 1;
       }
     });
@@ -966,11 +1053,13 @@ export class CourtPage {
         return {
           attackErrors: acc.attackErrors + stats.attackErrors,
           serviceErrors: acc.serviceErrors + stats.serviceErrors,
+          receiveErrors: acc.receiveErrors + stats.receiveErrors,
         };
       },
       {
         attackErrors: 0,
         serviceErrors: 0,
+        receiveErrors: 0,
       },
     );
     const opponentPoints = this.getActiveMatchEvents().filter(
@@ -989,6 +1078,12 @@ export class CourtPage {
         detail: 'Missed serves',
         value: totals.serviceErrors,
         displayValue: `${totals.serviceErrors}`,
+      },
+      {
+        label: 'Receive Errors',
+        detail: 'Opponent serve led directly to a point',
+        value: totals.receiveErrors,
+        displayValue: `${totals.receiveErrors}`,
       },
       {
         label: 'Opponent Winner Events',

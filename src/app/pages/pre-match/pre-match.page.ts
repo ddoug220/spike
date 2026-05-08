@@ -6,6 +6,7 @@ import { IonBackButton, IonButton, IonButtons, IonContent, IonFooter, IonHeader,
 import { addIcons } from 'ionicons';
 import { arrowBack, checkmarkCircle, close, create, ellipseOutline, play, personAdd, save, trash } from 'ionicons/icons';
 import { MatchEngineService } from '../../services/match-engine.service';
+import { OfflineSyncService } from '../../services/offline-sync.service';
 import {
   NewRosterPlayer,
   PrimaryPosition,
@@ -73,6 +74,7 @@ export class PreMatchPage {
 
   constructor(
     public readonly teamRoster: TeamRosterService,
+    public readonly offlineSync: OfflineSyncService,
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
@@ -90,8 +92,53 @@ export class PreMatchPage {
 
   get rosterSummaryText(): string {
     const playerCount = this.players.length;
-    const assignedCount = this.teamRoster.lineup().filter((playerId) => !!playerId).length;
+    const assignedCount = this.assignedStarterCount;
     return `${playerCount} player${playerCount === 1 ? '' : 's'} in pool - ${assignedCount}/6 starters set`;
+  }
+
+  get assignedStarterCount(): number {
+    return this.teamRoster.lineup().filter((playerId) => !!playerId).length;
+  }
+
+  get benchCount(): number {
+    return this.teamRoster.getBenchPlayers().length;
+  }
+
+  get teamSetupStatusText(): string {
+    if (this.canStartMatch) {
+      return 'Starting six is ready. Start the match when opponent and first serve look right.';
+    }
+
+    if (this.players.length < 6) {
+      return `Add ${6 - this.players.length} more player${6 - this.players.length === 1 ? '' : 's'} to build a full lineup.`;
+    }
+
+    return this.startMatchDisabledReason;
+  }
+
+  get syncStatusText(): string {
+    if (this.offlineSync.lastError()) {
+      return 'Saved on this device. Cloud save failed.';
+    }
+
+    if (this.offlineSync.isSyncing()) {
+      return 'Saving to cloud...';
+    }
+
+    if (this.offlineSync.pendingCount() > 0) {
+      return `${this.offlineSync.pendingCount()} change(s) waiting for cloud save`;
+    }
+
+    return 'Team saved to cloud';
+  }
+
+  get selectedPlayerText(): string {
+    const selectedPlayer = this.teamRoster.getPlayerById(this.selectedBenchPlayerId);
+    if (!selectedPlayer) {
+      return 'Select a player from the pool, then tap a court slot.';
+    }
+
+    return `Selected: #${selectedPlayer.jerseyNumber} ${selectedPlayer.name}`;
   }
 
   get hasAssignedStarters(): boolean {
@@ -139,6 +186,10 @@ export class PreMatchPage {
       return;
     }
     this.teamNameDraft = this.team.name;
+  }
+
+  retrySync(): void {
+    void this.offlineSync.retryNow();
   }
 
   submitPlayer(): void {

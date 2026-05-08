@@ -60,6 +60,7 @@ describe('MatchStatsService', () => {
     service.hydrateFromPlayerSetStats([
       {
         id: 'stats-1',
+        ownerId: 'owner-1',
         gameId: 'game-1',
         playerId: 'p1',
         playerName: 'Player One',
@@ -76,6 +77,7 @@ describe('MatchStatsService', () => {
         blocks: 1,
         digs: 3,
         serviceErrors: 1,
+        receiveErrors: 2,
         sideOutOpportunities: 6,
         sideOutConversions: 4,
         sideOutPercentage: 2 / 3,
@@ -90,6 +92,7 @@ describe('MatchStatsService', () => {
     expect(stats.blocks).toBe(1);
     expect(stats.digs).toBe(3);
     expect(stats.serviceErrors).toBe(1);
+    expect(stats.receiveErrors).toBe(2);
     expect(stats.sideOutOpportunities).toBe(6);
     expect(stats.sideOutConversions).toBe(4);
   });

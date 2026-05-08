@@ -7,6 +7,12 @@ import { FirebaseDbService } from './firebase-db.service';
 import { TeamRosterService } from './team-roster.service';
 import type { GameEvent } from '../models/firestore.models';
 
+class FakeFirebaseDbService {
+  isConfigured(): boolean {
+    return false;
+  }
+}
+
 describe('MatchEngineService', () => {
   let service: MatchEngineService;
   let matchState: MatchStateService;
@@ -16,8 +22,8 @@ describe('MatchEngineService', () => {
 
   beforeEach(() => {
     window.localStorage.clear();
-    const firebaseDb = new FirebaseDbService();
-    offlineSync = new OfflineSyncService(firebaseDb);
+    const firebaseDb = new FakeFirebaseDbService();
+    offlineSync = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService);
     matchState = new MatchStateService();
     matchStats = new MatchStatsService();
     teamRoster = new TeamRosterService(new RotationService());
@@ -165,6 +171,7 @@ describe('MatchEngineService', () => {
     const syncedEvents: GameEvent[] = [
       {
         id: 'evt-start',
+        ownerId: 'owner-1',
         gameId: matchId,
         type: 'matchStarted',
         action: 'match-started',
@@ -183,6 +190,7 @@ describe('MatchEngineService', () => {
       },
       {
         id: 'evt-kill',
+        ownerId: 'owner-1',
         gameId: matchId,
         type: 'playerAction',
         action: 'kill',

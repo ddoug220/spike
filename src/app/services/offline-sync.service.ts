@@ -2,14 +2,22 @@ import { Injectable, computed, signal } from '@angular/core';
 import {
   Game,
   GameEvent,
+  Player,
   PlayerSetStats,
+  Roster,
+  Team,
 } from '../models/firestore.models';
+import { BetaIdentityService } from './beta-identity.service';
 import { FirebaseDbService } from './firebase-db.service';
 
-type QueuedCollection = 'games' | 'events' | 'playerSetStats';
+type QueuedCollection = 'teams' | 'players' | 'games' | 'roster' | 'events' | 'playerSetStats';
+type OwnerPayload<T extends { ownerId: string }> = Omit<T, 'ownerId'> | T;
 
 interface QueuedDocumentMap {
+  teams: Team;
+  players: Player;
   games: Game;
+  roster: Roster;
   events: GameEvent;
   playerSetStats: PlayerSetStats;
 }
@@ -24,7 +32,10 @@ interface SyncQueueItemBase<C extends QueuedCollection> {
 }
 
 type SyncQueueItem =
+  | SyncQueueItemBase<'teams'>
+  | SyncQueueItemBase<'players'>
   | SyncQueueItemBase<'games'>
+  | SyncQueueItemBase<'roster'>
   | SyncQueueItemBase<'events'>
   | SyncQueueItemBase<'playerSetStats'>;
 
@@ -73,7 +84,10 @@ export class OfflineSyncService {
   readonly lastError = computed(() => this.lastErrorSignal());
   readonly lastSuccessfulSyncAt = computed(() => this.lastSuccessfulSyncAtSignal());
 
-  constructor(private readonly firebaseDb: FirebaseDbService) {
+  constructor(
+    private readonly firebaseDb: FirebaseDbService,
+    private readonly betaIdentity: BetaIdentityService = new BetaIdentityService(),
+  ) {
     this.restoreQueue();
     this.restoreLastSuccess();
     this.restoreArchive();
@@ -108,24 +122,36 @@ export class OfflineSyncService {
     return matchId;
   }
 
-  queueGame(payload: Game): void {
-    this.enqueue('games', payload);
+  queueGame(payload: OwnerPayload<Game>): void {
+    this.enqueue('games', this.withOwner(payload));
   }
 
-  logEvent(payload: GameEvent): void {
+  queueTeam(payload: OwnerPayload<Team>): void {
+    this.enqueue('teams', this.withOwner(payload), false);
+  }
+
+  queuePlayer(payload: OwnerPayload<Player>): void {
+    this.enqueue('players', this.withOwner(payload), false);
+  }
+
+  queueRoster(payload: OwnerPayload<Roster>): void {
+    this.enqueue('roster', this.withOwner(payload), false);
+  }
+
+  logEvent(payload: OwnerPayload<GameEvent>): void {
     this.enqueue('events', {
-      ...payload,
+      ...this.withOwner(payload),
       isDeleted: payload.isDeleted,
       deletedAt: payload.deletedAt ?? null,
     });
   }
 
-  queueMatchEvent(payload: GameEvent): void {
+  queueMatchEvent(payload: OwnerPayload<GameEvent>): void {
     this.logEvent(payload);
   }
 
-  queuePlayerSetStats(payload: PlayerSetStats): void {
-    this.enqueue('playerSetStats', payload);
+  queuePlayerSetStats(payload: OwnerPayload<PlayerSetStats>): void {
+    this.enqueue('playerSetStats', this.withOwner(payload));
   }
 
   undoLastEvent(eventId?: string): GameEvent | null {
@@ -151,7 +177,7 @@ export class OfflineSyncService {
       events: state.events.map((entry) => (entry.id === deletedEvent.id ? deletedEvent : entry)),
     }));
     this.persistArchive();
-    this.enqueue('events', deletedEvent, false);
+    this.enqueue('events', this.withOwner(deletedEvent), false);
     return deletedEvent;
   }
 
@@ -170,7 +196,7 @@ export class OfflineSyncService {
       ],
     }));
     this.persistArchive();
-    this.enqueue('events', deletedEvent, false);
+    this.enqueue('events', this.withOwner(deletedEvent), false);
     return deletedEvent;
   }
 
@@ -189,32 +215,36 @@ export class OfflineSyncService {
     this.lastErrorSignal.set(null);
 
     try {
-      let queue = this.queueSignal();
-      while (queue.length > 0) {
-        const current = queue[0];
-        const ok = await this.pushToFirebase(current);
-        if (!ok) {
-          this.queueSignal.update((items) => {
-            const [first, ...rest] = items;
-            return [
-              {
-                ...first,
-                retryCount: first.retryCount + 1,
-                lastError: this.lastErrorSignal() ?? 'Sync failed',
-              },
-              ...rest,
-            ];
-          });
-          this.persistQueue();
+      const attemptedIds = new Set<string>();
+      while (true) {
+        const current = this.queueSignal().find((item) => !attemptedIds.has(item.id));
+        if (!current) {
           break;
         }
 
-        this.queueSignal.update((items) => items.slice(1));
+        attemptedIds.add(current.id);
+        const ok = await this.pushToFirebase(current);
+        if (!ok) {
+          this.queueSignal.update((items) => {
+            return items.map((item) =>
+              item.id === current.id
+                ? {
+                    ...item,
+                    retryCount: item.retryCount + 1,
+                    lastError: this.lastErrorSignal() ?? 'Sync failed',
+                  } as SyncQueueItem
+                : item,
+            );
+          });
+          this.persistQueue();
+          continue;
+        }
+
+        this.queueSignal.update((items) => items.filter((item) => item.id !== current.id));
         this.persistQueue();
         const syncedAt = new Date().toISOString();
         this.lastSuccessfulSyncAtSignal.set(syncedAt);
         this.persistLastSuccess();
-        queue = this.queueSignal();
       }
     } finally {
       this.syncingSignal.set(false);
@@ -311,7 +341,7 @@ export class OfflineSyncService {
       createdAt: new Date().toISOString(),
       retryCount: 0,
     } as SyncQueueItem;
-    this.queueSignal.update((items) => [...items, item]);
+    this.queueSignal.update((items) => this.upsertQueuedItem(items, item));
     if (shouldArchive) {
       this.archive(collectionName, payload);
     }
@@ -329,10 +359,34 @@ export class OfflineSyncService {
     return false;
   }
 
+  private upsertQueuedItem(items: SyncQueueItem[], item: SyncQueueItem): SyncQueueItem[] {
+    const existingIndex = items.findIndex(
+      (entry) => entry.collection === item.collection && entry.payload.id === item.payload.id,
+    );
+    if (existingIndex < 0) {
+      return [...items, item];
+    }
+
+    const next = [...items];
+    next[existingIndex] = {
+      ...next[existingIndex],
+      payload: item.payload,
+      retryCount: 0,
+      lastError: undefined,
+    } as SyncQueueItem;
+    return next;
+  }
+
   private writeQueuedDocument(item: SyncQueueItem): Promise<{ ok: boolean; error?: string }> {
     switch (item.collection) {
+      case 'teams':
+        return this.firebaseDb.writeDocument('teams', item.payload.id, item.payload);
+      case 'players':
+        return this.firebaseDb.writeDocument('players', item.payload.id, item.payload);
       case 'games':
         return this.firebaseDb.writeDocument('games', item.payload.id, item.payload);
+      case 'roster':
+        return this.firebaseDb.writeDocument('roster', item.payload.id, item.payload);
       case 'events':
         return this.firebaseDb.writeEvent(item.payload);
       case 'playerSetStats':
@@ -360,7 +414,12 @@ export class OfflineSyncService {
       if (!Array.isArray(parsed)) {
         return;
       }
-      this.queueSignal.set(parsed);
+      this.queueSignal.set(
+        parsed.map((item) => ({
+          ...item,
+          payload: this.withOwner(item.payload as OwnerPayload<typeof item.payload>),
+        })) as SyncQueueItem[],
+      );
     } catch {
       // Ignore corrupted local queue data.
     }
@@ -454,5 +513,12 @@ export class OfflineSyncService {
       return `${prefix}-${crypto.randomUUID()}`;
     }
     return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  }
+
+  private withOwner<T extends { ownerId: string }>(payload: OwnerPayload<T>): T {
+    return {
+      ...payload,
+      ownerId: 'ownerId' in payload && payload.ownerId ? payload.ownerId : this.betaIdentity.ownerId,
+    } as T;
   }
 }

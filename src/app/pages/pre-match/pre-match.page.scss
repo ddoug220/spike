@@ -31,6 +31,10 @@
   --chip-bg: linear-gradient(145deg, #1E4B7A, #163B62);
   --chip-border: rgba(255, 255, 255, 0.2);
   --status-text-ok: #047857; // 5.5:1 on white
+
+  display: block;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -76,6 +80,10 @@ ion-content {
   color: var(--text-primary);
 }
 
+ion-content::part(scroll) {
+  overflow-x: hidden;
+}
+
 // ─── Toolbar ───
 .prematch-toolbar {
   --background: var(--toolbar-bg);
@@ -100,21 +108,98 @@ ion-content {
 
 // ─── Layout ───
 .prematch-layout {
+  width: min(1180px, calc(100% - 32px));
   min-height: 100%;
-  padding: 16px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 16px 0 112px;
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   gap: 16px;
   animation: fadeInUp 0.5s var(--ease-out) both;
 }
 
+.setup-brief {
+  min-width: 0;
+  grid-column: 1 / -1;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg-solid);
+  box-shadow: var(--panel-shadow);
+  padding: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+}
+
+.setup-brief-copy {
+  min-width: 0;
+}
+
+.brief-kicker {
+  color: var(--accent-blue);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.setup-brief h1 {
+  max-width: 720px;
+  margin: 8px 0 8px;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3vw, 3.2rem);
+  font-weight: 850;
+  line-height: 1.02;
+}
+
+.setup-brief p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.setup-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.setup-metrics div {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--field-bg);
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.setup-metrics span {
+  color: var(--text-secondary);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.setup-metrics strong {
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
 // ─── Panels ───
 .panel {
+  min-width: 0;
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   backdrop-filter: blur(24px) saturate(1.3);
   -webkit-backdrop-filter: blur(24px) saturate(1.3);
-  border-radius: var(--radius-xl);
+  border-radius: 8px;
   padding: 20px;
   box-shadow: var(--panel-shadow);
 }
@@ -140,13 +225,14 @@ ion-content {
 .match-details {
   margin-bottom: 16px;
   border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   background: var(--panel-bg-solid);
   padding: 12px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr);
   gap: 12px;
   align-items: end;
+  min-width: 0;
 }
 
 .team-details {
@@ -188,6 +274,7 @@ ion-content {
 
 .team-field,
 .opponent-field {
+  min-width: 0;
   display: grid;
   gap: 6px;
 }
@@ -270,12 +357,51 @@ ion-content {
   font-size: 0.8rem;
 }
 
+.team-sync-status {
+  grid-column: 1 / -1;
+  min-height: 36px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--field-bg);
+  color: var(--text-secondary);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.team-sync-status.pending {
+  border-color: rgba(62, 173, 255, 0.32);
+  color: var(--text-primary);
+}
+
+.team-sync-status.error {
+  border-color: rgba(219, 59, 64, 0.42);
+  color: var(--text-primary);
+}
+
+.team-sync-status button {
+  min-height: 32px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-bg-solid);
+  color: var(--text-primary);
+  padding: 0 12px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 // ─── Court ───
 .lineup-court {
   margin-top: 16px;
   position: relative;
   min-height: 520px;
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   overflow: hidden;
   background: var(--court-bg);
   border: 1px solid var(--court-border);
@@ -301,7 +427,7 @@ ion-content {
 
 .court-lines {
   border: 2px solid var(--court-line);
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
 }
 
 .court-lines::before {
@@ -320,7 +446,7 @@ ion-content {
   min-height: 102px;
   transform: translate(-50%, -50%);
   border: 1.5px dashed var(--slot-border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   background: var(--slot-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -332,6 +458,30 @@ ion-content {
   gap: 4px;
   transition: border-color var(--duration-base) var(--ease-out),
               box-shadow var(--duration-base) var(--ease-out);
+}
+
+.setup-path-mini {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.setup-path-mini span {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg-solid);
+  color: var(--text-secondary);
+  padding: 9px 10px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.setup-path-mini span.done {
+  border-color: color-mix(in srgb, var(--accent-green) 34%, var(--panel-border));
+  background: color-mix(in srgb, var(--accent-green) 10%, var(--panel-bg-solid));
+  color: var(--status-text-ok);
 }
 
 .drop-slot:hover {
@@ -555,7 +705,7 @@ ion-content {
 .roster-empty-guide {
   margin-top: 16px;
   border: 1px dashed var(--field-border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   background: var(--field-bg);
   padding: 14px;
   display: grid;
@@ -629,6 +779,10 @@ ion-content {
   transition: border-color var(--duration-base) var(--ease-out),
               box-shadow var(--duration-base) var(--ease-out),
               transform var(--duration-fast) var(--ease-out);
+}
+
+.roster-item.selected .assignment {
+  color: var(--accent-blue);
 }
 
 .roster-item:hover {
@@ -753,6 +907,10 @@ select:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .setup-brief {
+    grid-template-columns: 1fr;
+  }
+
   .lineup-court {
     min-height: 430px;
   }
@@ -772,6 +930,30 @@ select:focus-visible {
   }
 }
 
+@media (max-width: 640px) {
+  .prematch-layout {
+    width: min(calc(100% - 20px), 370px);
+    margin-left: 10px;
+    margin-right: auto;
+    padding: 10px 0 104px;
+  }
+
+  .setup-brief,
+  .panel {
+    padding: 16px;
+  }
+
+  .setup-metrics,
+  .setup-path-mini {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-brief h1 {
+    font-size: 1.75rem;
+    overflow-wrap: break-word;
+  }
+}
+
 // ─── Footer ───
 ion-footer.start-footer {
   --background: var(--toolbar-bg);
@@ -785,9 +967,25 @@ ion-footer.start-footer {
 
 .footer-readiness {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 20px;
   margin-bottom: 10px;
   padding: 0 2px;
+}
+
+.readiness-blocker {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+@media (max-width: 640px) {
+  .readiness-blocker {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 .readiness-check {

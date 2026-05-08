@@ -1,5 +1,8 @@
-import { Injectable, computed, signal } from '@angular/core';
-import { PrimaryPosition } from '../models/firestore.models';
+import { Injectable, Optional, computed, signal } from '@angular/core';
+import { Player, PrimaryPosition, Roster, Team } from '../models/firestore.models';
+import { BetaIdentityService } from './beta-identity.service';
+import { FirebaseDbService, TeamRosterSnapshot } from './firebase-db.service';
+import { OfflineSyncService } from './offline-sync.service';
 import { RotationService } from './rotation.service';
 
 export type { PrimaryPosition };
@@ -9,6 +12,9 @@ export interface RosterPlayer {
   name: string;
   jerseyNumber: number;
   primaryPosition: PrimaryPosition;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface RosterTeam {
@@ -31,9 +37,11 @@ export interface LineupSlot {
 
 interface PersistedRosterState {
   team?: Partial<RosterTeam>;
-  players: RosterPlayer[];
+  players: Array<Partial<RosterPlayer>>;
   lineup: Array<string | null>;
 }
+
+type RosterSyncScope = 'all' | 'roster';
 
 @Injectable({
   providedIn: 'root',
@@ -43,13 +51,20 @@ export class TeamRosterService {
   private readonly teamSignal = signal<RosterTeam>(this.createDefaultTeam());
   private readonly playersSignal = signal<RosterPlayer[]>([]);
   private readonly lineupSignal = signal<Array<string | null>>([null, null, null, null, null, null]);
+  private restoredLocalState = false;
 
   readonly team = computed(() => this.teamSignal());
   readonly players = computed(() => this.playersSignal());
   readonly lineup = computed(() => this.lineupSignal());
 
-  constructor(private readonly rotationService: RotationService) {
+  constructor(
+    private readonly rotationService: RotationService,
+    @Optional() private readonly offlineSync?: OfflineSyncService,
+    @Optional() private readonly firebaseDb?: FirebaseDbService,
+    @Optional() private readonly betaIdentity: BetaIdentityService = new BetaIdentityService(),
+  ) {
     this.restore();
+    void this.restoreFromFirebase();
   }
 
   updateTeamName(name: string): boolean {
@@ -63,20 +78,24 @@ export class TeamRosterService {
       name: trimmedName,
       updatedAt: new Date().toISOString(),
     }));
-    this.persist();
+    this.persist('all');
     return true;
   }
 
   addPlayer(player: NewRosterPlayer): void {
+    const now = new Date().toISOString();
     const nextPlayer: RosterPlayer = {
       id: this.createPlayerId(),
       name: player.name.trim(),
       jerseyNumber: player.jerseyNumber,
       primaryPosition: player.primaryPosition,
+      active: true,
+      createdAt: now,
+      updatedAt: now,
     };
 
     this.playersSignal.update((players) => [...players, nextPlayer]);
-    this.persist();
+    this.persist('all');
   }
 
   updatePlayer(playerId: string, player: NewRosterPlayer): boolean {
@@ -86,6 +105,7 @@ export class TeamRosterService {
     }
 
     let didUpdate = false;
+    const updatedAt = new Date().toISOString();
     this.playersSignal.update((players) =>
       players.map((existingPlayer) => {
         if (existingPlayer.id !== playerId) {
@@ -98,21 +118,27 @@ export class TeamRosterService {
           name,
           jerseyNumber: player.jerseyNumber,
           primaryPosition: player.primaryPosition,
+          active: true,
+          updatedAt,
         };
       }),
     );
 
     if (didUpdate) {
-      this.persist();
+      this.persist('all');
     }
 
     return didUpdate;
   }
 
   removePlayer(playerId: string): void {
+    const removedPlayer = this.getPlayerById(playerId);
     this.playersSignal.update((players) => players.filter((player) => player.id !== playerId));
     this.lineupSignal.update((lineup) => lineup.map((id) => (id === playerId ? null : id)));
-    this.persist();
+    this.persist('all');
+    if (removedPlayer) {
+      this.queueInactivePlayer(removedPlayer);
+    }
   }
 
   assignPlayerToPosition(playerId: string, position: number): void {
@@ -131,7 +157,7 @@ export class TeamRosterService {
       return nextLineup;
     });
 
-    this.persist();
+    this.persist('roster');
   }
 
   unassignPosition(position: number): void {
@@ -146,12 +172,12 @@ export class TeamRosterService {
       return nextLineup;
     });
 
-    this.persist();
+    this.persist('roster');
   }
 
   unassignPlayer(playerId: string): void {
     this.lineupSignal.update((lineup) => lineup.map((id) => (id === playerId ? null : id)));
-    this.persist();
+    this.persist('roster');
   }
 
   getPlayerById(playerId: string | null): RosterPlayer | null {
@@ -206,7 +232,7 @@ export class TeamRosterService {
       return nextLineup;
     });
 
-    this.persist();
+    this.persist('roster');
     return true;
   }
 
@@ -214,7 +240,7 @@ export class TeamRosterService {
     const wrappedLineup = this.lineupSignal().map((playerId) => ({ playerId }));
     const rotated = this.rotationService.rotate(wrappedLineup, true).map((slot) => slot.playerId);
     this.lineupSignal.set(rotated);
-    this.persist();
+    this.persist('roster');
   }
 
   rotateLineupCounterClockwise(): void {
@@ -229,7 +255,7 @@ export class TeamRosterService {
         nextLineup[4],
       ];
     });
-    this.persist();
+    this.persist('roster');
   }
 
   getLineupSnapshot(): Array<string | null> {
@@ -241,11 +267,16 @@ export class TeamRosterService {
       return;
     }
     this.lineupSignal.set([...lineup]);
-    this.persist();
+    this.persist('roster');
   }
 
-  private persist(): void {
+  syncRosterToFirebase(offlineSync = this.offlineSync): void {
+    this.syncToFirebase('all', offlineSync);
+  }
+
+  private persist(syncScope: RosterSyncScope): void {
     if (typeof window === 'undefined' || !window.localStorage) {
+      this.syncToFirebase(syncScope);
       return;
     }
 
@@ -255,6 +286,7 @@ export class TeamRosterService {
       lineup: this.lineupSignal(),
     };
     window.localStorage.setItem(TeamRosterService.STORAGE_KEY, JSON.stringify(state));
+    this.syncToFirebase(syncScope);
   }
 
   private restore(): void {
@@ -273,12 +305,59 @@ export class TeamRosterService {
         return;
       }
 
-      this.playersSignal.set(parsed.players);
+      const normalizedTeam = this.normalizeTeam(parsed.team);
+      this.teamSignal.set(normalizedTeam);
+      this.playersSignal.set(this.normalizePlayers(parsed.players, normalizedTeam.createdAt));
       this.lineupSignal.set(parsed.lineup.map((id) => (typeof id === 'string' ? id : null)));
-      this.teamSignal.set(this.normalizeTeam(parsed.team));
+      this.restoredLocalState = true;
     } catch {
       // Ignore invalid persisted data and continue with defaults.
     }
+  }
+
+  private async restoreFromFirebase(): Promise<void> {
+    if (!this.firebaseDb?.isConfigured()) {
+      return;
+    }
+
+    const result = await this.firebaseDb.readTeamRosterSnapshot(this.betaIdentity.ownerId);
+    if (!result.ok || !result.data) {
+      return;
+    }
+
+    this.applyCloudRosterSnapshot(result.data);
+  }
+
+  private applyCloudRosterSnapshot(snapshot: TeamRosterSnapshot): void {
+    const team = snapshot.teams.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    if (!team) {
+      return;
+    }
+
+    if (this.restoredLocalState && team.updatedAt < this.teamSignal().updatedAt) {
+      return;
+    }
+
+    const roster = snapshot.rosters
+      .filter((entry) => entry.teamId === team.id && entry.gameId === null)
+      .slice()
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    const playerIds = new Set(snapshot.players.filter((player) => player.teamId === team.id).map((player) => player.id));
+    const cloudLineup = roster?.lineup.length === 6 ? roster.lineup.map((id) => (typeof id === 'string' && playerIds.has(id) ? id : null)) : this.lineupSignal();
+
+    this.teamSignal.set({
+      id: team.id,
+      name: team.name,
+      createdAt: team.createdAt,
+      updatedAt: team.updatedAt,
+    });
+    this.playersSignal.set(
+      snapshot.players
+        .filter((player) => player.teamId === team.id && player.active)
+        .map((player) => this.fromFirestorePlayer(player)),
+    );
+    this.lineupSignal.set(cloudLineup);
+    this.persist('all');
   }
 
   private createDefaultTeam(): RosterTeam {
@@ -303,6 +382,121 @@ export class TeamRosterService {
       name,
       createdAt,
       updatedAt,
+    };
+  }
+
+  private normalizePlayers(players: Array<Partial<RosterPlayer>>, fallbackTimestamp: string): RosterPlayer[] {
+    return players
+      .map((player) => this.normalizePlayer(player, fallbackTimestamp))
+      .filter((player): player is RosterPlayer => !!player);
+  }
+
+  private normalizePlayer(player: Partial<RosterPlayer>, fallbackTimestamp: string): RosterPlayer | null {
+    if (
+      typeof player.id !== 'string' ||
+      !player.id.trim() ||
+      typeof player.name !== 'string' ||
+      !player.name.trim() ||
+      typeof player.jerseyNumber !== 'number' ||
+      !this.isPrimaryPosition(player.primaryPosition)
+    ) {
+      return null;
+    }
+
+    return {
+      id: player.id,
+      name: player.name.trim(),
+      jerseyNumber: player.jerseyNumber,
+      primaryPosition: player.primaryPosition,
+      active: player.active !== false,
+      createdAt: typeof player.createdAt === 'string' && player.createdAt ? player.createdAt : fallbackTimestamp,
+      updatedAt: typeof player.updatedAt === 'string' && player.updatedAt ? player.updatedAt : fallbackTimestamp,
+    };
+  }
+
+  private isPrimaryPosition(value: unknown): value is PrimaryPosition {
+    return value === 'S' || value === 'OH' || value === 'MB' || value === 'OPP' || value === 'L' || value === 'DS';
+  }
+
+  private syncToFirebase(scope: RosterSyncScope, offlineSync = this.offlineSync): void {
+    if (!offlineSync) {
+      return;
+    }
+
+    const team = this.teamSignal();
+    const now = new Date().toISOString();
+
+    if (scope === 'all') {
+      offlineSync.queueTeam(this.toFirestoreTeam(team));
+      this.playersSignal().forEach((player) => {
+        offlineSync.queuePlayer(this.toFirestorePlayer(player, team.id));
+      });
+    }
+
+    offlineSync.queueRoster(this.toFirestoreRoster(team.id, now));
+  }
+
+  private queueInactivePlayer(player: RosterPlayer): void {
+    if (!this.offlineSync) {
+      return;
+    }
+
+    this.offlineSync.queuePlayer({
+      ...this.toFirestorePlayer(player, this.teamSignal().id),
+      active: false,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  private toFirestoreTeam(team: RosterTeam): Team {
+    return {
+      id: team.id,
+      ownerId: this.betaIdentity.ownerId,
+      name: team.name,
+      createdAt: team.createdAt,
+      updatedAt: team.updatedAt,
+    };
+  }
+
+  private toFirestorePlayer(player: RosterPlayer, teamId: string): Player {
+    return {
+      id: player.id,
+      ownerId: this.betaIdentity.ownerId,
+      teamId,
+      name: player.name,
+      jerseyNumber: player.jerseyNumber,
+      primaryPosition: player.primaryPosition,
+      active: player.active,
+      createdAt: player.createdAt,
+      updatedAt: player.updatedAt,
+    };
+  }
+
+  private toFirestoreRoster(teamId: string, timestamp: string): Roster {
+    return {
+      id: this.createRosterId(teamId),
+      ownerId: this.betaIdentity.ownerId,
+      teamId,
+      gameId: null,
+      lineup: [...this.lineupSignal()],
+      createdAt: this.teamSignal().createdAt,
+      updatedAt: timestamp,
+    };
+  }
+
+  private createRosterId(teamId: string): string {
+    return `${teamId}-active-roster`;
+  }
+
+  private fromFirestorePlayer(player: Player): RosterPlayer {
+    return {
+      id: player.id,
+      name: player.name,
+      jerseyNumber: player.jerseyNumber,
+      primaryPosition: player.primaryPosition,
+      active: player.active,
+      createdAt: player.createdAt,
+      updatedAt: player.updatedAt,
     };
   }
 

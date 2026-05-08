@@ -4,6 +4,7 @@ export type GameStatus = 'scheduled' | 'live' | 'final';
 
 export interface Team {
   id: string;
+  ownerId: string;
   name: string;
   createdAt: string;
   updatedAt: string;
@@ -11,6 +12,7 @@ export interface Team {
 
 export interface Player {
   id: string;
+  ownerId: string;
   teamId: string;
   name: string;
   jerseyNumber: number;
@@ -22,6 +24,7 @@ export interface Player {
 
 export interface Game {
   id: string;
+  ownerId: string;
   teamId: string;
   opponentName: string;
   status: GameStatus;
@@ -43,6 +46,7 @@ export interface Game {
 
 export interface GameSet {
   id: string;
+  ownerId: string;
   gameId: string;
   setNumber: number;
   teamPoints: number;
@@ -55,6 +59,7 @@ export interface GameSet {
 
 export interface Roster {
   id: string;
+  ownerId: string;
   teamId: string;
   gameId: string | null;
   lineup: Array<string | null>;
@@ -75,6 +80,7 @@ export type GameEventType =
 
 export interface GameEvent {
   id: string;
+  ownerId: string;
   gameId: string;
   type: GameEventType;
   action: string;
@@ -106,6 +112,7 @@ export interface GameEvent {
 
 export interface PlayerSetStats {
   id: string;
+  ownerId: string;
   gameId: string;
   playerId: string;
   playerName: string;
@@ -122,6 +129,7 @@ export interface PlayerSetStats {
   blocks: number;
   digs: number;
   serviceErrors: number;
+  receiveErrors: number;
   sideOutOpportunities: number;
   sideOutConversions: number;
   sideOutPercentage: number | null;

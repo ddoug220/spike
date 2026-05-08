@@ -1,8 +1,25 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Game, PlayerSetStats } from '../../models/firestore.models';
+import { FirebaseDbService } from '../../services/firebase-db.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { HistoryPage } from './history.page';
+
+const firebaseDbStub = {
+  isConfigured: () => false,
+  subscribeGame: (_gameId: string, onData: (game: null) => void) => {
+    onData(null);
+    return () => undefined;
+  },
+  subscribeEvents: (_gameId: string, onData: (events: []) => void) => {
+    onData([]);
+    return () => undefined;
+  },
+  subscribePlayerSetStats: (_gameId: string, onData: (stats: []) => void) => {
+    onData([]);
+    return () => undefined;
+  },
+};
 
 describe('HistoryPage', () => {
   let component: HistoryPage;
@@ -12,7 +29,7 @@ describe('HistoryPage', () => {
   beforeEach(async () => {
     window.localStorage.clear();
     await TestBed.configureTestingModule({
-      providers: [provideRouter([])],
+      providers: [provideRouter([]), { provide: FirebaseDbService, useValue: firebaseDbStub }],
     }).compileComponents();
 
     offlineSync = TestBed.inject(OfflineSyncService);
@@ -28,6 +45,7 @@ describe('HistoryPage', () => {
   it('renders recap cards with opponent, result, and stat leaders', () => {
     const game: Game = {
       id: 'match-1',
+      ownerId: 'owner-1',
       teamId: 'local-team',
       opponentName: 'Central High',
       status: 'final',
@@ -48,6 +66,7 @@ describe('HistoryPage', () => {
     };
     const stats: PlayerSetStats = {
       id: 'match-1-p1-match',
+      ownerId: 'owner-1',
       gameId: 'match-1',
       playerId: 'p1',
       playerName: 'Ava Johnson',
@@ -64,6 +83,7 @@ describe('HistoryPage', () => {
       blocks: 1,
       digs: 5,
       serviceErrors: 1,
+      receiveErrors: 2,
       sideOutOpportunities: 7,
       sideOutConversions: 5,
       sideOutPercentage: 0.714,
@@ -74,6 +94,7 @@ describe('HistoryPage', () => {
     offlineSync.queueGame(game);
     offlineSync.queueMatchEvent({
       id: 'evt-end',
+      ownerId: 'owner-1',
       gameId: 'match-1',
       type: 'matchEnded',
       action: 'match-ended',

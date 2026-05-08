@@ -1,8 +1,25 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { CourtPage } from './court.page';
+import { FirebaseDbService } from '../../services/firebase-db.service';
 import { MatchStateService } from '../../services/match-state.service';
 import { TeamRosterService } from '../../services/team-roster.service';
+
+const firebaseDbStub = {
+  isConfigured: () => false,
+  subscribeGame: (_gameId: string, onData: (game: null) => void) => {
+    onData(null);
+    return () => undefined;
+  },
+  subscribeEvents: (_gameId: string, onData: (events: []) => void) => {
+    onData([]);
+    return () => undefined;
+  },
+  subscribePlayerSetStats: (_gameId: string, onData: (stats: []) => void) => {
+    onData([]);
+    return () => undefined;
+  },
+};
 
 describe('CourtPage', () => {
   let component: CourtPage;
@@ -13,7 +30,7 @@ describe('CourtPage', () => {
   beforeEach(async () => {
     window.localStorage.clear();
     await TestBed.configureTestingModule({
-      providers: [provideRouter([])],
+      providers: [provideRouter([]), { provide: FirebaseDbService, useValue: firebaseDbStub }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(CourtPage);
@@ -60,12 +77,17 @@ describe('CourtPage', () => {
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
 
-    expect(text).toContain('+ Kill');
-    expect(text).toContain('\u2212 Att Error');
-    expect(text).toContain('+ Block');
-    expect(text).toContain('+ Ace');
-    expect(text).toContain('+ Opp UE');
-    expect(text).toContain('\u2212 Opp Winner');
+    expect(text).toContain('Score the Point');
+    expect(text).toContain('Kill');
+    expect(text).toContain('Attack Error');
+    expect(text).toContain('Block');
+    expect(text).toContain('Ace');
+    expect(text).toContain('Service Error');
+    expect(text).toContain('Opponent Error');
+    expect(text).toContain('Opponent Winner');
+    expect(text).toContain('Receive Error');
+    expect(text).toContain('Stat tap');
+    expect(text).toContain('Dig');
     expect(text).toContain('Undo');
   });
 
@@ -74,7 +96,7 @@ describe('CourtPage', () => {
 
     component.recordStandardOutcome('ace');
 
-    expect(component.getLastEventText()).toBe('Last: Player #2 - + Ace');
+    expect(component.getLastEventText()).toBe('Last: Player #2 - Ace');
   });
 
   it('tracks an opponent winner point separately from team-error actions', () => {
@@ -93,6 +115,66 @@ describe('CourtPage', () => {
 
     expect(matchState.state().teamPoints).toBe(before + 1);
     expect(component.getLastEventText()).toBe('Last: Opponent Unforced Error');
+  });
+
+  it('tracks service error as an opponent point and serving stat', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({
+        name: `Player ${i}`,
+        jerseyNumber: i,
+        primaryPosition: 'OH',
+      });
+    }
+    const server = teamRoster.players()[0];
+    teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    const before = matchState.state().opponentPoints;
+
+    component.recordStandardOutcome('service-error');
+
+    expect(matchState.state().opponentPoints).toBe(before + 1);
+    expect(component.liveStore.getPlayerStats(server.id).serviceErrors).toBe(1);
+    expect(component.liveStore.getPlayerStats(server.id).serveAttempts).toBe(1);
+  });
+
+  it('tracks receive error as an attributed opponent point', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({
+        name: `Player ${i}`,
+        jerseyNumber: i,
+        primaryPosition: 'OH',
+      });
+    }
+    const passer = teamRoster.players()[2];
+    teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    component.activePlayer = 3;
+    const before = matchState.state().opponentPoints;
+
+    component.recordStandardOutcome('receive-error');
+
+    expect(matchState.state().opponentPoints).toBe(before + 1);
+    expect(component.liveStore.getPlayerStats(passer.id).receiveErrors).toBe(1);
+    expect(component.getLastEventText()).toBe('Last: Player #3 - Receive Error');
+  });
+
+  it('tracks dig as a stat tap without changing the score', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({
+        name: `Player ${i}`,
+        jerseyNumber: i,
+        primaryPosition: 'OH',
+      });
+    }
+    const defender = teamRoster.players()[3];
+    teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    component.activePlayer = 4;
+    const before = matchState.state();
+
+    component.recordAction('dig');
+
+    expect(matchState.state().teamPoints).toBe(before.teamPoints);
+    expect(matchState.state().opponentPoints).toBe(before.opponentPoints);
+    expect(component.liveStore.getPlayerStats(defender.id).digs).toBe(1);
+    expect(component.getLastEventText()).toBe('Last: Player #4 - Dig');
   });
 
   it('allows manual rotation during live play', () => {

@@ -20,6 +20,7 @@ interface BoxScoreRow {
   aces: number;
   hittingEfficiency: number | null;
   serveAttempts: number;
+  receiveErrors: number;
   serveInPercentage: number | null;
   sideOutPercentage: number | null;
 }
@@ -88,6 +89,7 @@ export class HistoryPage {
         aces: row.aces,
         hittingEfficiency: row.hittingEfficiency,
         serveAttempts: row.serveAttempts,
+        receiveErrors: row.receiveErrors ?? 0,
         serveInPercentage: row.serveInPercentage,
         sideOutPercentage: row.sideOutPercentage,
       }))

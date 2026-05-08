@@ -1,6 +1,6 @@
 <ion-header [translucent]="true">
   <ion-toolbar class="stats-toolbar">
-    <ion-title>Live Game</ion-title>
+    <ion-title>Live Court</ion-title>
     <div class="surface-toggle" slot="end">
       <ion-button size="small" [ngClass]="{ active: activeSurfaceMode === 'live' }" (click)="setSurfaceMode('live')">
         Live
@@ -18,7 +18,7 @@
     <div class="match-over-banner" *ngIf="isMatchOver">&#9888; Match is final. Start a new match to continue tracking.</div>
     <div class="score-layout">
       <div class="score-side home">
-        <span class="score-team-name">Your Team</span>
+        <span class="score-team-name">{{ teamDisplayName }}</span>
         <span class="score-points">{{ gameState.teamPoints }}</span>
         <div class="score-set-dots">
           <span class="set-dot" [class.won]="gameState.teamSets >= 1"></span>
@@ -28,6 +28,7 @@
       </div>
       <div class="score-center">
         <span class="score-set-label">SET {{ gameState.currentSet }}</span>
+        <span class="live-status-pill">{{ scoreSituationText }}</span>
         <div class="score-meta-row">
           <span class="meta-badge" [ngClass]="{ serving: gameState.servingTeam === 'team' }">{{ servePossessionText }}</span>
           <span class="meta-badge">{{ rotationIndicatorText }}</span>
@@ -50,8 +51,23 @@
     <div class="tablet-layout">
       <section class="court-section">
         <div class="section-head">
-          <h2>Court View</h2>
-          <p>Tap a player then log a quick action</p>
+          <h2>Live Court</h2>
+          <p>{{ liveCourtSubtitle }}</p>
+        </div>
+
+        <div class="court-context-row" aria-label="Live match context">
+          <div class="court-context-card">
+            <span>Selected</span>
+            <strong>{{ selectedPlayerDetail }}</strong>
+          </div>
+          <div class="court-context-card">
+            <span>Serve</span>
+            <strong>{{ gameState.servingTeam === 'team' ? teamDisplayName : opponentName }}</strong>
+          </div>
+          <div class="court-context-card">
+            <span>This Set</span>
+            <strong>{{ teamSetKills }}K / {{ teamSetAttackErrors }}E</strong>
+          </div>
         </div>
 
         <div class="court-wrap" [ngClass]="{ 'sub-overlay-active': isSubOverlayOpen }">
@@ -108,11 +124,16 @@
 
       <aside class="action-section">
         <div class="section-head">
-          <h2>Command Surface</h2>
-          <p class="selected-player-line">{{ getSelectedPlayerText() }}</p>
-          <p class="score-line">Set K/E: {{ teamSetKills }} / {{ teamSetAttackErrors }} | Side-Out: {{ formatRate(teamSideOutRate) }}</p>
+          <h2>Score the Point</h2>
+          <p class="selected-player-line">{{ selectedPlayerDetail }}</p>
+          <p class="score-line">Side-out: {{ formatRate(teamSideOutRate) }}</p>
         </div>
 
+        <div class="command-summary">
+          {{ commandInstructionText }}
+        </div>
+
+        <div class="action-group-label">Point outcome</div>
         <div class="direct-actions-grid">
           <ion-button
             *ngFor="let action of standardOutcomeActions"
@@ -120,6 +141,21 @@
             class="action-btn"
             [ngClass]="action.accent"
             (click)="recordStandardOutcome(action.id)"
+            [disabled]="isMatchOver"
+          >
+            <ion-icon [name]="action.icon" slot="start"></ion-icon>
+            {{ action.label }}
+          </ion-button>
+        </div>
+
+        <div class="action-group-label">Stat tap - score stays the same</div>
+        <div class="stat-only-actions-grid">
+          <ion-button
+            *ngFor="let action of statOnlyActions"
+            expand="block"
+            class="action-btn stat-only-btn"
+            [ngClass]="action.accent"
+            (click)="recordAction(action.id)"
             [disabled]="isMatchOver"
           >
             <ion-icon [name]="action.icon" slot="start"></ion-icon>
@@ -227,6 +263,7 @@
           <span>E</span>
           <span>TA</span>
           <span>SA</span>
+          <span>RE</span>
           <span>Serve In %</span>
           <span>Hit Eff</span>
           <span>Side-Out %</span>
@@ -238,6 +275,7 @@
           <span>{{ row.attackErrors }}</span>
           <span>{{ row.totalAttacks }}</span>
           <span>{{ row.serveAttempts }}</span>
+          <span>{{ row.receiveErrors }}</span>
           <span>{{ formatRate(row.serveInPercentage) }}</span>
           <span>{{ formatRate(row.hittingEfficiency) }}</span>
           <span>{{ formatRate(row.sideOutPercentage) }}</span>

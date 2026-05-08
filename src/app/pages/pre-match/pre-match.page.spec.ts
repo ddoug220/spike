@@ -1,8 +1,25 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { PreMatchPage } from './pre-match.page';
+import { FirebaseDbService } from '../../services/firebase-db.service';
 import { MatchEngineService } from '../../services/match-engine.service';
 import { TeamRosterService } from '../../services/team-roster.service';
+
+const firebaseDbStub = {
+  isConfigured: () => false,
+  subscribeGame: (_gameId: string, onData: (game: null) => void) => {
+    onData(null);
+    return () => undefined;
+  },
+  subscribeEvents: (_gameId: string, onData: (events: []) => void) => {
+    onData([]);
+    return () => undefined;
+  },
+  subscribePlayerSetStats: (_gameId: string, onData: (stats: []) => void) => {
+    onData([]);
+    return () => undefined;
+  },
+};
 
 describe('PreMatchPage', () => {
   let component: PreMatchPage;
@@ -14,7 +31,7 @@ describe('PreMatchPage', () => {
   beforeEach(async () => {
     window.localStorage.clear();
     await TestBed.configureTestingModule({
-      providers: [provideRouter([])],
+      providers: [provideRouter([]), { provide: FirebaseDbService, useValue: firebaseDbStub }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PreMatchPage);
@@ -49,6 +66,18 @@ describe('PreMatchPage', () => {
     expect(teamRoster.team().name).toBe('North High');
     expect(fixture.nativeElement.textContent).toContain('Player Pool');
     expect(fixture.nativeElement.textContent).toContain('North High');
+  });
+
+  it('orients the coach around the team setup path', () => {
+    const text = fixture.nativeElement.textContent;
+
+    expect(text).toContain('Build the team once. Set today');
+    expect(text).toContain('Players');
+    expect(text).toContain('Starters');
+    expect(text).toContain('Saved Player Pool');
+    expect(text).toContain('1. Add players');
+    expect(text).toContain('2. Set starters');
+    expect(text).toContain('3. Start match');
   });
 
   it('passes opponent name when starting a match', async () => {

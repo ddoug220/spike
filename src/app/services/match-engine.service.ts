@@ -85,6 +85,7 @@ export class MatchEngineService {
     this.matchStartedAtByMatchId.set(matchId, createdAt);
     this.opponentNameByMatchId.set(matchId, opponentName);
 
+    this.teamRoster.syncRosterToFirebase(this.offlineSync);
     this.queueGameSnapshot(matchId, 'live', createdAt);
     this.offlineSync.logEvent({
       id: this.createEventId('evt'),
@@ -464,7 +465,7 @@ export class MatchEngineService {
     matchEnded: boolean;
     rotatedClockwise: boolean;
   } {
-    if (action === 'service-error' || action === 'attack-error') {
+    if (action === 'service-error' || action === 'attack-error' || action === 'receive-error') {
       const result = this.matchState.recordOpponentPoint();
       return { impactedScore: true, sideOutWon: false, matchEnded: result.matchEnded, rotatedClockwise: false };
     }
@@ -513,6 +514,7 @@ export class MatchEngineService {
           blocks: stats.blocks,
           digs: stats.digs,
           serviceErrors: stats.serviceErrors,
+          receiveErrors: stats.receiveErrors,
           sideOutOpportunities: stats.sideOutOpportunities,
           sideOutConversions: stats.sideOutConversions,
           sideOutPercentage: this.matchStats.getSideOutPercentage(player.id),
@@ -539,6 +541,7 @@ export class MatchEngineService {
         blocks: row.blocks,
         digs: row.digs,
         serviceErrors: row.serviceErrors,
+        receiveErrors: row.receiveErrors,
         sideOutOpportunities: row.sideOutOpportunities,
         sideOutConversions: row.sideOutConversions,
         sideOutPercentage: row.sideOutPercentage,
@@ -621,6 +624,7 @@ export class MatchEngineService {
       action === 'ace' ||
       action === 'block' ||
       action === 'opponent-error' ||
+      action === 'receive-error' ||
       action === 'dig'
     );
   }
@@ -671,6 +675,9 @@ export class MatchEngineService {
       }
       if (event.action === 'dig') {
         line.digs += 1;
+      }
+      if (event.action === 'receive-error') {
+        line.receiveErrors += 1;
       }
       if (event.action === 'service-error') {
         line.serviceErrors += 1;
@@ -771,6 +778,7 @@ export class MatchEngineService {
       blocks: 0,
       digs: 0,
       serviceErrors: 0,
+      receiveErrors: 0,
       sideOutOpportunities: 0,
       sideOutConversions: 0,
     };

@@ -3,10 +3,18 @@ import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { createOutline, people, play, playCircle, timeOutline } from 'ionicons/icons';
+import { cloudDoneOutline, cloudOfflineOutline, createOutline, people, play, playCircle, timeOutline } from 'ionicons/icons';
 import { MatchStateService } from '../../services/match-state.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { TeamRosterService } from '../../services/team-roster.service';
+
+type HomeStepState = 'complete' | 'current' | 'locked';
+
+interface HomeSetupStep {
+  label: string;
+  detail: string;
+  state: HomeStepState;
+}
 
 @Component({
   selector: 'app-home',
@@ -21,7 +29,7 @@ export class HomePage {
     public readonly matchState: MatchStateService,
     public readonly offlineSync: OfflineSyncService,
   ) {
-    addIcons({ timeOutline, playCircle, people, createOutline, play });
+    addIcons({ timeOutline, playCircle, people, createOutline, play, cloudDoneOutline, cloudOfflineOutline });
   }
 
   get hasValidLineup(): boolean {
@@ -64,8 +72,12 @@ export class HomePage {
   }
 
   get syncStatusText(): string {
+    if (this.offlineSync.lastError()) {
+      return 'Saved on device. Cloud sync needs retry';
+    }
+
     if (this.offlineSync.pendingCount() > 0) {
-      return `${this.offlineSync.pendingCount()} event(s) pending sync`;
+      return `${this.offlineSync.pendingCount()} change(s) pending sync`;
     }
 
     if (this.offlineSync.lastSuccessfulSyncAt()) {
@@ -85,5 +97,102 @@ export class HomePage {
 
   get liveMatchButtonText(): string {
     return this.hasActiveMatch ? 'Resume Live Match' : 'Open Live Match';
+  }
+
+  get nextActionTitle(): string {
+    if (this.hasActiveMatch) {
+      return 'Resume the live match';
+    }
+    if (this.matchState.state().isMatchOver) {
+      return 'Review the final match';
+    }
+    if (this.playerPoolCount < 6) {
+      return 'Build your team';
+    }
+    if (!this.hasValidLineup) {
+      return 'Set your starting lineup';
+    }
+    return 'Start a tracked match';
+  }
+
+  get nextActionDetail(): string {
+    if (this.hasActiveMatch) {
+      return this.matchStatusText;
+    }
+    if (this.matchState.state().isMatchOver) {
+      return `${this.matchStatusText}. Start another match from lineup setup when you are ready.`;
+    }
+    if (this.playerPoolCount < 6) {
+      return 'Add at least 6 players once. Spike reuses this player pool for every match.';
+    }
+    if (!this.hasValidLineup) {
+      return 'Place 6 starters on the court so every scoring tap is tied to the right player.';
+    }
+    return 'Name the opponent, choose first serve, then score the match from the live court.';
+  }
+
+  get primaryActionText(): string {
+    if (this.hasActiveMatch) {
+      return 'Resume Match';
+    }
+    if (this.matchState.state().isMatchOver) {
+      return 'View Match History';
+    }
+    if (this.hasValidLineup) {
+      return 'Start Match';
+    }
+    return this.playerPoolCount < 6 ? 'Add Players' : 'Set Lineup';
+  }
+
+  get primaryActionRoute(): string[] {
+    if (this.hasActiveMatch) {
+      return ['/court'];
+    }
+    if (this.matchState.state().isMatchOver) {
+      return ['/history'];
+    }
+    return ['/pre-match'];
+  }
+
+  get setupSteps(): HomeSetupStep[] {
+    return [
+      {
+        label: 'Add players',
+        detail: `${this.playerPoolCount}/6 minimum in your saved player pool`,
+        state: this.playerPoolCount >= 6 ? 'complete' : 'current',
+      },
+      {
+        label: 'Set lineup',
+        detail: `${this.lineupAssignedCount}/6 starters assigned to court spots`,
+        state: this.playerPoolCount < 6 ? 'locked' : this.hasValidLineup ? 'complete' : 'current',
+      },
+      {
+        label: 'Track live',
+        detail: 'Opponent, first serve, score, subs, undo, and box score',
+        state: this.hasValidLineup ? 'current' : 'locked',
+      },
+    ];
+  }
+
+  get matchCardTitle(): string {
+    if (this.hasActiveMatch) {
+      return `Live vs ${this.opponentName}`;
+    }
+    if (this.matchState.state().isMatchOver) {
+      return `Final vs ${this.opponentName}`;
+    }
+    return 'No live match yet';
+  }
+
+  get matchCardDetail(): string {
+    const state = this.matchState.state();
+    if (this.hasActiveMatch || state.isMatchOver) {
+      return `${state.teamSets}-${state.opponentSets} sets, ${state.teamPoints}-${state.opponentPoints} in set ${state.currentSet}`;
+    }
+    return 'Start from lineup setup when your starters are ready.';
+  }
+
+  get syncIconName(): string {
+    return this.offlineSync.lastError() || this.offlineSync.pendingCount() > 0 ? 'cloud-offline-outline' : 'cloud-done-outline';
   }
 }

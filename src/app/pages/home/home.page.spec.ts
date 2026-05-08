@@ -3,7 +3,24 @@ import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { RouterLink } from '@angular/router';
 import { HomePage } from './home.page';
+import { FirebaseDbService } from '../../services/firebase-db.service';
 import { TeamRosterService } from '../../services/team-roster.service';
+
+const firebaseDbStub = {
+  isConfigured: () => false,
+  subscribeGame: (_gameId: string, onData: (game: null) => void) => {
+    onData(null);
+    return () => undefined;
+  },
+  subscribeEvents: (_gameId: string, onData: (events: []) => void) => {
+    onData([]);
+    return () => undefined;
+  },
+  subscribePlayerSetStats: (_gameId: string, onData: (stats: []) => void) => {
+    onData([]);
+    return () => undefined;
+  },
+};
 
 describe('HomePage', () => {
   let component: HomePage;
@@ -13,7 +30,7 @@ describe('HomePage', () => {
   beforeEach(async () => {
     window.localStorage.clear();
     await TestBed.configureTestingModule({
-      providers: [provideRouter([])],
+      providers: [provideRouter([]), { provide: FirebaseDbService, useValue: firebaseDbStub }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(HomePage);
@@ -34,7 +51,7 @@ describe('HomePage', () => {
 
     expect(component.playerPoolCount).toBe(1);
     expect(fixture.nativeElement.textContent).toContain('North High');
-    expect(fixture.nativeElement.textContent).toContain('Player Pool 1');
+    expect(fixture.nativeElement.textContent).toContain('1/6 minimum in your saved player pool');
   });
 
   it('routes Start Match to lineup setup when no active match exists', () => {
@@ -50,5 +67,15 @@ describe('HomePage', () => {
       .find((routerLink) => (routerLink as RouterLink).href?.includes('/pre-match'));
 
     expect(startLink).toBeTruthy();
+  });
+
+  it('orients a new user around the setup path', () => {
+    const text = fixture.nativeElement.textContent;
+
+    expect(text).toContain('Track a volleyball match without losing the court.');
+    expect(text).toContain('Build your team');
+    expect(text).toContain('Add players');
+    expect(text).toContain('Set lineup');
+    expect(text).toContain('Track live');
   });
 });

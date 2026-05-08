@@ -1,9 +1,13 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
+import { MatchStateService } from './services/match-state.service';
+import { OfflineSyncService } from './services/offline-sync.service';
 import { TeamRosterService } from './services/team-roster.service';
 
 const canActivateCourt: CanActivateFn = () => {
   const teamRoster = inject(TeamRosterService);
+  const matchState = inject(MatchStateService);
+  const offlineSync = inject(OfflineSyncService);
   const router = inject(Router);
   const lineup = teamRoster.lineup();
   const assigned = lineup.filter((playerId): playerId is string => !!playerId);
@@ -12,7 +16,17 @@ const canActivateCourt: CanActivateFn = () => {
     new Set(assigned).size === 6 &&
     assigned.every((playerId) => !!teamRoster.getPlayerById(playerId));
 
-  return hasValidLineup ? true : router.createUrlTree(['/pre-match']);
+  if (!hasValidLineup) {
+    return router.createUrlTree(['/pre-match']);
+  }
+
+  const activeMatchId = offlineSync.getActiveMatchId();
+  const hasStartedMatch =
+    offlineSync.getMatchEvents(activeMatchId).some((event) => event.type === 'matchStarted') ||
+    !!offlineSync.getGame(activeMatchId);
+  const hasActiveMatch = hasStartedMatch && !matchState.state().isMatchOver;
+
+  return hasActiveMatch ? true : router.createUrlTree(['/pre-match']);
 };
 
 export const routes: Routes = [

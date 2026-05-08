@@ -127,6 +127,7 @@ describe('LiveMatchStoreService', () => {
         blocks: 1,
         digs: 3,
         serviceErrors: 1,
+        receiveErrors: 2,
         sideOutOpportunities: 6,
         sideOutConversions: 4,
       }),
@@ -142,6 +143,7 @@ describe('LiveMatchStoreService', () => {
       blocks: 1,
       digs: 3,
       serviceErrors: 1,
+      receiveErrors: 2,
       sideOutOpportunities: 6,
       sideOutConversions: 4,
     };
@@ -153,6 +155,7 @@ describe('LiveMatchStoreService', () => {
 
 const game = (id: string, overrides: Partial<Game> = {}): Game => ({
   id,
+  ownerId: 'owner-1',
   teamId: 'local-team',
   opponentName: 'Opponent',
   status: 'live',
@@ -175,6 +178,7 @@ const game = (id: string, overrides: Partial<Game> = {}): Game => ({
 
 const playerSetStats = (overrides: Partial<PlayerSetStats> = {}): PlayerSetStats => ({
   id: 'stats-1',
+  ownerId: 'owner-1',
   gameId: 'game-1',
   playerId: 'p1',
   playerName: 'Player One',
@@ -191,6 +195,7 @@ const playerSetStats = (overrides: Partial<PlayerSetStats> = {}): PlayerSetStats
   blocks: 0,
   digs: 0,
   serviceErrors: 0,
+  receiveErrors: 0,
   sideOutOpportunities: 0,
   sideOutConversions: 0,
   sideOutPercentage: 2 / 3,

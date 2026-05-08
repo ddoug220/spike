@@ -3,13 +3,35 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/home"></ion-back-button>
     </ion-buttons>
-    <ion-title>Set Up Lineup</ion-title>
+    <ion-title>Team & Lineup</ion-title>
     <ion-button slot="end" fill="clear" class="toolbar-history-btn" [routerLink]="['/history']">History</ion-button>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
   <div class="prematch-layout">
+    <section class="setup-brief" aria-label="Team setup status">
+      <div class="setup-brief-copy">
+        <span class="brief-kicker">{{ team.name }}</span>
+        <h1>Build the team once. Set today&apos;s starting six.</h1>
+        <p>{{ teamSetupStatusText }}</p>
+      </div>
+      <div class="setup-metrics">
+        <div>
+          <span>Players</span>
+          <strong>{{ players.length }}</strong>
+        </div>
+        <div>
+          <span>Starters</span>
+          <strong>{{ assignedStarterCount }}/6</strong>
+        </div>
+        <div>
+          <span>Bench</span>
+          <strong>{{ benchCount }}</strong>
+        </div>
+      </div>
+    </section>
+
     <section class="panel court-panel">
       <form class="team-details" (ngSubmit)="saveTeam()">
         <div>
@@ -32,6 +54,19 @@
           <ion-icon name="save" slot="start"></ion-icon>
           Save Team
         </ion-button>
+        <div
+          class="team-sync-status"
+          [ngClass]="{
+            pending: offlineSync.pendingCount() > 0 || offlineSync.isSyncing(),
+            error: offlineSync.lastError()
+          }"
+          aria-live="polite"
+        >
+          <span>{{ syncStatusText }}</span>
+          @if (offlineSync.lastError()) {
+            <button type="button" (click)="retrySync()">Retry</button>
+          }
+        </div>
       </form>
 
       <div class="match-details">
@@ -78,8 +113,8 @@
       </div>
 
       <div class="panel-head">
-        <h2>Starting Lineup</h2>
-        <p>Select a roster player, then tap a court slot. Drag and drop still works.</p>
+        <h2>Starting Six</h2>
+        <p>{{ selectedPlayerText }}</p>
       </div>
 
       <div class="lineup-court" [ngClass]="{ 'lineup-court-empty': !hasAssignedStarters }">
@@ -140,8 +175,14 @@
 
     <section class="panel roster-panel">
       <div class="panel-head">
-        <h2>Player Pool</h2>
-        <p>Add players to {{ team.name }}, then select one and tap a slot to assign.</p>
+        <h2>Saved Player Pool</h2>
+        <p>Add players to {{ team.name }} once. Tap a player, then tap a court slot.</p>
+      </div>
+
+      <div class="setup-path-mini" aria-label="Setup path">
+        <span [ngClass]="{ done: players.length >= 6 }">1. Add players</span>
+        <span [ngClass]="{ done: isRotationValid }">2. Set starters</span>
+        <span [ngClass]="{ done: canStartMatch }">3. Start match</span>
       </div>
 
       @if (players.length === 0) {
@@ -189,10 +230,10 @@
       </form>
 
       <div class="bench-dropzone" (dragover)="allowDrop($event)" (drop)="dropToBench($event)">
-        Drop Here To Move Back To Bench
+        Drop here or use the button below to move a starter back to the bench
       </div>
       <ion-button expand="block" type="button" fill="outline" (click)="moveSelectedToBench()">
-        Move Selected To Bench
+        Move Selected Player To Bench
       </ion-button>
 
       <div class="roster-list">
@@ -238,6 +279,9 @@
       <ion-icon [name]="isRotationValid ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
       Rotation
     </span>
+    @if (!canStartMatch) {
+      <span class="readiness-blocker">{{ startMatchDisabledReason }}</span>
+    }
   </div>
   <ion-button
     expand="block"

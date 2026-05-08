@@ -15,7 +15,8 @@ ion-content {
   ion-title {
     font-weight: 700;
     letter-spacing: 0.01em;
-    font-size: 0.9rem;
+    font-family: var(--font-display);
+    font-size: 1rem;
     color: var(--color-text-1);
   }
 }
@@ -69,7 +70,7 @@ ion-content {
 .score-layout {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  padding: 12px 16px 14px;
+  padding: 14px 18px 16px;
   align-items: center;
 }
 
@@ -84,7 +85,11 @@ ion-content {
 }
 
 .score-team-name {
-  font-size: 0.62rem;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -93,7 +98,7 @@ ion-content {
 
 .score-points {
   font-family: var(--font-mono);
-  font-size: 3rem;
+  font-size: 3.35rem;
   font-weight: 500;
   line-height: 1;
   color: var(--color-text-1);
@@ -140,6 +145,20 @@ ion-content {
   color: var(--color-accent);
 }
 
+.live-status-pill {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  color: var(--color-text-1);
+  padding: 4px 10px;
+  font-size: 0.68rem;
+  font-weight: 750;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .score-meta-row {
   display: flex;
   flex-direction: column;
@@ -176,7 +195,7 @@ ion-content {
 .court-section,
 .action-section {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: 8px;
   background: var(--color-surface-1);
   padding: 16px;
   min-height: calc(100dvh - 132px);
@@ -189,8 +208,9 @@ ion-content {
 
 .section-head h2 {
   margin: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-text-2);
@@ -199,7 +219,7 @@ ion-content {
 .section-head p {
   margin: 3px 0 0;
   color: var(--color-text-2);
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 500;
 }
 
@@ -217,6 +237,40 @@ ion-content {
   letter-spacing: 0.01em;
 }
 
+.court-context-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.8fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.court-context-card {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  padding: 10px 12px;
+  display: grid;
+  gap: 3px;
+}
+
+.court-context-card span {
+  color: var(--color-text-2);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.court-context-card strong {
+  color: var(--color-text-1);
+  font-size: 0.84rem;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 // ─── Court visualization ───
 .court-wrap {
   margin-top: 14px;
@@ -224,7 +278,7 @@ ion-content {
   width: min(100%, 760px);
   margin-inline: auto;
   aspect-ratio: 1 / 1;
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   overflow: hidden;
   background: var(--court-wood-bg);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -523,16 +577,44 @@ ion-button.primary-action-btn.active {
   gap: 8px;
 }
 
+.stat-only-actions-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.action-group-label {
+  margin-top: 12px;
+  color: var(--color-text-2);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 ion-button.action-btn {
   height: 68px;
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   --border-radius: var(--radius-md);
   --box-shadow: none;
   --color: #ffffff;
   transition: none;
+}
+
+.command-summary {
+  margin-top: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 ion-button.action-kill  { --background: var(--color-green); }
@@ -553,6 +635,17 @@ ion-button.action-dig {
 ion-button.action-opponent-point {
   --background: var(--color-red);
   --color: #ffffff;
+}
+
+ion-button.action-receive-error {
+  --background: var(--color-red);
+  --color: #ffffff;
+}
+
+ion-button.stat-only-btn {
+  height: 48px;
+  --background: var(--color-surface-3);
+  --color: var(--color-text-1);
 }
 
 .command-row {
@@ -596,7 +689,7 @@ ion-button.action-opponent-point {
 // ─── Last action ───
 .last-action {
   margin-top: 10px;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   border: 1px solid var(--color-border);
   background: var(--color-surface-2);
   min-height: 44px;
@@ -923,7 +1016,7 @@ select:focus-visible {
 
 .box-row {
   display: grid;
-  grid-template-columns: minmax(180px, 2.3fr) 0.6fr 0.6fr 0.7fr 0.7fr 1fr 1fr 1fr;
+  grid-template-columns: minmax(180px, 2.3fr) 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr 1fr 1fr 1fr;
   gap: 8px;
   align-items: center;
   padding: 10px 12px;
@@ -1274,6 +1367,10 @@ select:focus-visible {
 
   .court-wrap { width: 100%; max-width: 100%; }
 
+  .court-context-row {
+    grid-template-columns: 1fr;
+  }
+
   .player-chip {
     width: clamp(86px, 28vw, 106px);
     height: clamp(70px, 14vw, 84px);
@@ -1306,7 +1403,7 @@ select:focus-visible {
   .box-score-panel { margin: 0 10px 10px; padding: 12px; }
 
   .box-row {
-    grid-template-columns: minmax(120px, 1.8fr) repeat(7, 0.75fr);
+    grid-template-columns: minmax(120px, 1.8fr) repeat(8, 0.75fr);
     font-size: 0.74rem;
     padding: 8px;
   }
@@ -1321,6 +1418,14 @@ select:focus-visible {
 @media (max-width: 680px) {
   .score-layout { padding: 10px 12px 12px; }
   .score-points { font-size: 2.2rem; }
+
+  .live-status-pill {
+    max-width: 18ch;
+  }
+
+  .surface-toggle {
+    display: none;
+  }
 
   .review-surface { margin: 10px; }
 

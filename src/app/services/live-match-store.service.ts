@@ -133,6 +133,7 @@ export class LiveMatchStoreService implements OnDestroy {
       blocks: synced.blocks,
       digs: synced.digs,
       serviceErrors: synced.serviceErrors,
+      receiveErrors: synced.receiveErrors ?? 0,
       sideOutOpportunities: synced.sideOutOpportunities,
       sideOutConversions: synced.sideOutConversions,
     };

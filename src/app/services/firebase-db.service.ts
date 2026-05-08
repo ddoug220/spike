@@ -27,13 +27,22 @@ import {
   FirestoreDocumentMap,
   Game,
   GameEvent,
+  Player,
   PlayerSetStats,
+  Roster,
+  Team,
 } from '../models/firestore.models';
 
 export interface FirebaseResult<T> {
   ok: boolean;
   data?: T;
   error?: string;
+}
+
+export interface TeamRosterSnapshot {
+  teams: Team[];
+  players: Player[];
+  rosters: Roster[];
 }
 
 @Injectable({
@@ -123,6 +132,37 @@ export class FirebaseDbService {
     }
   }
 
+  async readTeamRosterSnapshot(ownerId: string): Promise<FirebaseResult<TeamRosterSnapshot>> {
+    if (!this.isConfigured()) {
+      return {
+        ok: false,
+        error: 'Firebase environment values are not configured.',
+      };
+    }
+
+    try {
+      const [teams, players, rosters] = await Promise.all([
+        this.readOwnedCollection('teams', ownerId),
+        this.readOwnedCollection('players', ownerId),
+        this.readOwnedCollection('roster', ownerId),
+      ]);
+
+      return {
+        ok: true,
+        data: {
+          teams,
+          players,
+          rosters,
+        },
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: this.toErrorMessage(error, 'Firestore roster read failed.'),
+      };
+    }
+  }
+
   async writeEvent(event: GameEvent): Promise<FirebaseResult<string>> {
     if (!this.isConfigured()) {
       return {
@@ -206,10 +246,9 @@ export class FirebaseDbService {
         query(
           this.collectionRef('playerSetStats'),
           where('gameId', '==', gameId),
-          orderBy('jerseyNumber', 'asc'),
         ),
       );
-      return { ok: true, data: snapshot.docs.map((entry) => entry.data()) };
+      return { ok: true, data: this.sortPlayerSetStats(snapshot.docs.map((entry) => entry.data())) };
     } catch (error) {
       return {
         ok: false,
@@ -247,15 +286,27 @@ export class FirebaseDbService {
     }
 
     return onSnapshot(
-      query(this.collectionRef('playerSetStats'), where('gameId', '==', gameId), orderBy('jerseyNumber', 'asc')),
+      query(this.collectionRef('playerSetStats'), where('gameId', '==', gameId)),
       (snapshot) => {
-        onData(snapshot.docs.map((entry) => entry.data()));
+        onData(this.sortPlayerSetStats(snapshot.docs.map((entry) => entry.data())));
       },
     );
   }
 
+  private sortPlayerSetStats(stats: PlayerSetStats[]): PlayerSetStats[] {
+    return [...stats].sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+  }
+
   private collectionRef<C extends FirestoreCollection>(collectionName: C): CollectionReference<FirestoreDocumentMap[C]> {
     return collection(this.getDb(), collectionName).withConverter(this.converter<FirestoreDocumentMap[C]>());
+  }
+
+  private async readOwnedCollection<C extends 'teams' | 'players' | 'roster'>(
+    collectionName: C,
+    ownerId: string,
+  ): Promise<Array<FirestoreDocumentMap[C]>> {
+    const snapshot = await getDocs(query(this.collectionRef(collectionName), where('ownerId', '==', ownerId)));
+    return snapshot.docs.map((entry) => entry.data());
   }
 
   private gameEventsRef(gameId: string): CollectionReference<GameEvent> {

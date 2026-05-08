@@ -266,7 +266,7 @@ h3 {
 
 .box-row {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) repeat(7, 0.8fr);
+  grid-template-columns: minmax(180px, 2fr) repeat(8, 0.8fr);
   gap: 8px;
   padding: 9px 12px;
   border-top: 1px solid var(--panel-border);
@@ -307,7 +307,7 @@ ion-button:focus-visible {
   }
 
   .box-row {
-    grid-template-columns: minmax(130px, 1.8fr) repeat(7, 0.75fr);
+    grid-template-columns: minmax(130px, 1.8fr) repeat(8, 0.75fr);
     font-size: 0.76rem;
   }
 

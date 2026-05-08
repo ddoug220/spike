@@ -8,6 +8,7 @@ export type StatsAction =
   | 'ace'
   | 'block'
   | 'opponent-error'
+  | 'receive-error'
   | 'dig';
 
 export interface PlayerStatLine {
@@ -20,6 +21,7 @@ export interface PlayerStatLine {
   blocks: number;
   digs: number;
   serviceErrors: number;
+  receiveErrors: number;
   sideOutOpportunities: number;
   sideOutConversions: number;
 }
@@ -133,6 +135,8 @@ export class MatchStatsService {
         line.blocks += 1;
       } else if (action === 'dig') {
         line.digs += 1;
+      } else if (action === 'receive-error') {
+        line.receiveErrors += 1;
       } else if (action === 'service-error') {
         line.serviceErrors += 1;
         line.serveAttempts += 1;
@@ -208,6 +212,7 @@ export class MatchStatsService {
           blocks: entry.blocks,
           digs: entry.digs,
           serviceErrors: entry.serviceErrors,
+          receiveErrors: entry.receiveErrors ?? 0,
           sideOutOpportunities: entry.sideOutOpportunities,
           sideOutConversions: entry.sideOutConversions,
         };
@@ -264,6 +269,9 @@ export class MatchStatsService {
         }
         if (event.action === 'dig') {
           line.digs += 1;
+        }
+        if (event.action === 'receive-error') {
+          line.receiveErrors += 1;
         }
         if (event.action === 'service-error') {
           line.serviceErrors += 1;
@@ -326,6 +334,7 @@ export class MatchStatsService {
       blocks: 0,
       digs: 0,
       serviceErrors: 0,
+      receiveErrors: 0,
       sideOutOpportunities: 0,
       sideOutConversions: 0,
     };
@@ -339,6 +348,7 @@ export class MatchStatsService {
       action === 'ace' ||
       action === 'block' ||
       action === 'opponent-error' ||
+      action === 'receive-error' ||
       action === 'dig'
     );
   }

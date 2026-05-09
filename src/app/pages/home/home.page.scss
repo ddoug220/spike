@@ -261,6 +261,7 @@ ion-content::part(scroll) {
 
 .next-card,
 .setup-card,
+.guide-card,
 .status-card,
 .sync-card {
   border: 1px solid var(--home-border);
@@ -313,6 +314,7 @@ ion-content::part(scroll) {
 }
 
 .setup-card,
+.guide-card,
 .status-card,
 .sync-card {
   padding: 20px;
@@ -353,6 +355,56 @@ ion-content::part(scroll) {
 
 .setup-step--locked {
   opacity: 0.62;
+}
+
+.guide-card {
+  display: grid;
+  align-content: start;
+}
+
+.guide-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.guide-step {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--home-border);
+  border-radius: 8px;
+  background: var(--home-panel-soft);
+
+  ion-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--home-blue-soft);
+    color: var(--home-blue);
+    font-size: 1.1rem;
+  }
+
+  div {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  strong {
+    color: var(--home-text);
+    font-size: 0.96rem;
+  }
+
+  span {
+    color: var(--home-muted);
+    font-size: 0.86rem;
+    line-height: 1.35;
+  }
 }
 
 .step-copy {

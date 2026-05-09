@@ -73,6 +73,10 @@ describe('HomePage', () => {
     const text = fixture.nativeElement.textContent;
 
     expect(text).toContain('Track a volleyball match without losing the court.');
+    expect(text).toContain('First match guide');
+    expect(text).toContain('Roster is saved once');
+    expect(text).toContain('Lineup is for today');
+    expect(text).toContain('Point buttons change score');
     expect(text).toContain('Build your team');
     expect(text).toContain('Add players');
     expect(text).toContain('Set lineup');

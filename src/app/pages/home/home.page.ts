@@ -3,7 +3,20 @@ import { Component } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { cloudDoneOutline, cloudOfflineOutline, createOutline, logOutOutline, people, play, playCircle, swapHorizontalOutline, timeOutline } from 'ionicons/icons';
+import {
+  cloudDoneOutline,
+  cloudOfflineOutline,
+  createOutline,
+  gridOutline,
+  logOutOutline,
+  people,
+  peopleOutline,
+  play,
+  playCircle,
+  radioButtonOnOutline,
+  swapHorizontalOutline,
+  timeOutline,
+} from 'ionicons/icons';
 import { AuthService } from '../../services/auth.service';
 import { MatchStateService } from '../../services/match-state.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
@@ -34,7 +47,20 @@ export class HomePage {
     private readonly auth: AuthService,
     private readonly router: Router,
   ) {
-    addIcons({ timeOutline, playCircle, people, createOutline, play, cloudDoneOutline, cloudOfflineOutline, swapHorizontalOutline, logOutOutline });
+    addIcons({
+      timeOutline,
+      playCircle,
+      people,
+      createOutline,
+      play,
+      cloudDoneOutline,
+      cloudOfflineOutline,
+      swapHorizontalOutline,
+      logOutOutline,
+      peopleOutline,
+      gridOutline,
+      radioButtonOnOutline,
+    });
   }
 
   get userEmail(): string | null {

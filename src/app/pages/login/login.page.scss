@@ -1,0 +1,413 @@
+// ─── Tokens ────────────────────────────────────────────────────────────────────
+:host {
+  --bg:           #090c11;
+  --panel:        #111720;
+  --border:       rgba(255, 255, 255, 0.1);
+  --border-focus: #c8ff00;
+  --text:         #e4eaf5;
+  --muted:        #5e6e84;
+  --subtle:       #333f52;
+  --volt:         #c8ff00;
+  --volt-ink:     #0a0f00;
+  --error:        #ff5c3e;
+  --inp-bg:       rgba(255, 255, 255, 0.04);
+  --inp-border:   rgba(255, 255, 255, 0.12);
+
+  display: block;
+  height: 100%;
+}
+
+// Darker darks in OS dark mode
+@media (prefers-color-scheme: dark) {
+  :host {
+    --bg:         #05070a;
+    --panel:      #0d1219;
+    --border:     rgba(255, 255, 255, 0.08);
+    --inp-bg:     rgba(255, 255, 255, 0.03);
+    --inp-border: rgba(255, 255, 255, 0.09);
+  }
+}
+
+// ─── Ionic Content ─────────────────────────────────────────────────────────────
+ion-content {
+  --background: var(--bg);
+}
+
+// ─── Root Shell ────────────────────────────────────────────────────────────────
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 48px 20px 40px;
+  overflow: hidden;
+}
+
+// ─── Court Background ──────────────────────────────────────────────────────────
+.court-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+// The outer court boundary — portrait orientation (net runs horizontally)
+.court-bounds {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  // 9m wide : 18m tall → 1:2 ratio
+  width: clamp(300px, 88vw, 580px);
+  height: clamp(600px, 176vw, 1160px);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+// Net — horizontal center line
+.court-net {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(300px, 88vw, 580px);
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+// Attack lines — 3m from net on each side = 3/9 = 33% of half-court
+.court-attack {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: clamp(300px, 88vw, 580px);
+  height: 1px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.court-attack--near {
+  top: calc(50% - clamp(100px, 29.3vw, 193px));
+}
+
+.court-attack--far {
+  top: calc(50% + clamp(100px, 29.3vw, 193px));
+}
+
+// Volt ambient glow behind the wordmark area
+.court-glow {
+  position: absolute;
+  top: -5%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80vw;
+  max-width: 600px;
+  height: 60vw;
+  max-height: 400px;
+  background: radial-gradient(ellipse at 50% 30%, rgba(200, 255, 0, 0.055) 0%, transparent 68%);
+  pointer-events: none;
+}
+
+// ─── Login Wrap ────────────────────────────────────────────────────────────────
+.login-wrap {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+// ─── Brand Block ───────────────────────────────────────────────────────────────
+.brand-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.wordmark {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: clamp(3.6rem, 14vw, 6rem);
+  font-weight: 800;
+  line-height: 0.88;
+  color: var(--text);
+  letter-spacing: -0.03em;
+
+  // Volt accent: the underline "tape mark"
+  &::after {
+    content: '';
+    display: block;
+    width: 2.4ch;
+    height: 3px;
+    margin-top: 12px;
+    background: var(--volt);
+    border-radius: 1px;
+  }
+}
+
+.wordmark-sub {
+  font-family: 'Figtree', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+// ─── Auth Card ─────────────────────────────────────────────────────────────────
+.auth-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: rise 0.55s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+// ─── Mode Tabs ─────────────────────────────────────────────────────────────────
+.mode-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin: -4px -4px 0;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 10px 8px 13px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'Figtree', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: color 0.14s, border-color 0.14s;
+  margin-bottom: -1px;
+
+  &.mode-btn--active {
+    color: var(--volt);
+    border-bottom-color: var(--volt);
+  }
+
+  &:not(.mode-btn--active):hover {
+    color: var(--text);
+  }
+}
+
+// ─── Google Button ─────────────────────────────────────────────────────────────
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+  font-family: 'Figtree', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background 0.14s, border-color 0.14s;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.goog-logo {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+// ─── Divider ───────────────────────────────────────────────────────────────────
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.divider-label {
+  color: var(--muted);
+  font-family: 'Figtree', sans-serif;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+// ─── Form ──────────────────────────────────────────────────────────────────────
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-family: 'Figtree', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field-input {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--inp-border);
+  border-radius: 6px;
+  background: var(--inp-bg);
+  color: var(--text);
+  font-family: 'Figtree', sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
+  box-sizing: border-box;
+
+  &::placeholder {
+    color: var(--subtle);
+  }
+
+  &:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.12);
+  }
+
+  &.field-input--pw {
+    padding-right: 56px;
+  }
+}
+
+.field-pw-wrap {
+  position: relative;
+}
+
+.pw-toggle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  padding: 0 14px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'Figtree', sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 0.14s;
+
+  &:hover {
+    color: var(--text);
+  }
+}
+
+// ─── Error ─────────────────────────────────────────────────────────────────────
+.form-error {
+  margin: 0;
+  padding: 10px 13px;
+  border-radius: 6px;
+  background: rgba(255, 92, 62, 0.12);
+  border: 1px solid rgba(255, 92, 62, 0.25);
+  color: var(--error);
+  font-family: 'Figtree', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+// ─── Primary Button ────────────────────────────────────────────────────────────
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 50px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 6px;
+  background: var(--volt);
+  color: var(--volt-ink);
+  cursor: pointer;
+  font-family: 'Figtree', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: filter 0.14s, transform 0.1s;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.07);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.985);
+    filter: brightness(0.97);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ─── Spinner ───────────────────────────────────────────────────────────────────
+.spinner {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(0, 0, 0, 0.25);
+  border-top-color: var(--volt-ink);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+}
+
+// ─── Animations ────────────────────────────────────────────────────────────────
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

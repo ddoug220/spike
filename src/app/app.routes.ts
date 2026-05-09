@@ -1,8 +1,22 @@
 import { inject } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { CanActivateFn, Router, Routes } from '@angular/router';
+import { filter, map, take } from 'rxjs';
+import { AuthService } from './services/auth.service';
 import { MatchStateService } from './services/match-state.service';
 import { OfflineSyncService } from './services/offline-sync.service';
 import { TeamRosterService } from './services/team-roster.service';
+
+const canActivateAuth: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  return toObservable(auth.user).pipe(
+    filter((user) => user !== undefined),
+    take(1),
+    map((user) => (user ? true : router.createUrlTree(['/login']))),
+  );
+};
 
 const canActivateCourt: CanActivateFn = () => {
   const teamRoster = inject(TeamRosterService);
@@ -36,20 +50,27 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
+    path: 'login',
+    loadComponent: () => import('./pages/login/login.page').then((m) => m.LoginPage),
+  },
+  {
     path: 'home',
     loadComponent: () => import('./pages/home/home.page').then((m) => m.HomePage),
+    canActivate: [canActivateAuth],
   },
   {
     path: 'pre-match',
     loadComponent: () => import('./pages/pre-match/pre-match.page').then((m) => m.PreMatchPage),
+    canActivate: [canActivateAuth],
   },
   {
     path: 'court',
     loadComponent: () => import('./pages/court/court.page').then((m) => m.CourtPage),
-    canActivate: [canActivateCourt],
+    canActivate: [canActivateAuth, canActivateCourt],
   },
   {
     path: 'history',
     loadComponent: () => import('./pages/history/history.page').then((m) => m.HistoryPage),
+    canActivate: [canActivateAuth],
   },
 ];

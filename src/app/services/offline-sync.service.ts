@@ -7,7 +7,7 @@ import {
   Roster,
   Team,
 } from '../models/firestore.models';
-import { BetaIdentityService } from './beta-identity.service';
+import { AuthService } from './auth.service';
 import { FirebaseDbService } from './firebase-db.service';
 
 type QueuedCollection = 'teams' | 'players' | 'games' | 'roster' | 'events' | 'playerSetStats';
@@ -86,7 +86,7 @@ export class OfflineSyncService {
 
   constructor(
     private readonly firebaseDb: FirebaseDbService,
-    private readonly betaIdentity: BetaIdentityService = new BetaIdentityService(),
+    private readonly auth: AuthService,
   ) {
     this.restoreQueue();
     this.restoreLastSuccess();
@@ -518,7 +518,7 @@ export class OfflineSyncService {
   private withOwner<T extends { ownerId: string }>(payload: OwnerPayload<T>): T {
     return {
       ...payload,
-      ownerId: 'ownerId' in payload && payload.ownerId ? payload.ownerId : this.betaIdentity.ownerId,
+      ownerId: 'ownerId' in payload && payload.ownerId ? payload.ownerId : this.auth.uid ?? '',
     } as T;
   }
 }

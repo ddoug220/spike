@@ -1,6 +1,6 @@
 import { RotationService } from './rotation.service';
 import { TeamRosterService } from './team-roster.service';
-import type { BetaIdentityService } from './beta-identity.service';
+import type { AuthService } from './auth.service';
 import type { FirebaseDbService, TeamRosterSnapshot } from './firebase-db.service';
 import type { OfflineSyncService } from './offline-sync.service';
 import type { Player, Roster, Team } from '../models/firestore.models';
@@ -35,8 +35,9 @@ class FakeFirebaseDbService {
   }
 }
 
-class FakeBetaIdentityService {
-  readonly ownerId = 'owner-1';
+class FakeAuthService {
+  readonly user = () => ({ uid: 'owner-1' });
+  readonly uid = 'owner-1';
 }
 
 describe('TeamRosterService', () => {
@@ -44,7 +45,7 @@ describe('TeamRosterService', () => {
 
   beforeEach(() => {
     window.localStorage.clear();
-    service = new TeamRosterService(new RotationService());
+    service = new TeamRosterService(new RotationService(), new FakeAuthService() as unknown as AuthService);
   });
 
   it('creates a persistent team profile for the saved player pool', () => {
@@ -59,7 +60,7 @@ describe('TeamRosterService', () => {
     expect(service.team().id).toBe(initialTeam.id);
     expect(service.team().name).toBe('Falcons');
 
-    const restored = new TeamRosterService(new RotationService());
+    const restored = new TeamRosterService(new RotationService(), new FakeAuthService() as unknown as AuthService);
     expect(restored.team()).toEqual(service.team());
   });
 
@@ -72,7 +73,7 @@ describe('TeamRosterService', () => {
       }),
     );
 
-    const restored = new TeamRosterService(new RotationService());
+    const restored = new TeamRosterService(new RotationService(), new FakeAuthService() as unknown as AuthService);
 
     expect(restored.team().name).toBe('My Team');
     expect(restored.players()[0].name).toBe('Ava Johnson');
@@ -171,7 +172,7 @@ describe('TeamRosterService', () => {
 
   it('queues team, players, and roster documents for Firebase sync', () => {
     const offlineSync = new FakeOfflineSyncService();
-    service = new TeamRosterService(new RotationService(), offlineSync as unknown as OfflineSyncService);
+    service = new TeamRosterService(new RotationService(), new FakeAuthService() as unknown as AuthService, offlineSync as unknown as OfflineSyncService);
 
     service.updateTeamName('North High');
     service.addPlayer({ name: 'Ava Johnson', jerseyNumber: 4, primaryPosition: 'OH' });
@@ -208,7 +209,7 @@ describe('TeamRosterService', () => {
 
   it('marks removed players inactive in Firebase', () => {
     const offlineSync = new FakeOfflineSyncService();
-    service = new TeamRosterService(new RotationService(), offlineSync as unknown as OfflineSyncService);
+    service = new TeamRosterService(new RotationService(), new FakeAuthService() as unknown as AuthService, offlineSync as unknown as OfflineSyncService);
     service.addPlayer({ name: 'Ava Johnson', jerseyNumber: 4, primaryPosition: 'OH' });
     const player = service.players()[0];
 
@@ -273,9 +274,9 @@ describe('TeamRosterService', () => {
 
     service = new TeamRosterService(
       new RotationService(),
+      new FakeAuthService() as unknown as AuthService,
       undefined,
       new FakeFirebaseDbService(snapshot) as unknown as FirebaseDbService,
-      new FakeBetaIdentityService() as unknown as BetaIdentityService,
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
 

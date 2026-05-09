@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { IonBackButton, IonButton, IonButtons, IonContent, IonFooter, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { arrowBack, checkmarkCircle, close, create, ellipseOutline, play, personAdd, save, trash } from 'ionicons/icons';
+import { arrowBack, checkmarkCircle, checkmarkCircleOutline, close, cloudDownloadOutline, create, ellipseOutline, play, personAdd, save, trash } from 'ionicons/icons';
 import { MatchEngineService } from '../../services/match-engine.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import {
@@ -57,6 +57,8 @@ export class PreMatchPage {
     { position: 1, roleLabel: 'Back Right', row: 'back', isTeamServerSlot: true, top: '76%', left: '82%' },
   ];
 
+  showTeamPicker = false;
+
   draft: NewRosterPlayer = {
     name: '',
     jerseyNumber: 1,
@@ -78,7 +80,7 @@ export class PreMatchPage {
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
-    addIcons({ personAdd, trash, play, create, close, checkmarkCircle, ellipseOutline, arrowBack, save });
+    addIcons({ personAdd, trash, play, create, close, checkmarkCircle, checkmarkCircleOutline, ellipseOutline, arrowBack, save, cloudDownloadOutline });
     this.teamNameDraft = this.teamRoster.team().name;
   }
 
@@ -177,6 +179,19 @@ export class PreMatchPage {
     }
 
     return '';
+  }
+
+  get cloudTeams(): RosterTeam[] {
+    return this.teamRoster.cloudTeams();
+  }
+
+  toggleTeamPicker(): void {
+    this.showTeamPicker = !this.showTeamPicker;
+  }
+
+  switchToTeam(teamId: string): void {
+    this.teamRoster.switchToTeam(teamId);
+    this.showTeamPicker = false;
   }
 
   saveTeam(): void {

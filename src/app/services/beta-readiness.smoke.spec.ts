@@ -1,4 +1,4 @@
-import type { BetaIdentityService } from './beta-identity.service';
+import type { AuthService } from './auth.service';
 import { FirebaseDbService } from './firebase-db.service';
 import { MatchEngineService } from './match-engine.service';
 import { MatchStateService } from './match-state.service';
@@ -8,8 +8,9 @@ import { RotationService } from './rotation.service';
 import { TeamRosterService } from './team-roster.service';
 import type { FirestoreCollection, FirestoreDocumentMap, GameEvent } from '../models/firestore.models';
 
-class FakeBetaIdentityService {
-  readonly ownerId = 'owner-beta-smoke';
+class FakeAuthService {
+  readonly user = () => ({ uid: 'owner-beta-smoke' });
+  readonly uid = 'owner-beta-smoke';
 }
 
 class FakeFirebaseDbService {
@@ -48,14 +49,14 @@ describe('Beta readiness smoke flow', () => {
   beforeEach(() => {
     window.localStorage.clear();
     spyOnProperty(window.navigator, 'onLine', 'get').and.returnValue(true);
-    const identity = new FakeBetaIdentityService() as unknown as BetaIdentityService;
+    const auth = new FakeAuthService() as unknown as AuthService;
     firebaseDb = new FakeFirebaseDbService();
-    offlineSync = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, identity);
+    offlineSync = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, auth);
     teamRoster = new TeamRosterService(
       new RotationService(),
+      auth,
       offlineSync,
       firebaseDb as unknown as FirebaseDbService,
-      identity,
     );
     matchEngine = new MatchEngineService(new MatchStateService(), new MatchStatsService(), teamRoster, offlineSync);
   });

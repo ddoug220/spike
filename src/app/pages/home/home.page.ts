@@ -1,12 +1,13 @@
 import { NgClass } from '@angular/common';
 import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { cloudDoneOutline, cloudOfflineOutline, createOutline, people, play, playCircle, timeOutline } from 'ionicons/icons';
+import { cloudDoneOutline, cloudOfflineOutline, createOutline, logOutOutline, people, play, playCircle, swapHorizontalOutline, timeOutline } from 'ionicons/icons';
+import { AuthService } from '../../services/auth.service';
 import { MatchStateService } from '../../services/match-state.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
-import { TeamRosterService } from '../../services/team-roster.service';
+import { RosterTeam, TeamRosterService } from '../../services/team-roster.service';
 
 type HomeStepState = 'complete' | 'current' | 'locked';
 
@@ -24,12 +25,38 @@ interface HomeSetupStep {
   imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonIcon, NgClass, RouterLink],
 })
 export class HomePage {
+  showTeamPicker = false;
+
   constructor(
     public readonly teamRoster: TeamRosterService,
     public readonly matchState: MatchStateService,
     public readonly offlineSync: OfflineSyncService,
+    private readonly auth: AuthService,
+    private readonly router: Router,
   ) {
-    addIcons({ timeOutline, playCircle, people, createOutline, play, cloudDoneOutline, cloudOfflineOutline });
+    addIcons({ timeOutline, playCircle, people, createOutline, play, cloudDoneOutline, cloudOfflineOutline, swapHorizontalOutline, logOutOutline });
+  }
+
+  get userEmail(): string | null {
+    return this.auth.email;
+  }
+
+  async signOut(): Promise<void> {
+    await this.auth.signOut();
+    await this.router.navigate(['/login']);
+  }
+
+  get cloudTeams(): RosterTeam[] {
+    return this.teamRoster.cloudTeams();
+  }
+
+  toggleTeamPicker(): void {
+    this.showTeamPicker = !this.showTeamPicker;
+  }
+
+  switchToTeam(teamId: string): void {
+    this.teamRoster.switchToTeam(teamId);
+    this.showTeamPicker = false;
   }
 
   get hasValidLineup(): boolean {

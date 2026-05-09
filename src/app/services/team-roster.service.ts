@@ -1,6 +1,6 @@
-import { Injectable, Optional, computed, signal } from '@angular/core';
+import { Injectable, Optional, computed, effect, signal } from '@angular/core';
 import { Player, PrimaryPosition, Roster, Team } from '../models/firestore.models';
-import { BetaIdentityService } from './beta-identity.service';
+import { AuthService } from './auth.service';
 import { FirebaseDbService, TeamRosterSnapshot } from './firebase-db.service';
 import { OfflineSyncService } from './offline-sync.service';
 import { RotationService } from './rotation.service';
@@ -53,18 +53,33 @@ export class TeamRosterService {
   private readonly lineupSignal = signal<Array<string | null>>([null, null, null, null, null, null]);
   private restoredLocalState = false;
 
+  private readonly cloudSnapshotSignal = signal<TeamRosterSnapshot | null>(null);
+
   readonly team = computed(() => this.teamSignal());
   readonly players = computed(() => this.playersSignal());
   readonly lineup = computed(() => this.lineupSignal());
+  readonly cloudTeams = computed<RosterTeam[]>(() => {
+    const snapshot = this.cloudSnapshotSignal();
+    if (!snapshot) return [];
+    return snapshot.teams
+      .slice()
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map((team) => ({ id: team.id, name: team.name, createdAt: team.createdAt, updatedAt: team.updatedAt }));
+  });
 
   constructor(
     private readonly rotationService: RotationService,
+    private readonly auth: AuthService,
     @Optional() private readonly offlineSync?: OfflineSyncService,
     @Optional() private readonly firebaseDb?: FirebaseDbService,
-    @Optional() private readonly betaIdentity: BetaIdentityService = new BetaIdentityService(),
   ) {
     this.restore();
-    void this.restoreFromFirebase();
+    effect(() => {
+      const uid = this.auth.user()?.uid ?? null;
+      if (uid) {
+        void this.restoreFromFirebase(uid);
+      }
+    });
   }
 
   updateTeamName(name: string): boolean {
@@ -315,16 +330,25 @@ export class TeamRosterService {
     }
   }
 
-  private async restoreFromFirebase(): Promise<void> {
+  switchToTeam(teamId: string): boolean {
+    const snapshot = this.cloudSnapshotSignal();
+    if (!snapshot) {
+      return false;
+    }
+    return this.applyTeamFromSnapshot(teamId, snapshot);
+  }
+
+  private async restoreFromFirebase(ownerId: string): Promise<void> {
     if (!this.firebaseDb?.isConfigured()) {
       return;
     }
 
-    const result = await this.firebaseDb.readTeamRosterSnapshot(this.betaIdentity.ownerId);
+    const result = await this.firebaseDb.readTeamRosterSnapshot(ownerId);
     if (!result.ok || !result.data) {
       return;
     }
 
+    this.cloudSnapshotSignal.set(result.data);
     this.applyCloudRosterSnapshot(result.data);
   }
 
@@ -336,6 +360,15 @@ export class TeamRosterService {
 
     if (this.restoredLocalState && team.updatedAt < this.teamSignal().updatedAt) {
       return;
+    }
+
+    this.applyTeamFromSnapshot(team.id, snapshot);
+  }
+
+  private applyTeamFromSnapshot(teamId: string, snapshot: TeamRosterSnapshot): boolean {
+    const team = snapshot.teams.find((t) => t.id === teamId);
+    if (!team) {
+      return false;
     }
 
     const roster = snapshot.rosters
@@ -358,6 +391,7 @@ export class TeamRosterService {
     );
     this.lineupSignal.set(cloudLineup);
     this.persist('all');
+    return true;
   }
 
   private createDefaultTeam(): RosterTeam {
@@ -451,7 +485,7 @@ export class TeamRosterService {
   private toFirestoreTeam(team: RosterTeam): Team {
     return {
       id: team.id,
-      ownerId: this.betaIdentity.ownerId,
+      ownerId: this.auth.uid ?? '',
       name: team.name,
       createdAt: team.createdAt,
       updatedAt: team.updatedAt,
@@ -461,7 +495,7 @@ export class TeamRosterService {
   private toFirestorePlayer(player: RosterPlayer, teamId: string): Player {
     return {
       id: player.id,
-      ownerId: this.betaIdentity.ownerId,
+      ownerId: this.auth.uid ?? '',
       teamId,
       name: player.name,
       jerseyNumber: player.jerseyNumber,
@@ -475,7 +509,7 @@ export class TeamRosterService {
   private toFirestoreRoster(teamId: string, timestamp: string): Roster {
     return {
       id: this.createRosterId(teamId),
-      ownerId: this.betaIdentity.ownerId,
+      ownerId: this.auth.uid ?? '',
       teamId,
       gameId: null,
       lineup: [...this.lineupSignal()],

@@ -179,6 +179,44 @@
         <p>Add players to {{ team.name }} once. Tap a player, then tap a court slot.</p>
       </div>
 
+      @if (cloudTeams.length > 0) {
+        <div class="load-team-section">
+          <button
+            class="load-team-trigger"
+            type="button"
+            (click)="toggleTeamPicker()"
+            [attr.aria-expanded]="showTeamPicker"
+          >
+            <ion-icon name="cloud-download-outline" class="load-team-icon"></ion-icon>
+            <span class="load-team-label">Load team</span>
+            <span class="load-team-count">{{ cloudTeams.length }} saved</span>
+            <span class="load-team-chevron" [class.load-team-chevron--open]="showTeamPicker">▾</span>
+          </button>
+
+          @if (showTeamPicker) {
+            <div class="load-team-list" role="listbox" aria-label="Saved teams">
+              @for (ct of cloudTeams; track ct.id) {
+                <button
+                  class="load-team-item"
+                  [class.load-team-item--active]="ct.id === teamRoster.team().id"
+                  type="button"
+                  role="option"
+                  [attr.aria-selected]="ct.id === teamRoster.team().id"
+                  (click)="switchToTeam(ct.id)"
+                >
+                  <span class="load-team-item-name">{{ ct.name }}</span>
+                  @if (ct.id === teamRoster.team().id) {
+                    <ion-icon name="checkmark-circle-outline" class="load-team-item-check"></ion-icon>
+                  } @else {
+                    <span class="load-team-item-action">Load</span>
+                  }
+                </button>
+              }
+            </div>
+          }
+        </div>
+      }
+
       <div class="setup-path-mini" aria-label="Setup path">
         <span [ngClass]="{ done: players.length >= 6 }">1. Add players</span>
         <span [ngClass]="{ done: isRotationValid }">2. Set starters</span>

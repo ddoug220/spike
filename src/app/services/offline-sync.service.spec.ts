@@ -9,6 +9,12 @@ import {
   Team,
 } from '../models/firestore.models';
 import { FirebaseDbService } from './firebase-db.service';
+import type { AuthService } from './auth.service';
+
+class FakeAuthService {
+  readonly user = () => ({ uid: 'owner-1' });
+  readonly uid = 'owner-1';
+}
 
 class FakeFirebaseDbService {
   shouldSucceed = true;
@@ -90,7 +96,7 @@ describe('OfflineSyncService', () => {
     window.localStorage.clear();
     spyOnProperty(window.navigator, 'onLine', 'get').and.returnValue(true);
     firebaseDb = new FakeFirebaseDbService();
-    service = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService);
+    service = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
   });
 
   const waitForIdle = async (): Promise<void> => {

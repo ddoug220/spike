@@ -1,5 +1,6 @@
 import type { Unsubscribe } from 'firebase/firestore';
 import type { FirestoreCollection, FirestoreDocumentMap, Game, GameEvent, PlayerSetStats } from '../models/firestore.models';
+import type { AuthService } from './auth.service';
 import { FirebaseDbService } from './firebase-db.service';
 import { LiveMatchStoreService } from './live-match-store.service';
 import { MatchEngineService } from './match-engine.service';
@@ -9,6 +10,11 @@ import type { PlayerStatLine } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
 import { RotationService } from './rotation.service';
 import { TeamRosterService } from './team-roster.service';
+
+class FakeAuthService {
+  readonly user = () => ({ uid: 'owner-1' });
+  readonly uid = 'owner-1';
+}
 
 class FakeFirebaseDbService {
   private gameCallback: ((game: Game | null) => void) | null = null;
@@ -79,8 +85,9 @@ describe('LiveMatchStoreService', () => {
     firebaseDb = new FakeFirebaseDbService();
     matchState = new MatchStateService();
     matchStats = new MatchStatsService();
-    offlineSync = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService);
-    teamRoster = new TeamRosterService(new RotationService());
+    const auth = new FakeAuthService() as unknown as AuthService;
+    offlineSync = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, auth);
+    teamRoster = new TeamRosterService(new RotationService(), auth);
     store = new LiveMatchStoreService(matchState, matchStats, offlineSync, firebaseDb as unknown as FirebaseDbService);
     engine = new MatchEngineService(matchState, matchStats, teamRoster, offlineSync);
   });

@@ -50,9 +50,14 @@ ion-toolbar.home-toolbar {
 }
 
 .history-nav-btn {
-  margin-right: 8px;
+  margin-right: 4px;
   --color: var(--home-muted);
   font-weight: 700;
+}
+
+.signout-btn {
+  margin-right: 8px;
+  --color: var(--home-muted);
 }
 
 ion-content {
@@ -115,6 +120,77 @@ ion-content::part(scroll) {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.hero-team-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-switch-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--home-blue) 30%, transparent);
+  border-radius: 4px;
+  background: var(--home-blue-soft);
+  color: var(--home-blue);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  ion-icon {
+    font-size: 0.85rem;
+  }
+}
+
+.team-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 12px;
+  padding: 6px;
+  border: 1px solid var(--home-border);
+  border-radius: 8px;
+  background: var(--home-panel);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.team-picker-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--home-text);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: left;
+  transition: background 0.12s;
+
+  &:hover {
+    background: var(--home-panel-soft);
+    border-color: var(--home-border);
+  }
+}
+
+.team-picker-option--active {
+  background: var(--home-blue-soft);
+  border-color: color-mix(in srgb, var(--home-blue) 28%, transparent);
+  color: var(--home-blue);
+}
+
+.team-picker-check {
+  color: var(--home-green);
+  font-weight: 800;
 }
 
 .hero-court {

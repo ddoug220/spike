@@ -5,12 +5,18 @@ import { OfflineSyncService } from './offline-sync.service';
 import { RotationService } from './rotation.service';
 import { FirebaseDbService } from './firebase-db.service';
 import { TeamRosterService } from './team-roster.service';
+import type { AuthService } from './auth.service';
 import type { GameEvent } from '../models/firestore.models';
 
 class FakeFirebaseDbService {
   isConfigured(): boolean {
     return false;
   }
+}
+
+class FakeAuthService {
+  readonly user = () => ({ uid: 'owner-1' });
+  readonly uid = 'owner-1';
 }
 
 describe('MatchEngineService', () => {
@@ -23,10 +29,11 @@ describe('MatchEngineService', () => {
   beforeEach(() => {
     window.localStorage.clear();
     const firebaseDb = new FakeFirebaseDbService();
-    offlineSync = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService);
+    const auth = new FakeAuthService() as unknown as AuthService;
+    offlineSync = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, auth);
     matchState = new MatchStateService();
     matchStats = new MatchStatsService();
-    teamRoster = new TeamRosterService(new RotationService());
+    teamRoster = new TeamRosterService(new RotationService(), auth);
     service = new MatchEngineService(matchState, matchStats, teamRoster, offlineSync);
   });
 

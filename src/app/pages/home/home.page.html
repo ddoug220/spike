@@ -5,6 +5,9 @@
       <ion-icon slot="start" name="time-outline"></ion-icon>
       History
     </ion-button>
+    <ion-button slot="end" fill="clear" size="small" class="signout-btn" (click)="signOut()" [title]="userEmail ?? ''">
+      <ion-icon slot="icon-only" name="log-out-outline"></ion-icon>
+    </ion-button>
   </ion-toolbar>
 </ion-header>
 
@@ -12,7 +15,34 @@
   <main class="home-shell">
     <section class="home-hero">
       <div class="hero-copy">
-        <span class="hero-kicker">{{ teamRoster.team().name }}</span>
+        <div class="hero-team-row">
+          <span class="hero-kicker">{{ teamRoster.team().name }}</span>
+          @if (cloudTeams.length > 1) {
+            <button class="team-switch-trigger" type="button" (click)="toggleTeamPicker()" [attr.aria-expanded]="showTeamPicker">
+              <ion-icon name="swap-horizontal-outline"></ion-icon>
+              Switch
+            </button>
+          }
+        </div>
+        @if (showTeamPicker) {
+          <div class="team-picker-list" role="listbox" aria-label="Select team">
+            @for (team of cloudTeams; track team.id) {
+              <button
+                class="team-picker-option"
+                [class.team-picker-option--active]="team.id === teamRoster.team().id"
+                type="button"
+                role="option"
+                [attr.aria-selected]="team.id === teamRoster.team().id"
+                (click)="switchToTeam(team.id)"
+              >
+                <span>{{ team.name }}</span>
+                @if (team.id === teamRoster.team().id) {
+                  <span class="team-picker-check" aria-hidden="true">✓</span>
+                }
+              </button>
+            }
+          </div>
+        }
         <h1>Track a volleyball match without losing the court.</h1>
         <p>
           Build your roster, set the six starters, then score points, substitutions,

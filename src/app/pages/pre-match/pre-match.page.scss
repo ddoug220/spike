@@ -701,6 +701,129 @@ ion-content::part(scroll) {
   font-size: 0.8rem;
 }
 
+// ─── Load Team ───
+.load-team-section {
+  margin-top: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg-solid);
+  overflow: hidden;
+}
+
+.load-team-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: var(--font-body);
+  text-align: left;
+  transition: color 0.15s;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.load-team-icon {
+  font-size: 1rem;
+  color: var(--accent-blue);
+  flex-shrink: 0;
+}
+
+.load-team-label {
+  flex: 1;
+  letter-spacing: 0.01em;
+}
+
+.load-team-count {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--field-bg);
+  border: 1px solid var(--panel-border);
+}
+
+.load-team-chevron {
+  font-size: 0.8rem;
+  transition: transform 0.2s;
+  color: var(--text-secondary);
+
+  &.load-team-chevron--open {
+    transform: rotate(180deg);
+  }
+}
+
+.load-team-list {
+  border-top: 1px solid var(--panel-border);
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+}
+
+.load-team-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  text-align: left;
+  transition: background 0.13s, border-color 0.13s;
+
+  &:hover:not(.load-team-item--active) {
+    background: var(--field-bg);
+    border-color: var(--panel-border);
+  }
+
+  &.load-team-item--active {
+    background: color-mix(in srgb, var(--accent-blue) 10%, var(--field-bg) 90%);
+    border-color: color-mix(in srgb, var(--accent-blue) 30%, transparent);
+    color: var(--accent-blue);
+    cursor: default;
+  }
+}
+
+.load-team-item-name {
+  flex: 1;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.load-team-item-check {
+  font-size: 1.1rem;
+  color: var(--accent-green);
+  flex-shrink: 0;
+}
+
+.load-team-item-action {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-blue);
+  flex-shrink: 0;
+}
+
 // ─── Empty state ───
 .roster-empty-guide {
   margin-top: 16px;

@@ -4,10 +4,12 @@ import { Router, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
+  alertCircleOutline,
   cloudDoneOutline,
   cloudOfflineOutline,
   createOutline,
   gridOutline,
+  informationCircleOutline,
   logOutOutline,
   people,
   peopleOutline,
@@ -20,14 +22,15 @@ import {
 import { AuthService } from '../../services/auth.service';
 import { MatchStateService } from '../../services/match-state.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
-import { RosterTeam, TeamRosterService } from '../../services/team-roster.service';
+import { LineupSlot, RosterTeam, TeamRosterService } from '../../services/team-roster.service';
 
 type HomeStepState = 'complete' | 'current' | 'locked';
 
-interface HomeSetupStep {
+interface HomeReadinessRow {
   label: string;
   detail: string;
   state: HomeStepState;
+  value: string;
 }
 
 @Component({
@@ -60,6 +63,8 @@ export class HomePage {
       peopleOutline,
       gridOutline,
       radioButtonOnOutline,
+      alertCircleOutline,
+      informationCircleOutline,
     });
   }
 
@@ -140,6 +145,26 @@ export class HomePage {
     return 'No successful sync yet';
   }
 
+  get compactSyncStatusText(): string {
+    if (this.offlineSync.lastError()) {
+      return 'Sync needs retry';
+    }
+
+    if (this.offlineSync.pendingCount() > 0) {
+      return `${this.offlineSync.pendingCount()} pending`;
+    }
+
+    if (this.offlineSync.lastSuccessfulSyncAt()) {
+      return 'Synced';
+    }
+
+    return 'Local save';
+  }
+
+  get hasSyncAttention(): boolean {
+    return this.offlineSync.pendingCount() > 0 || !!this.offlineSync.lastError();
+  }
+
   get hasActiveMatch(): boolean {
     return this.hasMatchStarted && !this.matchState.state().isMatchOver;
   }
@@ -150,6 +175,38 @@ export class HomePage {
 
   get liveMatchButtonText(): string {
     return this.hasActiveMatch ? 'Resume Live Match' : 'Open Live Match';
+  }
+
+  get showFirstMatchGuide(): boolean {
+    return !this.hasMatchStarted && (!this.hasValidLineup || this.playerPoolCount < 6);
+  }
+
+  get heroLineupSlots(): LineupSlot[] {
+    return this.teamRoster.getLineupSlots();
+  }
+
+  get heroCourtTitle(): string {
+    if (this.hasValidLineup) {
+      return 'Starting six';
+    }
+
+    if (this.playerPoolCount >= 6) {
+      return 'Lineup not set';
+    }
+
+    return 'Build your roster';
+  }
+
+  get heroCourtDetail(): string {
+    if (this.hasValidLineup) {
+      return `${this.lineupAssignedCount}/6 starters ready`;
+    }
+
+    if (this.playerPoolCount >= 6) {
+      return `${this.lineupAssignedCount}/6 starters assigned`;
+    }
+
+    return `${this.playerPoolCount}/6 players added`;
   }
 
   get nextActionTitle(): string {
@@ -207,22 +264,25 @@ export class HomePage {
     return ['/pre-match'];
   }
 
-  get setupSteps(): HomeSetupStep[] {
+  get readinessRows(): HomeReadinessRow[] {
     return [
       {
-        label: 'Add players',
-        detail: `${this.playerPoolCount}/6 minimum in your saved player pool`,
+        label: 'Roster',
+        detail: this.playerPoolCount >= 6 ? 'Player pool is ready for lineup setup' : 'Add at least 6 players once',
         state: this.playerPoolCount >= 6 ? 'complete' : 'current',
+        value: `${this.playerPoolCount}/6`,
       },
       {
-        label: 'Set lineup',
-        detail: `${this.lineupAssignedCount}/6 starters assigned to court spots`,
+        label: 'Starting six',
+        detail: this.hasValidLineup ? 'Six unique starters assigned' : 'Tap players into open court spots',
         state: this.playerPoolCount < 6 ? 'locked' : this.hasValidLineup ? 'complete' : 'current',
+        value: `${this.lineupAssignedCount}/6`,
       },
       {
-        label: 'Track live',
-        detail: 'Opponent, first serve, score, subs, undo, and box score',
-        state: this.hasValidLineup ? 'current' : 'locked',
+        label: 'Live match',
+        detail: this.hasActiveMatch ? this.matchStatusText : this.hasValidLineup ? 'Ready to name opponent and serve' : 'Unlocks after lineup is ready',
+        state: this.hasActiveMatch ? 'complete' : this.hasValidLineup ? 'current' : 'locked',
+        value: this.hasActiveMatch ? 'Live' : this.hasValidLineup ? 'Ready' : 'Locked',
       },
     ];
   }

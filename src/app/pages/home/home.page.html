@@ -1,6 +1,20 @@
 <ion-header [translucent]="true">
   <ion-toolbar class="home-toolbar">
     <ion-title class="app-wordmark">Spike</ion-title>
+    <div
+      slot="end"
+      class="toolbar-sync"
+      [ngClass]="{ 'toolbar-sync--warn': hasSyncAttention }"
+      [title]="syncStatusText"
+    >
+      <ion-icon [name]="syncIconName"></ion-icon>
+      <span>{{ compactSyncStatusText }}</span>
+    </div>
+    @if (offlineSync.lastError()) {
+      <ion-button slot="end" fill="clear" size="small" class="sync-retry-btn" (click)="offlineSync.retryNow()">
+        Retry
+      </ion-button>
+    }
     <ion-button slot="end" fill="clear" size="small" class="history-nav-btn" [routerLink]="['/history']">
       <ion-icon slot="start" name="time-outline"></ion-icon>
       History
@@ -50,17 +64,24 @@
         </p>
       </div>
 
-      <div class="hero-court" aria-hidden="true">
+      <div class="hero-court" aria-label="Starting lineup preview">
+        <div class="hero-court-status">
+          <span>{{ heroCourtTitle }}</span>
+          <strong>{{ heroCourtDetail }}</strong>
+        </div>
         <div class="court-outline"></div>
         <div class="court-net"></div>
         <div class="court-attack court-attack-left"></div>
         <div class="court-attack court-attack-right"></div>
-        <div class="court-player court-player-1"></div>
-        <div class="court-player court-player-2"></div>
-        <div class="court-player court-player-3"></div>
-        <div class="court-player court-player-4"></div>
-        <div class="court-player court-player-5"></div>
-        <div class="court-player court-player-6"></div>
+        @for (slot of heroLineupSlots; track slot.position) {
+          <div
+            class="court-player"
+            [ngClass]="['court-player-' + slot.position, slot.player ? 'court-player--filled' : 'court-player--empty']"
+          >
+            <span class="court-player-number">{{ slot.player ? '#' + slot.player.jerseyNumber : 'P' + slot.position }}</span>
+            <span class="court-player-name">{{ slot.player?.name || 'Open' }}</span>
+          </div>
+        }
       </div>
     </section>
 
@@ -82,82 +103,63 @@
         </div>
       </article>
 
-      <article class="setup-card">
-        <span class="section-label">Setup path</span>
-        <div class="setup-list">
-          @for (step of setupSteps; track step.label; let i = $index) {
-            <div class="setup-step" [ngClass]="'setup-step--' + step.state">
-              <span class="step-index">
-                @if (step.state === 'complete') { <span>✓</span> }
-                @else { <span>{{ i + 1 }}</span> }
+      <article class="readiness-card">
+        <span class="section-label">Ready check</span>
+        <div class="readiness-list">
+          @for (row of readinessRows; track row.label) {
+            <div class="readiness-row" [ngClass]="'readiness-row--' + row.state">
+              <span class="readiness-icon">
+                @if (row.state === 'complete') { <span>✓</span> }
+                @else if (row.state === 'locked') { <span>·</span> }
+                @else { <span>!</span> }
               </span>
-              <span class="step-copy">
-                <strong>{{ step.label }}</strong>
-                <span>{{ step.detail }}</span>
-              </span>
+              <div class="readiness-copy">
+                <strong>{{ row.label }}</strong>
+                <span>{{ row.detail }}</span>
+              </div>
+              <strong class="readiness-value">{{ row.value }}</strong>
             </div>
           }
         </div>
       </article>
 
-      <article class="guide-card">
-        <span class="section-label">First match guide</span>
-        <div class="guide-list">
-          <div class="guide-step">
-            <ion-icon name="people-outline"></ion-icon>
-            <div>
-              <strong>Roster is saved once</strong>
-              <span>Add the full player pool here, then reuse it for future matches.</span>
+      @if (showFirstMatchGuide) {
+        <article class="guide-card">
+          <span class="section-label">First match guide</span>
+          <div class="guide-list">
+            <div class="guide-step">
+              <ion-icon name="people-outline"></ion-icon>
+              <div>
+                <strong>Roster is saved once</strong>
+                <span>Add the full player pool here, then reuse it for future matches.</span>
+              </div>
+            </div>
+            <div class="guide-step">
+              <ion-icon name="grid-outline"></ion-icon>
+              <div>
+                <strong>Lineup is for today</strong>
+                <span>Tap a player, tap a court spot, and fill six unique starters.</span>
+              </div>
+            </div>
+            <div class="guide-step">
+              <ion-icon name="radio-button-on-outline"></ion-icon>
+              <div>
+                <strong>Live Court tracks the match</strong>
+                <span>Point buttons change score. Stat taps only record player actions.</span>
+              </div>
             </div>
           </div>
-          <div class="guide-step">
-            <ion-icon name="grid-outline"></ion-icon>
-            <div>
-              <strong>Lineup is for today</strong>
-              <span>Tap a player, tap a court spot, and fill six unique starters.</span>
-            </div>
-          </div>
-          <div class="guide-step">
-            <ion-icon name="radio-button-on-outline"></ion-icon>
-            <div>
-              <strong>Live Court tracks the match</strong>
-              <span>Point buttons change score. Stat taps only record player actions.</span>
-            </div>
-          </div>
-        </div>
-      </article>
+        </article>
+      }
 
-      <article class="status-card">
-        <span class="section-label">Match status</span>
+      <article class="match-card">
+        <span class="section-label">Match</span>
         <h3>{{ matchCardTitle }}</h3>
         <p>{{ matchCardDetail }}</p>
-        <div class="metric-row">
-          <span>
-            <strong>{{ playerPoolCount }}</strong>
-            Players
-          </span>
-          <span>
-            <strong>{{ lineupAssignedCount }}/6</strong>
-            Starters
-          </span>
-          <span>
-            <strong>{{ hasActiveMatch ? 'Live' : 'Ready' }}</strong>
-            Court
-          </span>
-        </div>
-      </article>
-
-      <article class="sync-card" [ngClass]="{ 'sync-card--warn': offlineSync.pendingCount() > 0 || offlineSync.lastError() }">
-        <span class="section-label">Cloud save</span>
-        <div class="sync-line">
-          <ion-icon [name]="syncIconName"></ion-icon>
-          <p>{{ syncStatusText }}</p>
-        </div>
-        @if (offlineSync.lastError()) {
-          <ion-button fill="clear" size="small" (click)="offlineSync.retryNow()">
-            Retry Sync
-          </ion-button>
-        }
+        <ion-button fill="clear" size="small" class="match-history-link" [routerLink]="['/history']">
+          <ion-icon slot="start" name="time-outline"></ion-icon>
+          Match History
+        </ion-button>
       </article>
     </section>
   </main>

@@ -55,6 +55,40 @@ ion-toolbar.home-toolbar {
   font-weight: 700;
 }
 
+.toolbar-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin-right: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--home-border);
+  border-radius: 999px;
+  background: var(--home-panel-soft);
+  color: var(--home-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+
+  ion-icon {
+    color: var(--home-green);
+    font-size: 1rem;
+  }
+}
+
+.toolbar-sync--warn {
+  border-color: color-mix(in srgb, var(--home-amber) 34%, var(--home-border));
+  color: var(--home-amber);
+
+  ion-icon {
+    color: var(--home-amber);
+  }
+}
+
+.sync-retry-btn {
+  --color: var(--home-amber);
+  font-weight: 800;
+}
+
 .signout-btn {
   margin-right: 8px;
   --color: var(--home-muted);
@@ -197,9 +231,36 @@ ion-content::part(scroll) {
   position: relative;
   min-width: 0;
   min-height: 280px;
+  overflow: hidden;
   background:
     linear-gradient(90deg, rgba(0, 0, 0, 0.1), transparent 28%, transparent 72%, rgba(0, 0, 0, 0.12)),
     linear-gradient(165deg, var(--home-court), var(--home-court-dark));
+}
+
+.hero-court-status {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  left: 18px;
+  display: grid;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(17, 24, 39, 0.42);
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+
+  span {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    font-size: 0.92rem;
+  }
 }
 
 .court-outline {
@@ -236,34 +297,66 @@ ion-content::part(scroll) {
 
 .court-player {
   position: absolute;
-  width: 36px;
-  height: 36px;
+  z-index: 1;
+  display: grid;
+  width: min(94px, 25%);
+  min-height: 52px;
+  padding: 8px;
+  place-items: center;
   border: 2px solid rgba(255, 255, 255, 0.74);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  color: #ffffff;
+  text-align: center;
+  transform: translate(-50%, -50%);
 }
 
-.court-player-1 { left: 18%; top: 24%; }
-.court-player-2 { left: 18%; top: 62%; }
-.court-player-3 { left: 39%; top: 42%; }
-.court-player-4 { right: 18%; top: 24%; }
-.court-player-5 { right: 18%; top: 62%; }
-.court-player-6 { right: 39%; top: 42%; }
+.court-player--filled {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.court-player--empty {
+  border-style: dashed;
+  opacity: 0.78;
+}
+
+.court-player-number {
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.court-player-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.court-player-1 { left: 82%; top: 72%; }
+.court-player-2 { left: 82%; top: 31%; }
+.court-player-3 { left: 50%; top: 31%; }
+.court-player-4 { left: 18%; top: 31%; }
+.court-player-5 { left: 18%; top: 72%; }
+.court-player-6 { left: 50%; top: 72%; }
 
 .home-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
   min-width: 0;
   gap: 16px;
   margin-top: 16px;
 }
 
 .next-card,
-.setup-card,
+.readiness-card,
 .guide-card,
-.status-card,
-.sync-card {
+.match-card {
   border: 1px solid var(--home-border);
   border-radius: 8px;
   background: var(--home-panel);
@@ -272,19 +365,26 @@ ion-content::part(scroll) {
 }
 
 .next-card {
-  padding: 24px;
+  display: grid;
+  min-height: 286px;
+  align-content: center;
+  padding: 32px;
 
   h2 {
-    margin: 10px 0 8px;
-    font-size: 1.85rem;
+    max-width: 680px;
+    margin: 12px 0 10px;
+    font-size: clamp(2rem, 3.2vw, 3.3rem);
     font-weight: 850;
+    line-height: 1;
     letter-spacing: 0;
   }
 
   p {
+    max-width: 620px;
     margin: 0;
     color: var(--home-muted);
-    line-height: 1.5;
+    font-size: 1.02rem;
+    line-height: 1.55;
   }
 }
 
@@ -298,7 +398,7 @@ ion-content::part(scroll) {
 .primary-action,
 .secondary-action {
   --border-radius: 8px;
-  height: 48px;
+  height: 52px;
   margin: 0;
   font-weight: 800;
 }
@@ -306,6 +406,7 @@ ion-content::part(scroll) {
 .primary-action {
   --background: var(--home-blue);
   --color: #ffffff;
+  min-width: 190px;
 }
 
 .secondary-action {
@@ -313,34 +414,38 @@ ion-content::part(scroll) {
   --color: var(--home-text);
 }
 
-.setup-card,
+.readiness-card,
 .guide-card,
-.status-card,
-.sync-card {
+.match-card {
   padding: 20px;
 }
 
-.setup-list {
+.readiness-card {
   display: grid;
-  gap: 14px;
+  align-content: start;
+}
+
+.readiness-list {
+  display: grid;
+  gap: 10px;
   margin-top: 16px;
 }
 
-.setup-step {
-  display: flex;
+.readiness-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: flex-start;
+  align-items: center;
   padding: 12px;
   border: 1px solid var(--home-border);
   border-radius: 8px;
   background: var(--home-panel-soft);
 }
 
-.step-index {
+.readiness-icon {
   display: grid;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
+  width: 30px;
+  height: 30px;
   place-items: center;
   border-radius: 999px;
   background: var(--home-blue-soft);
@@ -348,18 +453,42 @@ ion-content::part(scroll) {
   font-weight: 850;
 }
 
-.setup-step--complete .step-index {
+.readiness-row--complete .readiness-icon {
   background: color-mix(in srgb, var(--home-green) 14%, transparent);
   color: var(--home-green);
 }
 
-.setup-step--locked {
+.readiness-row--locked {
   opacity: 0.62;
+}
+
+.readiness-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+
+  strong {
+    color: var(--home-text);
+    font-size: 0.96rem;
+  }
+
+  span {
+    color: var(--home-muted);
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+}
+
+.readiness-value {
+  color: var(--home-text);
+  font-size: 0.92rem;
+  white-space: nowrap;
 }
 
 .guide-card {
   display: grid;
   align-content: start;
+  grid-column: 1;
 }
 
 .guide-list {
@@ -407,23 +536,7 @@ ion-content::part(scroll) {
   }
 }
 
-.step-copy {
-  display: grid;
-  gap: 3px;
-
-  strong {
-    color: var(--home-text);
-    font-size: 0.96rem;
-  }
-
-  span {
-    color: var(--home-muted);
-    font-size: 0.86rem;
-    line-height: 1.35;
-  }
-}
-
-.status-card {
+.match-card {
   h3 {
     margin: 10px 0 6px;
     font-size: 1.2rem;
@@ -437,60 +550,11 @@ ion-content::part(scroll) {
   }
 }
 
-.metric-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 18px;
-
-  span {
-    display: grid;
-    gap: 2px;
-    padding: 10px;
-    border-radius: 8px;
-    background: var(--home-panel-soft);
-    color: var(--home-muted);
-    font-size: 0.78rem;
-  }
-
-  strong {
-    color: var(--home-text);
-    font-size: 1rem;
-  }
-}
-
-.sync-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  grid-column: 1 / -1;
-}
-
-.sync-card--warn {
-  border-color: color-mix(in srgb, var(--home-amber) 34%, var(--home-border));
-}
-
-.sync-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  ion-icon {
-    color: var(--home-blue);
-    font-size: 1.3rem;
-  }
-
-  p {
-    margin: 0;
-    color: var(--home-muted);
-    font-weight: 700;
-  }
-}
-
-.sync-card--warn .sync-line ion-icon,
-.sync-card--warn .sync-line p {
-  color: var(--home-amber);
+.match-history-link {
+  --color: var(--home-blue);
+  min-height: 40px;
+  margin: 14px 0 0;
+  font-weight: 800;
 }
 
 @media (max-width: 840px) {
@@ -514,7 +578,7 @@ ion-content::part(scroll) {
   }
 
   .hero-court {
-    min-height: 170px;
+    min-height: 230px;
   }
 
   .next-actions {
@@ -525,6 +589,15 @@ ion-content::part(scroll) {
   .primary-action,
   .secondary-action {
     width: 100%;
+  }
+
+  .next-card {
+    min-height: 0;
+    padding: 26px 22px;
+  }
+
+  .guide-card {
+    grid-column: auto;
   }
 }
 
@@ -548,7 +621,7 @@ ion-content::part(scroll) {
   }
 
   .hero-court {
-    min-height: 156px;
+    min-height: 220px;
   }
 
   .court-outline {
@@ -562,16 +635,29 @@ ion-content::part(scroll) {
   }
 
   .court-player {
-    width: 30px;
-    height: 30px;
+    width: 74px;
+    min-height: 48px;
+    padding: 6px;
   }
 
-  .metric-row {
-    grid-template-columns: 1fr;
+  .court-player-name {
+    font-size: 0.68rem;
   }
 
-  .sync-card {
-    align-items: flex-start;
-    flex-direction: column;
+  .toolbar-sync span {
+    display: none;
+  }
+
+  .toolbar-sync {
+    padding: 0 8px;
+    margin-right: 2px;
+  }
+
+  .readiness-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .readiness-value {
+    grid-column: 2;
   }
 }

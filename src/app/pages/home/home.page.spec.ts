@@ -51,7 +51,8 @@ describe('HomePage', () => {
 
     expect(component.playerPoolCount).toBe(1);
     expect(fixture.nativeElement.textContent).toContain('North High');
-    expect(fixture.nativeElement.textContent).toContain('1/6 minimum in your saved player pool');
+    expect(fixture.nativeElement.textContent).toContain('Roster');
+    expect(fixture.nativeElement.textContent).toContain('1/6');
   });
 
   it('routes Start Match to lineup setup when no active match exists', () => {
@@ -73,13 +74,30 @@ describe('HomePage', () => {
     const text = fixture.nativeElement.textContent;
 
     expect(text).toContain('Track a volleyball match without losing the court.');
+    expect(text).toContain('Ready check');
+    expect(text).toContain('Roster');
+    expect(text).toContain('Starting six');
+    expect(text).toContain('Live match');
     expect(text).toContain('First match guide');
     expect(text).toContain('Roster is saved once');
     expect(text).toContain('Lineup is for today');
     expect(text).toContain('Point buttons change score');
     expect(text).toContain('Build your team');
-    expect(text).toContain('Add players');
-    expect(text).toContain('Set lineup');
-    expect(text).toContain('Track live');
+    expect(text).toContain('Local save');
+  });
+
+  it('turns the hero court into a starting-six preview once the lineup is assigned', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({ name: `Player ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+
+    expect(text).toContain('Starting six');
+    expect(text).toContain('6/6 starters ready');
+    expect(text).toContain('Player 1');
+    expect(component.showFirstMatchGuide).toBeFalse();
   });
 });

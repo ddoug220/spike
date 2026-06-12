@@ -74,6 +74,8 @@
               placeholder="you@example.com"
               autocomplete="email"
               autocapitalize="none"
+              [attr.aria-invalid]="error ? 'true' : null"
+              required
             />
           </div>
 
@@ -87,7 +89,9 @@
                 name="password"
                 [(ngModel)]="password"
                 placeholder="••••••••"
-                autocomplete="current-password"
+                [attr.autocomplete]="mode === 'signup' ? 'new-password' : 'current-password'"
+                [attr.aria-invalid]="error ? 'true' : null"
+                required
               />
               <button
                 type="button"

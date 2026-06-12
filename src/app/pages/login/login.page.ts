@@ -37,8 +37,14 @@ export class LoginPage {
   }
 
   async submitEmail(): Promise<void> {
+    if (this.isLoading) return;
     const email = this.email.trim();
-    if (!email || !this.password) return;
+    const validationError = this.getEmailFormError(email, this.password);
+    if (validationError) {
+      this.error = validationError;
+      return;
+    }
+
     this.isLoading = true;
     this.error = null;
     try {
@@ -56,35 +62,92 @@ export class LoginPage {
   }
 
   async continueWithGoogle(): Promise<void> {
+    if (this.isLoading) return;
     this.isLoading = true;
     this.error = null;
     try {
       await this.auth.signInWithGoogle();
       await this.router.navigate(['/home']);
-    } catch {
-      this.error = 'Google sign-in failed. Please try again.';
+    } catch (err) {
+      this.error = this.parseGoogleError(err);
     } finally {
       this.isLoading = false;
     }
   }
 
+  private getEmailFormError(email: string, password: string): string | null {
+    if (!email && !password) {
+      return 'Enter your email and password.';
+    }
+    if (!email) {
+      return 'Enter your email address.';
+    }
+    if (!password) {
+      return 'Enter your password.';
+    }
+    return null;
+  }
+
   private parseFirebaseError(err: unknown): string {
+    const code = this.getFirebaseErrorCode(err);
     const msg = err instanceof Error ? err.message : '';
-    if (msg.includes('invalid-credential') || msg.includes('wrong-password') || msg.includes('user-not-found')) {
+    if (this.matchesFirebaseError(code, msg, ['invalid-credential', 'wrong-password', 'user-not-found'])) {
       return 'Incorrect email or password.';
     }
-    if (msg.includes('email-already-in-use')) {
+    if (this.matchesFirebaseError(code, msg, ['email-already-in-use'])) {
       return 'An account with this email already exists. Try signing in.';
     }
-    if (msg.includes('weak-password')) {
+    if (this.matchesFirebaseError(code, msg, ['weak-password'])) {
       return 'Password must be at least 6 characters.';
     }
-    if (msg.includes('invalid-email')) {
+    if (this.matchesFirebaseError(code, msg, ['invalid-email'])) {
       return 'Enter a valid email address.';
     }
-    if (msg.includes('too-many-requests')) {
+    if (this.matchesFirebaseError(code, msg, ['too-many-requests'])) {
       return 'Too many attempts. Please wait and try again.';
     }
+    if (this.matchesFirebaseError(code, msg, ['network-request-failed'])) {
+      return 'Network connection failed. Check your connection and try again.';
+    }
+    if (this.matchesFirebaseError(code, msg, ['operation-not-allowed'])) {
+      return 'Email sign-in is not enabled for this app.';
+    }
     return 'Something went wrong. Please try again.';
+  }
+
+  private parseGoogleError(err: unknown): string {
+    const code = this.getFirebaseErrorCode(err);
+    const msg = err instanceof Error ? err.message : '';
+    if (this.matchesFirebaseError(code, msg, ['popup-closed-by-user', 'cancelled-popup-request'])) {
+      return 'Google sign-in was cancelled before it finished.';
+    }
+    if (this.matchesFirebaseError(code, msg, ['popup-blocked'])) {
+      return 'Your browser blocked the Google sign-in pop-up. Allow pop-ups and try again.';
+    }
+    if (this.matchesFirebaseError(code, msg, ['unauthorized-domain'])) {
+      return 'Google sign-in is not authorized for this domain.';
+    }
+    if (this.matchesFirebaseError(code, msg, ['operation-not-allowed'])) {
+      return 'Google sign-in is not enabled for this app.';
+    }
+    if (this.matchesFirebaseError(code, msg, ['network-request-failed'])) {
+      return 'Network connection failed. Check your connection and try Google again.';
+    }
+    if (this.matchesFirebaseError(code, msg, ['account-exists-with-different-credential'])) {
+      return 'An account already exists with this email. Sign in with your original method.';
+    }
+    return 'Google sign-in failed. Please try again.';
+  }
+
+  private getFirebaseErrorCode(err: unknown): string {
+    if (typeof err !== 'object' || err === null || !('code' in err)) {
+      return '';
+    }
+    const code = (err as { code: unknown }).code;
+    return typeof code === 'string' ? code : '';
+  }
+
+  private matchesFirebaseError(code: string, message: string, fragments: string[]): boolean {
+    return fragments.some((fragment) => code === `auth/${fragment}` || code === fragment || message.includes(fragment));
   }
 }

@@ -132,9 +132,9 @@ ion-content::part(scroll) {
     margin: 12px 0 12px;
     color: var(--home-text);
     font-family: var(--font-display);
-    font-size: clamp(2rem, 4vw, 4rem);
+    font-size: clamp(2rem, 3vw, 2.5rem);
     font-weight: 850;
-    line-height: 0.98;
+    line-height: 1.04;
     overflow-wrap: break-word;
   }
 
@@ -604,8 +604,7 @@ ion-content::part(scroll) {
 @media (max-width: 520px) {
   .home-shell {
     width: min(calc(100% - 20px), 370px);
-    margin-left: 10px;
-    margin-right: auto;
+    margin: 0 auto;
   }
 
   .hero-copy {

@@ -138,9 +138,9 @@ ion-content {
 }
 
 .score-set-label {
-  font-size: 0.58rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-accent);
 }
@@ -151,7 +151,7 @@ ion-content {
   background: var(--color-surface-2);
   color: var(--color-text-1);
   padding: 4px 10px;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 750;
   max-width: 28ch;
   overflow: hidden;
@@ -167,7 +167,7 @@ ion-content {
 }
 
 .meta-badge {
-  font-size: 0.59rem;
+  font-size: 0.72rem;
   font-weight: 600;
   padding: 2px 7px;
   border-radius: var(--radius-sm);
@@ -256,9 +256,9 @@ ion-content {
 
 .court-context-card span {
   color: var(--color-text-2);
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -312,9 +312,9 @@ ion-content {
   z-index: 2;
   padding: 3px 10px;
   border-radius: var(--radius-full);
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: #ffffff;
   background: rgba(10, 12, 15, 0.75);
@@ -485,23 +485,23 @@ ion-content {
 
   .chip-jersey {
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: 0.72rem;
     font-weight: 500;
     color: var(--color-text-2);
     font-variant-numeric: tabular-nums;
   }
 
   .chip-pos {
-    font-size: 0.57rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     color: var(--color-accent);
     text-transform: uppercase;
   }
 
   .chip-serve-star {
     color: var(--color-amber);
-    font-size: 0.52rem;
+    font-size: 0.72rem;
     margin-left: auto;
   }
 
@@ -518,7 +518,7 @@ ion-content {
 
   .chip-stats {
     font-family: var(--font-mono);
-    font-size: 0.61rem;
+    font-size: 0.72rem;
     font-weight: 400;
     color: var(--color-text-2);
     margin-top: auto;
@@ -530,7 +530,7 @@ ion-content {
   position: absolute;
   right: 6px;
   bottom: 6px;
-  font-size: 0.5rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: #ffffff;
@@ -587,17 +587,17 @@ ion-button.primary-action-btn.active {
 .action-group-label {
   margin-top: 12px;
   color: var(--color-text-2);
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 ion-button.action-btn {
   height: 68px;
   margin: 0;
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   letter-spacing: 0.01em;
   --border-radius: var(--radius-md);
   --box-shadow: none;
@@ -617,10 +617,10 @@ ion-button.action-btn {
   line-height: 1.35;
 }
 
-ion-button.action-kill  { --background: var(--color-green); }
-ion-button.action-error { --background: var(--color-red); --color: #ffffff; }
-ion-button.action-ace   { --background: var(--color-green); }
-ion-button.action-block { --background: var(--color-accent); }
+ion-button.action-kill  { --background: #0f7a4a; }
+ion-button.action-error { --background: #c92f2f; --color: #ffffff; }
+ion-button.action-ace   { --background: #0f7a4a; }
+ion-button.action-block { --background: #1d6fe8; }
 
 ion-button.action-opponent-error {
   --background: var(--color-surface-3);
@@ -633,12 +633,12 @@ ion-button.action-dig {
 }
 
 ion-button.action-opponent-point {
-  --background: var(--color-red);
+  --background: #c92f2f;
   --color: #ffffff;
 }
 
 ion-button.action-receive-error {
-  --background: var(--color-red);
+  --background: #c92f2f;
   --color: #ffffff;
 }
 
@@ -879,9 +879,9 @@ select:focus-visible {
 
 .sub-overlay-label {
   display: block;
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-text-2);
 }

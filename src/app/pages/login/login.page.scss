@@ -5,8 +5,8 @@
   --border:       rgba(255, 255, 255, 0.1);
   --border-focus: #c8ff00;
   --text:         #e4eaf5;
-  --muted:        #5e6e84;
-  --subtle:       #333f52;
+  --muted:        #8fa0b8;
+  --subtle:       #6f8098;
   --volt:         #c8ff00;
   --volt-ink:     #0a0f00;
   --error:        #ff5c3e;
@@ -126,7 +126,7 @@ ion-content {
 }
 
 .wordmark {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(3.6rem, 14vw, 6rem);
   font-weight: 800;
   line-height: 0.88;
@@ -146,7 +146,7 @@ ion-content {
 }
 
 .wordmark-sub {
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -182,7 +182,7 @@ ion-content {
   background: none;
   color: var(--muted);
   cursor: pointer;
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -212,7 +212,7 @@ ion-content {
   background: rgba(255, 255, 255, 0.03);
   color: var(--text);
   cursor: pointer;
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.9rem;
   font-weight: 600;
   transition: background 0.14s, border-color 0.14s;
@@ -249,7 +249,7 @@ ion-content {
 
 .divider-label {
   color: var(--muted);
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.76rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -271,7 +271,7 @@ ion-content {
 }
 
 .field-label {
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -287,7 +287,7 @@ ion-content {
   border-radius: 6px;
   background: var(--inp-bg);
   color: var(--text);
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.95rem;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -322,7 +322,7 @@ ion-content {
   background: none;
   color: var(--muted);
   cursor: pointer;
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -342,7 +342,7 @@ ion-content {
   background: rgba(255, 92, 62, 0.12);
   border: 1px solid rgba(255, 92, 62, 0.25);
   color: var(--error);
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.86rem;
   font-weight: 500;
   line-height: 1.45;
@@ -361,7 +361,7 @@ ion-content {
   background: var(--volt);
   color: var(--volt-ink);
   cursor: pointer;
-  font-family: 'Figtree', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.9rem;
   font-weight: 800;
   letter-spacing: 0.06em;

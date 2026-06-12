@@ -254,6 +254,10 @@ export class HomePage {
     return this.playerPoolCount < 6 ? 'Add Players' : 'Set Lineup';
   }
 
+  get secondaryActionText(): string {
+    return this.playerPoolCount < 6 ? 'Add Players' : 'Edit Lineup';
+  }
+
   get primaryActionRoute(): string[] {
     if (this.hasActiveMatch) {
       return ['/court'];

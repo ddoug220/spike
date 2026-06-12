@@ -255,7 +255,11 @@ export class HomePage {
   }
 
   get secondaryActionText(): string {
-    return this.playerPoolCount < 6 ? 'Add Players' : 'Edit Lineup';
+    if (this.playerPoolCount < 6) {
+      return 'Add Players';
+    }
+
+    return this.hasValidLineup ? 'Edit Lineup' : 'Set Lineup';
   }
 
   get primaryActionRoute(): string[] {
@@ -278,7 +282,11 @@ export class HomePage {
       },
       {
         label: 'Starting six',
-        detail: this.hasValidLineup ? 'Six unique starters assigned' : 'Tap players into open court spots',
+        detail: this.hasValidLineup
+          ? 'Six unique starters assigned'
+          : this.playerPoolCount < 6
+            ? 'Add your roster before setting starters'
+            : 'Tap players into open court spots',
         state: this.playerPoolCount < 6 ? 'locked' : this.hasValidLineup ? 'complete' : 'current',
         value: `${this.lineupAssignedCount}/6`,
       },

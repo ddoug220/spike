@@ -22,6 +22,16 @@ const firebaseDbStub = {
   },
 };
 
+function addSixPlayers(teamRoster: TeamRosterService): void {
+  for (let i = 1; i <= 6; i += 1) {
+    teamRoster.addPlayer({ name: `Player ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+  }
+}
+
+function assignStartingSix(teamRoster: TeamRosterService): void {
+  teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+}
+
 describe('HomePage', () => {
   let component: HomePage;
   let fixture: ComponentFixture<HomePage>;
@@ -56,10 +66,8 @@ describe('HomePage', () => {
   });
 
   it('routes Start Match to lineup setup when no active match exists', () => {
-    for (let i = 1; i <= 6; i += 1) {
-      teamRoster.addPlayer({ name: `Player ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
-    }
-    teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    addSixPlayers(teamRoster);
+    assignStartingSix(teamRoster);
     fixture.detectChanges();
 
     const linkDebugEls = fixture.debugElement.queryAll(By.directive(RouterLink));
@@ -86,11 +94,33 @@ describe('HomePage', () => {
     expect(text).toContain('Local save');
   });
 
+  it('keeps first-time empty-roster CTAs focused on adding players', () => {
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+
+    expect(component.primaryActionText).toBe('Add Players');
+    expect(component.secondaryActionText).toBe('Add Players');
+    expect(text).toContain('Build your team');
+    expect(text).toContain('Add at least 6 players once. Spike reuses this player pool for every match.');
+    expect(text).toContain('Add your roster before setting starters');
+    expect(text).not.toContain('Edit Lineup');
+  });
+
+  it('asks users with a roster but no starting six to set the lineup', () => {
+    addSixPlayers(teamRoster);
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+
+    expect(component.primaryActionText).toBe('Set Lineup');
+    expect(component.secondaryActionText).toBe('Set Lineup');
+    expect(text).toContain('Set your starting lineup');
+    expect(text).toContain('Tap players into open court spots');
+    expect(text).not.toContain('Edit Lineup');
+  });
+
   it('turns the hero court into a starting-six preview once the lineup is assigned', () => {
-    for (let i = 1; i <= 6; i += 1) {
-      teamRoster.addPlayer({ name: `Player ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
-    }
-    teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    addSixPlayers(teamRoster);
+    assignStartingSix(teamRoster);
 
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
@@ -99,5 +129,20 @@ describe('HomePage', () => {
     expect(text).toContain('6/6 starters ready');
     expect(text).toContain('Player 1');
     expect(component.showFirstMatchGuide).toBeFalse();
+  });
+
+  it('keeps ready-to-play CTAs on starting or editing the prepared lineup', () => {
+    addSixPlayers(teamRoster);
+    assignStartingSix(teamRoster);
+
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+
+    expect(component.primaryActionText).toBe('Start Match');
+    expect(component.secondaryActionText).toBe('Edit Lineup');
+    expect(text).toContain('Start a tracked match');
+    expect(text).toContain('Ready to name opponent and serve');
+    expect(text).toContain('Starting six');
+    expect(text).toContain('6/6 starters ready');
   });
 });

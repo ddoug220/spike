@@ -159,7 +159,9 @@ ion-content::part(scroll) {
 .hero-team-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .team-switch-trigger {
@@ -213,6 +215,11 @@ ion-content::part(scroll) {
   &:hover {
     background: var(--home-panel-soft);
     border-color: var(--home-border);
+  }
+
+  span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -658,5 +665,50 @@ ion-content::part(scroll) {
 
   .readiness-value {
     grid-column: 2;
+  }
+}
+
+@media (max-width: 375px) {
+  ion-toolbar.home-toolbar {
+    --padding-end: 4px;
+  }
+
+  .app-wordmark {
+    padding-inline-start: 12px;
+    padding-inline-end: 4px;
+  }
+
+  .sync-retry-btn {
+    min-width: 48px;
+    margin-inline: 0 2px;
+    --padding-start: 6px;
+    --padding-end: 6px;
+  }
+
+  .history-nav-btn {
+    width: 40px;
+    min-width: 40px;
+    margin-right: 0;
+    font-size: 0;
+    --padding-start: 8px;
+    --padding-end: 8px;
+
+    ion-icon {
+      margin: 0;
+      font-size: 1.08rem;
+    }
+  }
+
+  .signout-btn {
+    width: 36px;
+    min-width: 36px;
+    margin-right: 2px;
+    --padding-start: 6px;
+    --padding-end: 6px;
+  }
+
+  .hero-kicker {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }

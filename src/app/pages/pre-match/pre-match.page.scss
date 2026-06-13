@@ -150,9 +150,10 @@ ion-content::part(scroll) {
   margin: 8px 0 8px;
   color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3vw, 3.2rem);
+  font-size: 2.25rem;
   font-weight: 850;
   line-height: 1.02;
+  overflow-wrap: anywhere;
 }
 
 .setup-brief p {
@@ -169,6 +170,7 @@ ion-content::part(scroll) {
 }
 
 .setup-metrics div {
+  min-width: 0;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--field-bg);
@@ -245,6 +247,7 @@ ion-content::part(scroll) {
 
 .team-details > div,
 .match-details > div {
+  min-width: 0;
   display: grid;
   gap: 3px;
 }
@@ -264,12 +267,18 @@ ion-content::part(scroll) {
   font-family: var(--font-display);
   font-size: 1.05rem;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .team-details div span:last-child,
 .match-details div span:last-child {
   font-size: 0.78rem;
   color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .team-field,
@@ -299,6 +308,7 @@ ion-content::part(scroll) {
 }
 
 .serve-selector-option {
+  min-width: 0;
   height: 42px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--field-border);
@@ -328,6 +338,7 @@ ion-content::part(scroll) {
 
 .team-field input,
 .opponent-field input {
+  min-width: 0;
   height: 42px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--field-border);
@@ -586,6 +597,7 @@ ion-content::part(scroll) {
 
 .slot-player {
   width: 100%;
+  min-width: 0;
   border-radius: var(--radius-sm);
   border: 1px solid var(--chip-border);
   background: var(--chip-bg);
@@ -606,6 +618,9 @@ ion-content::part(scroll) {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .slot-meta {
@@ -613,6 +628,9 @@ ion-content::part(scroll) {
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.78);
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .slot-empty {
@@ -904,6 +922,10 @@ ion-content::part(scroll) {
               transform var(--duration-fast) var(--ease-out);
 }
 
+.player-info {
+  min-width: 0;
+}
+
 .roster-item.selected .assignment {
   color: var(--accent-blue);
 }
@@ -936,6 +958,9 @@ ion-content::part(scroll) {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 0.92rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .player-info .meta {
@@ -943,6 +968,9 @@ ion-content::part(scroll) {
   font-size: 0.76rem;
   color: var(--text-secondary);
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .item-actions {
@@ -1030,6 +1058,10 @@ select:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .setup-brief h1 {
+    font-size: 2rem;
+  }
+
   .setup-brief {
     grid-template-columns: 1fr;
   }
@@ -1055,25 +1087,169 @@ select:focus-visible {
 
 @media (max-width: 640px) {
   .prematch-layout {
-    width: min(calc(100% - 20px), 370px);
-    margin-left: 10px;
+    width: min(calc(100% - 16px), 380px);
+    margin-left: auto;
     margin-right: auto;
     padding: 10px 0 104px;
+    gap: 10px;
   }
 
   .setup-brief,
   .panel {
-    padding: 16px;
+    padding: 12px;
   }
 
-  .setup-metrics,
-  .setup-path-mini {
-    grid-template-columns: 1fr;
+  .setup-brief {
+    gap: 12px;
+  }
+
+  .brief-kicker,
+  .detail-label,
+  .team-field span,
+  .opponent-field span,
+  .serve-selector-label,
+  .setup-metrics span,
+  .setup-path-mini span,
+  .assignment {
+    letter-spacing: 0.04em;
+  }
+
+  .setup-brief p,
+  .panel-head p {
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .setup-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .setup-metrics div {
+    padding: 9px 8px;
+  }
+
+  .setup-metrics span {
+    font-size: 0.58rem;
+  }
+
+  .setup-metrics strong {
+    font-size: 1.18rem;
   }
 
   .setup-brief h1 {
     font-size: 1.75rem;
-    overflow-wrap: break-word;
+  }
+
+  .team-details,
+  .match-details {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .serve-selector-options {
+    gap: 6px;
+  }
+
+  .serve-selector-option,
+  .team-field input,
+  .opponent-field input,
+  .team-save-btn {
+    height: 40px;
+    font-size: 0.78rem;
+  }
+
+  .panel-head h2 {
+    font-size: 1rem;
+  }
+
+  .lineup-court {
+    min-height: 360px;
+    margin-top: 12px;
+  }
+
+  .drop-slot {
+    width: clamp(78px, 25vw, 92px);
+    min-height: 78px;
+    padding: 6px;
+    gap: 3px;
+  }
+
+  .slot-number {
+    font-size: 0.68rem;
+  }
+
+  .slot-role,
+  .slot-empty,
+  .slot-meta {
+    font-size: 0.6rem;
+  }
+
+  .serving-badge {
+    max-width: 100%;
+    padding: 2px 6px;
+    gap: 4px;
+    font-size: 0.58rem;
+    letter-spacing: 0.02em;
+  }
+
+  .slot-player {
+    padding: 6px 5px;
+  }
+
+  .slot-name {
+    font-size: 0.72rem;
+  }
+
+  .setup-path-mini {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .setup-path-mini span {
+    padding: 8px 5px;
+    font-size: 0.62rem;
+  }
+
+  .player-form {
+    margin-top: 12px;
+    gap: 8px;
+  }
+
+  .field input,
+  .field select,
+  .add-btn,
+  .cancel-edit-btn {
+    height: 42px;
+  }
+
+  .bench-dropzone {
+    min-height: 48px;
+    padding: 9px;
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+
+  .roster-list {
+    max-height: none;
+    padding-right: 0;
+  }
+
+  .roster-item {
+    padding: 9px 10px;
+    gap: 7px;
+  }
+
+  .assignment {
+    max-width: 56px;
+    font-size: 0.6rem;
+    text-align: right;
+  }
+
+  .edit-btn,
+  .remove-btn {
+    width: 30px;
+    height: 30px;
   }
 }
 
@@ -1105,9 +1281,26 @@ ion-footer.start-footer {
 }
 
 @media (max-width: 640px) {
+  ion-footer.start-footer {
+    padding: 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .footer-readiness {
+    gap: 8px 14px;
+    margin-bottom: 8px;
+  }
+
   .readiness-blocker {
     width: 100%;
     margin-left: 0;
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+
+  .footer-start-btn {
+    height: 44px;
+    font-size: 0.88rem;
   }
 }
 

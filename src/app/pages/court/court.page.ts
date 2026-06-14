@@ -1,5 +1,5 @@
 import { DatePipe, NgClass, NgFor, NgIf, TitleCasePipe } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -192,6 +192,42 @@ export class CourtPage {
   ) {
     addIcons({'arrowUndo':arrowUndo,flash,'closeCircle':closeCircle,baseball,'handLeft':handLeft,'addCircle':addCircle,'playForward':playForward,star});
     this.liveStore.syncActiveGame();
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  handleGlobalKeydown(event: KeyboardEvent): void {
+    if (this.isMatchOver) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+    const isInputFocused = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+    if (isInputFocused) {
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+      event.preventDefault();
+      this.undoLastAction();
+      return;
+    }
+
+    if (event.key === 's' && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      this.toggleSubMode();
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      if (this.isSubOverlayOpen) {
+        event.preventDefault();
+        this.closeSubOverlay('Substitution cancelled.');
+      } else if (this.isExitSheetOpen) {
+        event.preventDefault();
+        this.isExitSheetOpen = false;
+      }
+    }
   }
 
   get gameState(): MatchScoreState {
@@ -518,6 +554,74 @@ export class CourtPage {
       return 'Low efficiency';
     }
     return 'No attack attempts yet';
+  }
+
+  getPlayerTileAriaLabel(position: number): string {
+    const player = this.getPlayerForPosition(position);
+    const efficiencyLabel = this.getPlayerTileEfficiencyLabel(position);
+    const positionLabel = this.playerPositions.find((p) => p.id === position)?.label ?? `P${position}`;
+    const isServer = position === 1 && this.gameState.servingTeam === 'team';
+    const isSelected = position === this.activePlayer;
+
+    if (!player) {
+      return `Position ${positionLabel}, empty. ${isSelected ? 'Selected.' : ''}`;
+    }
+
+    const parts = [
+      `${player.name}`,
+      `Jersey ${player.jerseyNumber}`,
+      player.primaryPosition,
+      positionLabel,
+      efficiencyLabel,
+    ];
+
+    if (isServer) {
+      parts.push('Currently serving');
+    }
+    if (isSelected) {
+      parts.push('Selected');
+    }
+    if (this.isSubOverlayOpen && this.isSelectedOutPlayer(position)) {
+      parts.push('Selected for substitution out');
+    }
+
+    return parts.join(', ') + '.';
+  }
+
+  handleCourtKeydown(event: KeyboardEvent, currentPosition: number): void {
+    const navigationMap: Record<string, Record<number, number>> = {
+      ArrowRight: { 4: 3, 3: 2, 5: 6, 6: 1 },
+      ArrowLeft: { 3: 4, 2: 3, 6: 5, 1: 6 },
+      ArrowUp: { 5: 4, 6: 3, 1: 2 },
+      ArrowDown: { 4: 5, 3: 6, 2: 1 },
+    };
+
+    const nextPosition = navigationMap[event.key]?.[currentPosition];
+
+    if (nextPosition) {
+      event.preventDefault();
+      this.activePlayer = nextPosition;
+      this.focusPlayerTile(nextPosition);
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.handleCourtPlayerTap(currentPosition);
+      return;
+    }
+
+    if (event.key === 'Escape' && this.isSubOverlayOpen) {
+      event.preventDefault();
+      this.closeSubOverlay('Substitution cancelled.');
+    }
+  }
+
+  private focusPlayerTile(position: number): void {
+    requestAnimationFrame(() => {
+      const tile = document.querySelector(`[data-position="${position}"]`) as HTMLElement;
+      tile?.focus();
+    });
   }
 
   getSelectedPlayerText(): string {

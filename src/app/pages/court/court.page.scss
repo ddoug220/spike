@@ -440,14 +440,38 @@ ion-content {
     left: 0;
     top: 10px;
     bottom: 10px;
-    width: 3px;
+    width: 4px;
     border-radius: 0 2px 2px 0;
     background: var(--color-text-3);
   }
 
-  &.eff-high .chip-eff-bar  { background: var(--color-green); }
-  &.eff-medium .chip-eff-bar { background: var(--color-amber); }
-  &.eff-low .chip-eff-bar   { background: var(--color-red); }
+  // High efficiency: solid green with triangle pattern
+  &.eff-high .chip-eff-bar {
+    background: var(--color-green);
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 4px,
+      rgba(255, 255, 255, 0.35) 4px,
+      rgba(255, 255, 255, 0.35) 6px
+    );
+  }
+
+  // Medium efficiency: solid amber with dots pattern
+  &.eff-medium .chip-eff-bar {
+    background: var(--color-amber);
+    background-image: radial-gradient(
+      circle at 2px 3px,
+      rgba(255, 255, 255, 0.4) 1px,
+      transparent 1px
+    );
+    background-size: 4px 6px;
+  }
+
+  // Low efficiency: solid red (no pattern = worst)
+  &.eff-low .chip-eff-bar {
+    background: var(--color-red);
+  }
 
   &:hover { transform: translate(-50%, -50%) scale(1.02); }
   &:active { transform: translate(-50%, -50%) scale(0.96); }
@@ -1008,11 +1032,36 @@ select:focus-visible {
   font-size: 0.76rem;
 }
 
-.box-grid {
+// Scroll wrapper for mobile horizontal scrolling
+.box-scroll-wrap {
   margin-top: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  overflow: hidden;
+
+  // Scroll indicator shadow for mobile
+  @media (max-width: 680px) {
+    position: relative;
+    background:
+      linear-gradient(to right, var(--color-surface-1) 30%, transparent),
+      linear-gradient(to left, var(--color-surface-1) 30%, transparent),
+      linear-gradient(to right, rgba(0, 0, 0, 0.15), transparent 20px),
+      linear-gradient(to left, rgba(0, 0, 0, 0.15), transparent 20px);
+    background-position: left center, right center, left center, right center;
+    background-repeat: no-repeat;
+    background-size: 40px 100%, 40px 100%, 20px 100%, 20px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+.box-grid {
+  min-width: 720px; // Ensure minimum width for all columns
 }
 
 .box-row {
@@ -1282,10 +1331,35 @@ select:focus-visible {
   border-radius: inherit;
 }
 
-.efficiency-fill { background: var(--color-accent); }
-.rotation-fill   { background: var(--color-green); }
-.receive-fill    { background: var(--color-amber); }
-.error-fill      { background: var(--color-red); }
+// Colorblind-friendly chart fills with distinct patterns
+.efficiency-fill {
+  background: var(--color-accent);
+}
+
+.rotation-fill {
+  background: var(--color-green);
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.25) 2px,
+    rgba(255, 255, 255, 0.25) 4px
+  );
+}
+
+.receive-fill {
+  background: var(--color-amber);
+  background-image: radial-gradient(
+    circle at 3px 3px,
+    rgba(255, 255, 255, 0.3) 1px,
+    transparent 1px
+  );
+  background-size: 6px 6px;
+}
+
+.error-fill {
+  background: var(--color-red);
+}
 
 .chart-value {
   font-family: var(--font-mono);
@@ -1403,8 +1477,16 @@ select:focus-visible {
 
   .box-score-panel { margin: 0 10px 10px; padding: 12px; }
 
+  .box-scroll-wrap {
+    margin-top: 10px;
+  }
+
+  .box-grid {
+    min-width: 680px;
+  }
+
   .box-row {
-    grid-template-columns: minmax(120px, 1.8fr) repeat(8, 0.75fr);
+    grid-template-columns: minmax(120px, 1.8fr) repeat(8, minmax(48px, 0.75fr));
     font-size: 0.74rem;
     padding: 8px;
   }

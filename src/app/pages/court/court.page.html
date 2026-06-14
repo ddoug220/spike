@@ -70,7 +70,12 @@
           </div>
         </div>
 
-        <div class="court-wrap" [ngClass]="{ 'sub-overlay-active': isSubOverlayOpen }">
+        <div
+          class="court-wrap"
+          [ngClass]="{ 'sub-overlay-active': isSubOverlayOpen }"
+          role="grid"
+          aria-label="Volleyball court with player positions. Use arrow keys to navigate between players."
+        >
           <div class="court-lines"></div>
           <div class="serve-indicator" [ngClass]="getServeIndicatorClass()">
             <span>Serve: {{ gameState.servingTeam === 'team' ? 'Our Team' : 'Opponent' }}</span>
@@ -82,7 +87,7 @@
             <ion-icon name="play-forward" class="arrow arrow-1"></ion-icon>
           </div>
           <button
-            *ngFor="let player of playerPositions"
+            *ngFor="let player of playerPositions; let i = index"
             class="player-chip"
             [ngClass]="{
               selected: player.id === activePlayer,
@@ -95,7 +100,12 @@
             }"
             [style.top]="player.top"
             [style.left]="player.left"
+            [attr.aria-label]="getPlayerTileAriaLabel(player.id)"
+            [attr.aria-pressed]="player.id === activePlayer"
+            [attr.data-position]="player.id"
+            [tabindex]="player.id === activePlayer ? 0 : -1"
             (click)="handleCourtPlayerTap(player.id)"
+            (keydown)="handleCourtKeydown($event, player.id)"
           >
             <span class="chip-eff-bar"></span>
             <ng-container *ngIf="getPlayerForPosition(player.id) as assigned; else unassignedPlayer">
@@ -142,8 +152,9 @@
             [ngClass]="action.accent"
             (click)="recordStandardOutcome(action.id)"
             [disabled]="isMatchOver"
+            [attr.aria-label]="action.label + ' - awards point'"
           >
-            <ion-icon [name]="action.icon" slot="start"></ion-icon>
+            <ion-icon [name]="action.icon" slot="start" aria-hidden="true"></ion-icon>
             {{ action.label }}
           </ion-button>
         </div>
@@ -157,15 +168,24 @@
             [ngClass]="action.accent"
             (click)="recordAction(action.id)"
             [disabled]="isMatchOver"
+            [attr.aria-label]="action.label + ' - stat only, no point'"
           >
-            <ion-icon [name]="action.icon" slot="start"></ion-icon>
+            <ion-icon [name]="action.icon" slot="start" aria-hidden="true"></ion-icon>
             {{ action.label }}
           </ion-button>
         </div>
 
         <div class="command-row">
-          <ion-button expand="block" fill="solid" class="undo-btn" (click)="undoLastAction()" [disabled]="isMatchOver">
-            <ion-icon name="arrow-undo" slot="start"></ion-icon>
+          <ion-button
+            expand="block"
+            fill="solid"
+            class="undo-btn"
+            (click)="undoLastAction()"
+            [disabled]="isMatchOver"
+            aria-label="Undo last action (Ctrl+Z)"
+            aria-keyshortcuts="Control+z"
+          >
+            <ion-icon name="arrow-undo" slot="start" aria-hidden="true"></ion-icon>
             Undo
           </ion-button>
 
@@ -176,6 +196,9 @@
             [ngClass]="{ active: isSubOverlayOpen }"
             (click)="toggleSubMode()"
             [disabled]="isMatchOver"
+            [attr.aria-label]="isSubOverlayOpen ? 'Close substitution panel (Escape)' : 'Open substitution panel (S)'"
+            [attr.aria-expanded]="isSubOverlayOpen"
+            aria-keyshortcuts="s Escape"
           >
             {{ isSubOverlayOpen ? 'Close Sub Panel' : 'Substitute' }}
           </ion-button>
@@ -232,11 +255,13 @@
 
         <div class="sub-overlay-right">
           <span class="sub-overlay-label">Bench (Tap to Swap)</span>
-          <div class="sub-bench-grid" *ngIf="benchPlayers.length > 0; else noBenchPlayers">
+          <div class="sub-bench-grid" *ngIf="benchPlayers.length > 0; else noBenchPlayers" role="listbox" aria-label="Bench players available for substitution">
             <button
               *ngFor="let benchPlayer of benchPlayers"
               type="button"
               class="sub-bench-tile"
+              role="option"
+              [attr.aria-label]="'Substitute in ' + benchPlayer.name + ', Jersey ' + benchPlayer.jerseyNumber + ', ' + benchPlayer.primaryPosition"
               (click)="handleBenchPlayerTap(benchPlayer.id)"
             >
               <span class="sub-bench-meta">#{{ benchPlayer.jerseyNumber }} | {{ benchPlayer.primaryPosition }}</span>
@@ -250,35 +275,37 @@
       </div>
     </section>
 
-    <section *ngIf="gameState.isMatchOver" class="box-score-panel">
+    <section *ngIf="gameState.isMatchOver" class="box-score-panel" aria-label="Post-match statistics">
       <div class="box-head">
         <h2>Post-Match Box Score</h2>
         <p>Hitting Efficiency = (Kills - Attack Errors) / Total Attacks</p>
       </div>
 
-      <div class="box-grid">
-        <div class="box-row box-header">
-          <span>Player</span>
-          <span>K</span>
-          <span>E</span>
-          <span>TA</span>
-          <span>SA</span>
-          <span>RE</span>
-          <span>Serve In %</span>
-          <span>Hit Eff</span>
-          <span>Side-Out %</span>
-        </div>
+      <div class="box-scroll-wrap" tabindex="0" role="region" aria-label="Scrollable statistics table">
+        <div class="box-grid" role="table" aria-label="Player statistics">
+          <div class="box-row box-header" role="row">
+            <span role="columnheader">Player</span>
+            <span role="columnheader" aria-label="Kills">K</span>
+            <span role="columnheader" aria-label="Errors">E</span>
+            <span role="columnheader" aria-label="Total Attacks">TA</span>
+            <span role="columnheader" aria-label="Serve Attempts">SA</span>
+            <span role="columnheader" aria-label="Receive Errors">RE</span>
+            <span role="columnheader">Serve In %</span>
+            <span role="columnheader">Hit Eff</span>
+            <span role="columnheader">Side-Out %</span>
+          </div>
 
-        <div class="box-row" *ngFor="let row of boxScoreRows">
-          <span>#{{ row.player.jerseyNumber }} {{ row.player.name }}</span>
-          <span>{{ row.kills }}</span>
-          <span>{{ row.attackErrors }}</span>
-          <span>{{ row.totalAttacks }}</span>
-          <span>{{ row.serveAttempts }}</span>
-          <span>{{ row.receiveErrors }}</span>
-          <span>{{ formatRate(row.serveInPercentage) }}</span>
-          <span>{{ formatRate(row.hittingEfficiency) }}</span>
-          <span>{{ formatRate(row.sideOutPercentage) }}</span>
+          <div class="box-row" role="row" *ngFor="let row of boxScoreRows">
+            <span role="cell">#{{ row.player.jerseyNumber }} {{ row.player.name }}</span>
+            <span role="cell">{{ row.kills }}</span>
+            <span role="cell">{{ row.attackErrors }}</span>
+            <span role="cell">{{ row.totalAttacks }}</span>
+            <span role="cell">{{ row.serveAttempts }}</span>
+            <span role="cell">{{ row.receiveErrors }}</span>
+            <span role="cell">{{ formatRate(row.serveInPercentage) }}</span>
+            <span role="cell">{{ formatRate(row.hittingEfficiency) }}</span>
+            <span role="cell">{{ formatRate(row.sideOutPercentage) }}</span>
+          </div>
         </div>
       </div>
     </section>

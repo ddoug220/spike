@@ -73,4 +73,68 @@ describe('LoginPage', () => {
     expect(auth.signInWithEmailPassword).toHaveBeenCalledOnceWith('new@example.com', 'password123');
     expect(router.navigate).toHaveBeenCalledOnceWith(['/home']);
   });
+
+  it('uses createUserWithEmailPassword for create-account submissions', async () => {
+    auth.createUserWithEmailPassword.and.resolveTo();
+    component.setMode('signup');
+    component.email = ' new@example.com ';
+    component.password = 'password123';
+
+    await component.submitEmail();
+
+    expect(auth.createUserWithEmailPassword).toHaveBeenCalledOnceWith('new@example.com', 'password123');
+    expect(auth.signInWithEmailPassword).not.toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/home']);
+  });
+
+  [
+    ['auth/email-already-in-use', 'An account with this email already exists. Try signing in.'],
+    ['auth/weak-password', 'Password must be at least 6 characters.'],
+    ['auth/invalid-email', 'Enter a valid email address.'],
+    ['auth/operation-not-allowed', 'Email sign-in is not enabled for this app.'],
+  ].forEach(([code, message]) => {
+    it(`surfaces Firebase create-account ${code} errors from error codes`, async () => {
+      auth.createUserWithEmailPassword.and.rejectWith({ code });
+      component.setMode('signup');
+      component.email = 'new@example.com';
+      component.password = 'password123';
+
+      await component.submitEmail();
+      fixture.detectChanges();
+
+      expect(auth.createUserWithEmailPassword).toHaveBeenCalledOnceWith('new@example.com', 'password123');
+      expect(router.navigate).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.textContent).toContain(message);
+    });
+  });
+
+  it('ignores duplicate email submits while the first request is loading', async () => {
+    const pending = defer<void>();
+    auth.signInWithEmailPassword.and.returnValue(pending.promise);
+    component.email = 'new@example.com';
+    component.password = 'password123';
+
+    const firstSubmit = component.submitEmail();
+    const secondSubmit = component.submitEmail();
+    component.setMode('signup');
+
+    expect(component.mode).toBe('signin');
+    expect(auth.signInWithEmailPassword).toHaveBeenCalledOnceWith('new@example.com', 'password123');
+    expect(auth.createUserWithEmailPassword).not.toHaveBeenCalled();
+
+    pending.resolve(undefined);
+    await Promise.all([firstSubmit, secondSubmit]);
+
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/home']);
+  });
 });
+
+function defer<T>(): { promise: Promise<T>; resolve: (value: T | PromiseLike<T>) => void; reject: (reason?: unknown) => void } {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}

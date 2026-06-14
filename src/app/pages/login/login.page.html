@@ -28,6 +28,7 @@
             [class.mode-btn--active]="mode === 'signin'"
             role="tab"
             [attr.aria-selected]="mode === 'signin'"
+            [disabled]="isLoading"
             (click)="setMode('signin')"
           >Sign In</button>
           <button
@@ -35,6 +36,7 @@
             [class.mode-btn--active]="mode === 'signup'"
             role="tab"
             [attr.aria-selected]="mode === 'signup'"
+            [disabled]="isLoading"
             (click)="setMode('signup')"
           >Create Account</button>
         </div>

@@ -28,6 +28,7 @@ export class LoginPage {
   ) {}
 
   setMode(next: AuthMode): void {
+    if (this.isLoading) return;
     this.mode = next;
     this.error = null;
   }

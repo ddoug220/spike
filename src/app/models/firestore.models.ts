@@ -1,6 +1,6 @@
 export type PrimaryPosition = 'S' | 'OH' | 'MB' | 'OPP' | 'L' | 'DS';
 export type TeamSide = 'team' | 'opponent';
-export type GameStatus = 'scheduled' | 'live' | 'final';
+export type GameStatus = 'scheduled' | 'live' | 'final' | 'ended-early';
 
 export interface Team {
   id: string;
@@ -22,6 +22,13 @@ export interface Player {
   updatedAt: string;
 }
 
+export interface GameSquadPlayer {
+  id: string;
+  name: string;
+  jerseyNumber: number;
+  primaryPosition: PrimaryPosition;
+}
+
 export interface Game {
   id: string;
   ownerId: string;
@@ -35,6 +42,7 @@ export interface Game {
   opponentSets: number;
   currentSet: number;
   isMatchOver: boolean;
+  isSetBreak?: boolean;
   teamTimeoutsRemaining: number;
   opponentTimeoutsRemaining: number;
   teamRotation: number;
@@ -42,6 +50,11 @@ export interface Game {
   endedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  schemaVersion?: 2;
+  writerDeviceId?: string;
+  writerGeneration?: number;
+  matchSquad?: GameSquadPlayer[];
+  startingLineup?: Array<string | null>;
 }
 
 export interface GameSet {
@@ -63,13 +76,16 @@ export interface Roster {
   teamId: string;
   gameId: string | null;
   lineup: Array<string | null>;
+  squadPlayerIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
 
 export type GameEventType =
   | 'matchStarted'
+  | 'setStarted'
   | 'matchEnded'
+  | 'matchEndedEarly'
   | 'serveTeamSet'
   | 'playerAction'
   | 'opponentPoint'
@@ -99,6 +115,7 @@ export interface GameEvent {
   opponentSets?: number;
   currentSet?: number;
   isMatchOver?: boolean;
+  isSetBreak?: boolean;
   teamRotation?: number;
   teamTimeoutsRemaining?: number;
   opponentTimeoutsRemaining?: number;
@@ -106,8 +123,31 @@ export interface GameEvent {
   inPlayerId?: string;
   timeoutTeam?: TeamSide;
   targetEventId?: string;
+  previousTeamRotation?: number;
+  targetTeamRotation?: number;
   inferredServeInServerPlayerId?: string;
   actionSetNumber?: number;
+  schemaVersion?: 2;
+  sequence?: number;
+  rallyId?: string;
+  servingTeamBefore?: TeamSide;
+  teamRotationBefore?: number;
+  writerDeviceId?: string;
+  writerGeneration?: number;
+  eventKind?:
+    | 'match-started'
+    | 'set-started'
+    | 'rally-outcome'
+    | 'stat-observation'
+    | 'substitution'
+    | 'timeout-called'
+    | 'serve-corrected'
+    | 'rotation-corrected'
+    | 'match-ended-early'
+    | 'undo';
+  courtPosition?: number;
+  setNumber?: number;
+  targetRotation?: number;
 }
 
 export interface PlayerSetStats {
@@ -135,6 +175,8 @@ export interface PlayerSetStats {
   sideOutPercentage: number | null;
   createdAt: string;
   updatedAt: string;
+  writerDeviceId?: string;
+  writerGeneration?: number;
 }
 
 export interface FirestoreDocumentMap {

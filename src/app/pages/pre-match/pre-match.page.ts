@@ -2,24 +2,27 @@ import { NgClass } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { IonBackButton, IonButton, IonButtons, IonContent, IonFooter, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
-import { addIcons } from 'ionicons';
-import { arrowBack, checkmarkCircle, checkmarkCircleOutline, close, cloudDownloadOutline, create, ellipseOutline, play, personAdd, save, trash } from 'ionicons/icons';
-import { MatchEngineService } from '../../services/match-engine.service';
-import { OfflineSyncService } from '../../services/offline-sync.service';
 import {
-  NewRosterPlayer,
-  PrimaryPosition,
-  RosterPlayer,
-  RosterTeam,
-  TeamRosterService,
-} from '../../services/team-roster.service';
+  IonBackButton,
+  IonButton,
+  IonButtons,
+  IonContent,
+  IonFooter,
+  IonHeader,
+  IonIcon,
+  IonTitle,
+  IonToolbar,
+} from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import { arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play } from 'ionicons/icons';
+import { MatchEngineService } from '../../services/match-engine.service';
+import { RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
 
 interface CourtSlot {
   position: number;
   roleLabel: string;
   row: 'front' | 'back';
-  isTeamServerSlot: boolean;
+  isServerSpot: boolean;
   top: string;
   left: string;
 }
@@ -47,221 +50,111 @@ type FirstServeTeam = 'team' | 'opponent';
   ],
 })
 export class PreMatchPage {
-  readonly primaryPositions: PrimaryPosition[] = ['S', 'OH', 'MB', 'OPP', 'L', 'DS'];
   readonly courtSlots: CourtSlot[] = [
-    { position: 4, roleLabel: 'Front Left', row: 'front', isTeamServerSlot: false, top: '24%', left: '18%' },
-    { position: 3, roleLabel: 'Front Middle', row: 'front', isTeamServerSlot: false, top: '24%', left: '50%' },
-    { position: 2, roleLabel: 'Front Right', row: 'front', isTeamServerSlot: false, top: '24%', left: '82%' },
-    { position: 5, roleLabel: 'Back Left', row: 'back', isTeamServerSlot: false, top: '76%', left: '18%' },
-    { position: 6, roleLabel: 'Back Middle', row: 'back', isTeamServerSlot: false, top: '76%', left: '50%' },
-    { position: 1, roleLabel: 'Back Right', row: 'back', isTeamServerSlot: true, top: '76%', left: '82%' },
+    { position: 4, roleLabel: 'Front Left', row: 'front', isServerSpot: false, top: '24%', left: '18%' },
+    { position: 3, roleLabel: 'Front Middle', row: 'front', isServerSpot: false, top: '24%', left: '50%' },
+    { position: 2, roleLabel: 'Front Right', row: 'front', isServerSpot: false, top: '24%', left: '82%' },
+    { position: 5, roleLabel: 'Back Left', row: 'back', isServerSpot: false, top: '76%', left: '18%' },
+    { position: 6, roleLabel: 'Back Middle', row: 'back', isServerSpot: false, top: '76%', left: '50%' },
+    { position: 1, roleLabel: 'Back Right', row: 'back', isServerSpot: true, top: '76%', left: '82%' },
   ];
 
-  showTeamPicker = false;
-
-  draft: NewRosterPlayer = {
-    name: '',
-    jerseyNumber: 1,
-    primaryPosition: 'OH',
-  };
-  matchDetails = {
-    opponentName: '',
-  };
-  teamNameDraft = '';
+  opponentName = '';
   firstServeTeam: FirstServeTeam = 'team';
-
+  selectedPlayerId: string | null = null;
   private draggedPlayerId: string | null = null;
-  public selectedBenchPlayerId: string | null = null;
-  public editingPlayerId: string | null = null;
 
   constructor(
     public readonly teamRoster: TeamRosterService,
-    public readonly offlineSync: OfflineSyncService,
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
-    addIcons({ personAdd, trash, play, create, close, checkmarkCircle, checkmarkCircleOutline, ellipseOutline, arrowBack, save, cloudDownloadOutline });
-    this.teamNameDraft = this.teamRoster.team().name;
-  }
-
-  get team(): RosterTeam {
-    return this.teamRoster.team();
+    addIcons({ arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play });
   }
 
   get players(): RosterPlayer[] {
     return this.teamRoster.players();
   }
 
-  get rosterSummaryText(): string {
-    const playerCount = this.players.length;
-    const assignedCount = this.assignedStarterCount;
-    return `${playerCount} player${playerCount === 1 ? '' : 's'} in pool - ${assignedCount}/6 starters set`;
+  get squadPlayers(): RosterPlayer[] {
+    return this.teamRoster.getMatchSquadPlayers();
+  }
+
+  get squadCount(): number {
+    return this.squadPlayers.length;
   }
 
   get assignedStarterCount(): number {
-    return this.teamRoster.lineup().filter((playerId) => !!playerId).length;
-  }
-
-  get benchCount(): number {
-    return this.teamRoster.getBenchPlayers().length;
-  }
-
-  get teamSetupStatusText(): string {
-    if (this.canStartMatch) {
-      return 'Starting six is ready. Start the match when opponent and first serve look right.';
-    }
-
-    if (this.players.length < 6) {
-      return `Add ${6 - this.players.length} more player${6 - this.players.length === 1 ? '' : 's'} to build a full lineup.`;
-    }
-
-    return this.startMatchDisabledReason;
-  }
-
-  get syncStatusText(): string {
-    if (this.offlineSync.lastError()) {
-      return 'Saved on this device. Cloud save failed.';
-    }
-
-    if (this.offlineSync.isSyncing()) {
-      return 'Saving to cloud...';
-    }
-
-    if (this.offlineSync.pendingCount() > 0) {
-      return `${this.offlineSync.pendingCount()} change(s) waiting for cloud save`;
-    }
-
-    return 'Team saved to cloud';
-  }
-
-  get selectedPlayerText(): string {
-    const selectedPlayer = this.teamRoster.getPlayerById(this.selectedBenchPlayerId);
-    if (!selectedPlayer) {
-      return 'Select a player from the pool, then tap a court slot.';
-    }
-
-    return `Selected: #${selectedPlayer.jerseyNumber} ${selectedPlayer.name}`;
+    return this.teamRoster.matchDefaults().startingLineup.filter((id) => !!id).length;
   }
 
   get hasAssignedStarters(): boolean {
-    return this.teamRoster.lineup().some((playerId) => !!playerId);
+    return this.assignedStarterCount > 0;
   }
 
   get isLineupReady(): boolean {
-    return this.teamRoster.lineup().every((playerId) => !!playerId);
+    const lineup = this.teamRoster.matchDefaults().startingLineup;
+    const assigned = lineup.filter((id): id is string => !!id);
+    return (
+      assigned.length === 6 &&
+      new Set(assigned).size === 6 &&
+      assigned.every((id) => this.teamRoster.isInMatchSquad(id) && !!this.teamRoster.getPlayerById(id))
+    );
   }
 
-  get isRotationValid(): boolean {
-    const lineup = this.teamRoster.lineup();
-    const assigned = lineup.filter((playerId): playerId is string => !!playerId);
-    if (assigned.length !== 6 || new Set(assigned).size !== 6) {
-      return false;
-    }
-
-    return assigned.every((playerId) => !!this.teamRoster.getPlayerById(playerId));
+  get hasOpponent(): boolean {
+    return this.opponentName.trim().length > 0;
   }
 
   get canStartMatch(): boolean {
-    return this.isLineupReady && this.isRotationValid;
-  }
-
-  get doesTeamServeFirst(): boolean {
-    return this.firstServeTeam === 'team';
+    return this.hasOpponent && this.isLineupReady;
   }
 
   get startMatchDisabledReason(): string {
+    if (!this.hasOpponent) {
+      return 'Enter the opponent name';
+    }
+    if (this.squadCount < 6) {
+      const missing = 6 - this.squadCount;
+      return `Select ${missing} more squad player${missing === 1 ? '' : 's'}`;
+    }
     if (!this.isLineupReady) {
-      return 'Assign 6 starters to begin';
+      return 'Assign 6 unique starters to P1–P6';
     }
-
-    if (!this.isRotationValid) {
-      return 'Resolve lineup issues before starting the match';
-    }
-
     return '';
   }
 
-  get cloudTeams(): RosterTeam[] {
-    return this.teamRoster.cloudTeams();
+  get selectedPlayerText(): string {
+    const player = this.teamRoster.getPlayerById(this.selectedPlayerId);
+    return player
+      ? `Selected: #${player.jerseyNumber} ${player.name}. Tap a court position.`
+      : 'Select a squad player, then tap a court position.';
   }
 
-  toggleTeamPicker(): void {
-    this.showTeamPicker = !this.showTeamPicker;
+  toggleSquadPlayer(playerId: string, event: Event): void {
+    const selected = (event.target as HTMLInputElement).checked;
+    this.teamRoster.setMatchSquadPlayer(playerId, selected);
+    if (!selected && this.selectedPlayerId === playerId) {
+      this.selectedPlayerId = null;
+    }
   }
 
-  switchToTeam(teamId: string): void {
-    this.teamRoster.switchToTeam(teamId);
-    this.showTeamPicker = false;
-  }
-
-  saveTeam(): void {
-    const didSave = this.teamRoster.updateTeamName(this.teamNameDraft);
-    if (!didSave) {
-      this.teamNameDraft = this.team.name;
+  selectPlayer(playerId: string): void {
+    if (!this.teamRoster.isInMatchSquad(playerId)) {
       return;
     }
-    this.teamNameDraft = this.team.name;
+    this.selectedPlayerId = this.selectedPlayerId === playerId ? null : playerId;
   }
 
-  retrySync(): void {
-    void this.offlineSync.retryNow();
-  }
-
-  submitPlayer(): void {
-    const name = this.draft.name.trim();
-    if (!name) {
-      return;
-    }
-
-    const nextPlayer: NewRosterPlayer = {
-      name,
-      jerseyNumber: this.draft.jerseyNumber,
-      primaryPosition: this.draft.primaryPosition,
-    };
-
-    if (this.editingPlayerId) {
-      const didUpdate = this.teamRoster.updatePlayer(this.editingPlayerId, nextPlayer);
-      if (!didUpdate) {
-        return;
+  assignSelectedToPosition(position: number): void {
+    if (!this.selectedPlayerId) {
+      if (this.getSlotPlayer(position)) {
+        this.teamRoster.unassignMatchStarter(position);
       }
-      this.editingPlayerId = null;
-    } else {
-      this.teamRoster.addPlayer(nextPlayer);
-    }
-
-    this.resetDraft(nextPlayer.primaryPosition);
-  }
-
-  startEditPlayer(playerId: string, event?: Event): void {
-    event?.stopPropagation();
-    const player = this.teamRoster.getPlayerById(playerId);
-    if (!player) {
       return;
     }
-
-    this.editingPlayerId = player.id;
-    this.selectedBenchPlayerId = player.id;
-    this.draft = {
-      name: player.name,
-      jerseyNumber: player.jerseyNumber,
-      primaryPosition: player.primaryPosition,
-    };
-  }
-
-  cancelEdit(): void {
-    this.editingPlayerId = null;
-    this.resetDraft(this.draft.primaryPosition);
-  }
-
-  removePlayer(playerId: string, event?: Event): void {
-    event?.stopPropagation();
-    this.teamRoster.removePlayer(playerId);
-    if (this.selectedBenchPlayerId === playerId) {
-      this.selectedBenchPlayerId = null;
-    }
-    if (this.editingPlayerId === playerId) {
-      this.cancelEdit();
-    }
+    this.teamRoster.assignMatchStarter(this.selectedPlayerId, position);
+    this.selectedPlayerId = null;
   }
 
   allowDrop(event: DragEvent): void {
@@ -276,89 +169,32 @@ export class PreMatchPage {
 
   dropOnPosition(event: DragEvent, position: number): void {
     event.preventDefault();
-    const playerId = this.readDraggedPlayerId(event);
-    if (!playerId) {
-      return;
+    const playerId =
+      event.dataTransfer?.getData('text/player-id') ||
+      event.dataTransfer?.getData('text/plain') ||
+      this.draggedPlayerId;
+    if (playerId) {
+      this.teamRoster.assignMatchStarter(playerId, position);
     }
-
-    this.teamRoster.assignPlayerToPosition(playerId, position);
-    this.selectedBenchPlayerId = null;
     this.draggedPlayerId = null;
-  }
-
-  dropToBench(event: DragEvent): void {
-    event.preventDefault();
-    const playerId = this.readDraggedPlayerId(event);
-    if (!playerId) {
-      return;
-    }
-
-    this.teamRoster.unassignPlayer(playerId);
-    this.selectedBenchPlayerId = playerId;
-    this.draggedPlayerId = null;
-  }
-
-  selectBenchPlayer(playerId: string): void {
-    this.selectedBenchPlayerId = this.selectedBenchPlayerId === playerId ? null : playerId;
-  }
-
-  assignSelectedToPosition(position: number): void {
-    if (!this.selectedBenchPlayerId) {
-      return;
-    }
-
-    this.teamRoster.assignPlayerToPosition(this.selectedBenchPlayerId, position);
-    this.selectedBenchPlayerId = null;
-  }
-
-  moveSelectedToBench(): void {
-    if (!this.selectedBenchPlayerId) {
-      return;
-    }
-
-    this.teamRoster.unassignPlayer(this.selectedBenchPlayerId);
-    this.selectedBenchPlayerId = null;
+    this.selectedPlayerId = null;
   }
 
   setFirstServeTeam(team: FirstServeTeam): void {
     this.firstServeTeam = team;
   }
 
+  getSlotPlayer(position: number): RosterPlayer | null {
+    const id = this.teamRoster.matchDefaults().startingLineup[position - 1] ?? null;
+    return this.teamRoster.getPlayerById(id);
+  }
+
   async startMatch(): Promise<void> {
-    if (!this.canStartMatch) {
+    if (!this.canStartMatch || !this.teamRoster.activateMatchLineup()) {
       return;
     }
 
-    this.matchEngine.startMatch(this.firstServeTeam, {
-      opponentName: this.matchDetails.opponentName,
-    });
+    this.matchEngine.startMatch(this.firstServeTeam, { opponentName: this.opponentName.trim() });
     await this.router.navigate(['/court']);
-  }
-
-  getSlotPlayer(position: number): RosterPlayer | null {
-    const playerId = this.teamRoster.lineup()[position - 1] ?? null;
-    return this.teamRoster.getPlayerById(playerId);
-  }
-
-  trackByPosition(_: number, slot: CourtSlot): number {
-    return slot.position;
-  }
-
-  trackByPlayer(_: number, player: RosterPlayer): string {
-    return player.id;
-  }
-
-  private readDraggedPlayerId(event: DragEvent): string | null {
-    const fromEvent =
-      event.dataTransfer?.getData('text/player-id') || event.dataTransfer?.getData('text/plain') || '';
-    return (fromEvent || this.draggedPlayerId || '').trim() || null;
-  }
-
-  private resetDraft(primaryPosition: PrimaryPosition): void {
-    this.draft = {
-      name: '',
-      jerseyNumber: 1,
-      primaryPosition,
-    };
   }
 }

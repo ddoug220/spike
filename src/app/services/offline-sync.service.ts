@@ -68,6 +68,7 @@ export class OfflineSyncService {
   private static readonly QUEUE_KEY = 'spike-sync-queue-v1';
   private static readonly LAST_SUCCESS_KEY = 'spike-sync-last-success-v1';
   private static readonly ARCHIVE_KEY = 'spike-sync-archive-v1';
+  private static readonly DEVICE_ID_KEY = 'spike-scoring-device-v2';
 
   private readonly queueSignal = signal<SyncQueueItem[]>([]);
   private readonly syncingSignal = signal(false);
@@ -104,26 +105,33 @@ export class OfflineSyncService {
       return 'local-match';
     }
 
-    const existing = window.localStorage.getItem(OfflineSyncService.MATCH_ID_KEY);
+    const key = this.ownerKey(OfflineSyncService.MATCH_ID_KEY);
+    const existing = window.localStorage.getItem(key);
     if (existing) {
       return existing;
     }
 
     const next = this.createId('game');
-    window.localStorage.setItem(OfflineSyncService.MATCH_ID_KEY, next);
+    window.localStorage.setItem(key, next);
     return next;
   }
 
   startNewMatch(): string {
     const matchId = this.createId('game');
     if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(OfflineSyncService.MATCH_ID_KEY, matchId);
+      window.localStorage.setItem(this.ownerKey(OfflineSyncService.MATCH_ID_KEY), matchId);
     }
     return matchId;
   }
 
   queueGame(payload: OwnerPayload<Game>): void {
-    this.enqueue('games', this.withOwner(payload));
+    const existing = this.getGame(payload.id);
+    this.enqueue('games', this.withOwner<Game>({
+      ...payload,
+      schemaVersion: 2,
+      writerDeviceId: payload.writerDeviceId ?? existing?.writerDeviceId ?? this.getDeviceId(),
+      writerGeneration: payload.writerGeneration ?? existing?.writerGeneration ?? 1,
+    } as OwnerPayload<Game>));
   }
 
   queueTeam(payload: OwnerPayload<Team>): void {
@@ -139,8 +147,14 @@ export class OfflineSyncService {
   }
 
   logEvent(payload: OwnerPayload<GameEvent>): void {
+    const events = this.getMatchEvents(payload.gameId);
+    const game = this.getGame(payload.gameId);
     this.enqueue('events', {
       ...this.withOwner(payload),
+      schemaVersion: 2,
+      sequence: payload.sequence ?? (events[events.length - 1]?.sequence ?? events.length) + 1,
+      writerDeviceId: payload.writerDeviceId ?? game?.writerDeviceId ?? this.getDeviceId(),
+      writerGeneration: payload.writerGeneration ?? game?.writerGeneration ?? 1,
       isDeleted: payload.isDeleted,
       deletedAt: payload.deletedAt ?? null,
     });
@@ -151,7 +165,12 @@ export class OfflineSyncService {
   }
 
   queuePlayerSetStats(payload: OwnerPayload<PlayerSetStats>): void {
-    this.enqueue('playerSetStats', this.withOwner(payload));
+    const game = this.getGame(payload.gameId);
+    this.enqueue('playerSetStats', this.withOwner<PlayerSetStats>({
+      ...payload,
+      writerDeviceId: payload.writerDeviceId ?? game?.writerDeviceId ?? this.getDeviceId(),
+      writerGeneration: payload.writerGeneration ?? game?.writerGeneration ?? 1,
+    }));
   }
 
   undoLastEvent(eventId?: string): GameEvent | null {
@@ -249,6 +268,50 @@ export class OfflineSyncService {
     } finally {
       this.syncingSignal.set(false);
     }
+  }
+
+  async prepareForSignOut(): Promise<boolean> {
+    if (this.queueSignal().length > 0) {
+      await this.flushQueue();
+    }
+    return this.queueSignal().length === 0;
+  }
+
+  clearOwnerLocalData(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      [
+        OfflineSyncService.MATCH_ID_KEY,
+        OfflineSyncService.QUEUE_KEY,
+        OfflineSyncService.LAST_SUCCESS_KEY,
+        OfflineSyncService.ARCHIVE_KEY,
+      ].forEach((key) => window.localStorage.removeItem(this.ownerKey(key)));
+    }
+    this.queueSignal.set([]);
+    this.archiveSignal.set({ games: [], events: [], playerSetStats: [] });
+    this.lastSuccessfulSyncAtSignal.set(null);
+    this.lastErrorSignal.set(null);
+  }
+
+  isCurrentScoringDevice(gameId: string): boolean {
+    const game = this.getGame(gameId);
+    return !game?.writerDeviceId || game.writerDeviceId === this.getDeviceId();
+  }
+
+  takeOverScoring(gameId: string): boolean {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return false;
+    }
+    const game = this.getGame(gameId);
+    if (!game || game.status !== 'live') {
+      return false;
+    }
+    this.queueGame({
+      ...game,
+      writerDeviceId: this.getDeviceId(),
+      writerGeneration: (game.writerGeneration ?? 1) + 1,
+      updatedAt: new Date().toISOString(),
+    });
+    return true;
   }
 
   retryNow(): Promise<void> {
@@ -398,14 +461,14 @@ export class OfflineSyncService {
     if (typeof window === 'undefined' || !window.localStorage) {
       return;
     }
-    window.localStorage.setItem(OfflineSyncService.QUEUE_KEY, JSON.stringify(this.queueSignal()));
+    window.localStorage.setItem(this.ownerKey(OfflineSyncService.QUEUE_KEY), JSON.stringify(this.queueSignal()));
   }
 
   private restoreQueue(): void {
     if (typeof window === 'undefined' || !window.localStorage) {
       return;
     }
-    const raw = window.localStorage.getItem(OfflineSyncService.QUEUE_KEY);
+    const raw = window.localStorage.getItem(this.ownerKey(OfflineSyncService.QUEUE_KEY));
     if (!raw) {
       return;
     }
@@ -432,11 +495,11 @@ export class OfflineSyncService {
 
     const value = this.lastSuccessfulSyncAtSignal();
     if (!value) {
-      window.localStorage.removeItem(OfflineSyncService.LAST_SUCCESS_KEY);
+      window.localStorage.removeItem(this.ownerKey(OfflineSyncService.LAST_SUCCESS_KEY));
       return;
     }
 
-    window.localStorage.setItem(OfflineSyncService.LAST_SUCCESS_KEY, value);
+    window.localStorage.setItem(this.ownerKey(OfflineSyncService.LAST_SUCCESS_KEY), value);
   }
 
   private restoreLastSuccess(): void {
@@ -444,7 +507,7 @@ export class OfflineSyncService {
       return;
     }
 
-    const raw = window.localStorage.getItem(OfflineSyncService.LAST_SUCCESS_KEY);
+    const raw = window.localStorage.getItem(this.ownerKey(OfflineSyncService.LAST_SUCCESS_KEY));
     if (!raw) {
       return;
     }
@@ -480,7 +543,7 @@ export class OfflineSyncService {
       return;
     }
 
-    window.localStorage.setItem(OfflineSyncService.ARCHIVE_KEY, JSON.stringify(this.archiveSignal()));
+    window.localStorage.setItem(this.ownerKey(OfflineSyncService.ARCHIVE_KEY), JSON.stringify(this.archiveSignal()));
   }
 
   private restoreArchive(): void {
@@ -488,7 +551,7 @@ export class OfflineSyncService {
       return;
     }
 
-    const raw = window.localStorage.getItem(OfflineSyncService.ARCHIVE_KEY);
+    const raw = window.localStorage.getItem(this.ownerKey(OfflineSyncService.ARCHIVE_KEY));
     if (!raw) {
       return;
     }
@@ -520,5 +583,23 @@ export class OfflineSyncService {
       ...payload,
       ownerId: 'ownerId' in payload && payload.ownerId ? payload.ownerId : this.auth.uid ?? '',
     } as T;
+  }
+
+  private ownerKey(base: string): string {
+    return `${base}:${this.auth.uid ?? 'signed-out'}`;
+  }
+
+  private getDeviceId(): string {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return 'server-device';
+    }
+    const key = this.ownerKey(OfflineSyncService.DEVICE_ID_KEY);
+    const existing = window.localStorage.getItem(key);
+    if (existing) {
+      return existing;
+    }
+    const id = this.createId('device');
+    window.localStorage.setItem(key, id);
+    return id;
   }
 }

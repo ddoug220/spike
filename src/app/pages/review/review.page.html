@@ -1,0 +1,139 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Match Review</ion-title>
+    <ion-button slot="end" fill="clear" [routerLink]="['/history']">History</ion-button>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <main class="review-shell" *ngIf="review as match; else missingMatch">
+    <header class="scoreboard">
+      <div class="match-title">
+        <span class="status" [class.status-live]="match.status === 'live'">{{ statusLabel(match.status) }}</span>
+        <h1>vs {{ match.opponentName }}</h1>
+        <p>{{ match.startedAt | date:'fullDate' }}</p>
+      </div>
+
+      <div class="match-score" aria-label="Match score">
+        <span>
+          <strong>{{ match.teamSets }}</strong>
+          <small>Team</small>
+        </span>
+        <b aria-hidden="true">–</b>
+        <span>
+          <strong>{{ match.opponentSets }}</strong>
+          <small>Opponent</small>
+        </span>
+      </div>
+
+      <a *ngIf="canResume" class="resume-button" [routerLink]="['/court']">Resume match</a>
+      <button *ngIf="canTakeOver" class="resume-button" type="button" (click)="takeOver()">Take over scoring</button>
+    </header>
+
+    <section class="rates-section" aria-labelledby="team-performance-title">
+      <div class="section-heading">
+        <div>
+          <h2 id="team-performance-title">Team performance</h2>
+          <p>Rates use completed rallies only.</p>
+        </div>
+        <div class="side-out">
+          <span>Side-out</span>
+          <strong>{{ formatRate(match.sideOutRate) }}</strong>
+          <small>{{ match.sideOutWins }}/{{ match.sideOutChances }} rallies</small>
+        </div>
+      </div>
+
+      <div class="rotation-strip" aria-label="Rally win rate by team rotation">
+        <div *ngFor="let rotation of match.rotations" class="rotation-cell">
+          <span>R{{ rotation.rotation }}</span>
+          <strong>{{ formatRate(rotation.rate) }}</strong>
+          <small>{{ rotation.wins }}/{{ rotation.rallies }} rallies won</small>
+          <em *ngIf="rotation.comparison">{{ rotation.comparison }}</em>
+        </div>
+      </div>
+      <p class="threshold-note">Strongest and weakest labels require at least 5 rallies in two rotations.</p>
+    </section>
+
+    <section *ngIf="match.leaders.length > 0" aria-labelledby="leaders-title">
+      <h2 id="leaders-title">Leaders</h2>
+      <div class="leader-list">
+        <div *ngFor="let leader of match.leaders" class="leader-row">
+          <span>{{ leader.label }}</span>
+          <strong>{{ leader.players }}</strong>
+          <b>{{ leader.count }}</b>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="box-score-title">
+      <h2 id="box-score-title">Box score</h2>
+      <p *ngIf="match.boxScore.length === 0" class="empty">No player totals were saved for this match.</p>
+      <div *ngIf="match.boxScore.length > 0" class="table-scroll" role="region" aria-label="Player box score" tabindex="0">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              <th scope="col">K</th>
+              <th scope="col">E</th>
+              <th scope="col">Ace</th>
+              <th scope="col">Blk</th>
+              <th scope="col">Dig</th>
+              <th scope="col">SE</th>
+              <th scope="col">RE</th>
+              <th scope="col">Serve in</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let player of match.boxScore">
+              <th scope="row"><span>#{{ player.jerseyNumber ?? '–' }}</span> {{ player.playerName }}</th>
+              <td>{{ player.kills }}</td>
+              <td>{{ player.attackErrors }}</td>
+              <td>{{ player.aces }}</td>
+              <td>{{ player.blocks }}</td>
+              <td>{{ player.digs }}</td>
+              <td>{{ player.serviceErrors }}</td>
+              <td>{{ player.receiveErrors }}</td>
+              <td>{{ serveRate(player.serveAttempts, player.servesIn) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="lower-grid">
+      <section aria-labelledby="sets-title">
+        <h2 id="sets-title">Sets</h2>
+        <p *ngIf="match.sets.length === 0" class="empty">No completed sets.</p>
+        <ol *ngIf="match.sets.length > 0" class="set-list">
+          <li *ngFor="let set of match.sets">
+            <span>Set {{ set.setNumber }}</span>
+            <strong>{{ set.teamPoints }}–{{ set.opponentPoints }}</strong>
+            <small>{{ set.won ? 'Won' : 'Lost' }}</small>
+          </li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="timeline-title">
+        <h2 id="timeline-title">Event timeline</h2>
+        <p *ngIf="match.timeline.length === 0" class="empty">No events were saved for this match.</p>
+        <ol *ngIf="match.timeline.length > 0" class="timeline-list">
+          <li *ngFor="let event of match.timeline">
+            <time [attr.datetime]="event.createdAt">{{ event.createdAt | date:'shortTime' }}</time>
+            <span>
+              <strong>{{ event.title }}</strong>
+              <small>{{ event.context }}</small>
+            </span>
+          </li>
+        </ol>
+      </section>
+    </div>
+  </main>
+
+  <ng-template #missingMatch>
+    <main class="missing-match">
+      <h1>Match not found</h1>
+      <p>This match is not saved on this device.</p>
+      <a [routerLink]="['/history']">Return to history</a>
+    </main>
+  </ng-template>
+</ion-content>

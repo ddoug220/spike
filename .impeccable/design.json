@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-14T00:00:00Z",
+  "title": "Design System: Spike",
+  "extensions": {
+    "colorMeta": {
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Ink (Dark)",
+        "canonical": "oklch(12% 0.005 250)",
+        "tonalRamp": ["#050607", "#0a0b0c", "#0e0f11", "#141618", "#1b1d21", "#23262b", "#2f3237", "#3c3f44"]
+      },
+      "accent-blue-dark": {
+        "role": "primary",
+        "displayName": "Broadcast Blue (Dark)",
+        "canonical": "oklch(65% 0.18 245)",
+        "tonalRamp": ["#0d2a5e", "#143c7a", "#1d5096", "#2666b2", "#3d8ef8", "#5ba0fa", "#7ab2fc", "#9ac5fd"]
+      },
+      "signal-green-dark": {
+        "role": "signal",
+        "displayName": "Signal Green (Dark)",
+        "canonical": "oklch(75% 0.18 155)",
+        "tonalRamp": ["#0a3d24", "#0f5632", "#156e40", "#1a874f", "#21d07a", "#45d990", "#6ae2a6", "#8febbc"]
+      },
+      "signal-red-dark": {
+        "role": "signal",
+        "displayName": "Signal Red (Dark)",
+        "canonical": "oklch(65% 0.22 25)",
+        "tonalRamp": ["#4a1515", "#6b1e1e", "#8c2828", "#ad3232", "#f25757", "#f47575", "#f69494", "#f8b3b3"]
+      },
+      "signal-amber-dark": {
+        "role": "signal",
+        "displayName": "Signal Amber (Dark)",
+        "canonical": "oklch(75% 0.16 70)",
+        "tonalRamp": ["#3d2a0a", "#563b0f", "#704c14", "#8a5d19", "#f5a623", "#f7b84d", "#f9ca77", "#fbdca1"]
+      },
+      "volt": {
+        "role": "accent",
+        "displayName": "Volt",
+        "canonical": "oklch(92% 0.25 110)",
+        "tonalRamp": ["#3a4b00", "#526800", "#6a8500", "#82a200", "#c8ff00", "#d3ff33", "#deff66", "#e9ff99"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero headlines on home and pre-match pages. Maximum impact."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headers, panel titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descriptions, instructions. Max line length 65ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Status badges, kickers, metadata. Always uppercase."
+      },
+      "mono": {
+        "displayName": "Stats",
+        "purpose": "Scores, jersey numbers, timestamps. Tabular alignment."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Standard exit easing. Fast start, smooth deceleration."
+      },
+      {
+        "name": "ease-spring",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "purpose": "Bouncy entrance for celebratory moments only."
+      },
+      {
+        "name": "duration-fast",
+        "value": "120ms",
+        "purpose": "Micro-interactions: button hover, focus states."
+      },
+      {
+        "name": "duration-base",
+        "value": "200ms",
+        "purpose": "Standard transitions: panel reveals, mode switches."
+      },
+      {
+        "name": "duration-slow",
+        "value": "360ms",
+        "purpose": "Page-level transitions, court animations."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "375px" },
+      { "name": "md", "value": "520px" },
+      { "name": "lg", "value": "840px" },
+      { "name": "xl", "value": "1180px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main CTA button. Broadcast Blue background, white text. Used sparingly for primary actions.",
+      "html": "<button class=\"ds-btn-primary\">Start Match</button>",
+      "css": ".ds-btn-primary { background: #3d8ef8; color: #ffffff; padding: 12px 20px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.01em; border: none; border-radius: 8px; cursor: pointer; transition: background 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1); min-height: 44px; min-width: 44px; } .ds-btn-primary:hover { background: #2a7ae6; } .ds-btn-primary:focus-visible { outline: 2px solid #3d8ef8; outline-offset: 2px; } .ds-btn-primary:active { transform: scale(0.98); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action button. Transparent background with accent border.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: #3d8ef8; padding: 12px 20px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.01em; border: 1px solid rgba(61, 142, 248, 0.3); border-radius: 8px; cursor: pointer; transition: background 120ms, border-color 120ms; min-height: 44px; min-width: 44px; } .ds-btn-ghost:hover { background: rgba(61, 142, 248, 0.08); border-color: rgba(61, 142, 248, 0.5); } .ds-btn-ghost:focus-visible { outline: 2px solid #3d8ef8; outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Chip (Success)",
+      "kind": "chip",
+      "refersTo": "chip-status",
+      "description": "Status indicator for success states. Signal green on dim green background.",
+      "html": "<span class=\"ds-chip-success\">SYNCED</span>",
+      "css": ".ds-chip-success { display: inline-flex; align-items: center; gap: 6px; background: rgba(33, 208, 122, 0.14); color: #21d07a; padding: 6px 12px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 999px; }"
+    },
+    {
+      "name": "Status Chip (Warning)",
+      "kind": "chip",
+      "refersTo": "chip-status-warning",
+      "description": "Status indicator for pending/warning states. Signal amber on dim amber background.",
+      "html": "<span class=\"ds-chip-warning\">PENDING</span>",
+      "css": ".ds-chip-warning { display: inline-flex; align-items: center; gap: 6px; background: rgba(245, 166, 35, 0.14); color: #f5a623; padding: 6px 12px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 999px; }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Standard content container. Surface-1 background with subtle border, no shadow.",
+      "html": "<div class=\"ds-panel\"><h3 class=\"ds-panel-title\">Roster</h3><p class=\"ds-panel-body\">12 players added</p></div>",
+      "css": ".ds-panel { background: #141618; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 16px; } .ds-panel-title { margin: 0 0 8px; color: #edf0f4; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 1.125rem; font-weight: 700; line-height: 1.2; } .ds-panel-body { margin: 0; color: #7e8899; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 1rem; line-height: 1.55; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Standard text input. Surface-2 background with focus ring.",
+      "html": "<input type=\"text\" class=\"ds-input\" placeholder=\"Player name\" />",
+      "css": ".ds-input { width: 100%; background: #1b1d21; color: #edf0f4; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 12px 16px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 1rem; transition: border-color 120ms, box-shadow 120ms; } .ds-input::placeholder { color: #4d5562; } .ds-input:focus { outline: none; border-color: #3d8ef8; box-shadow: 0 0 0 3px rgba(61, 142, 248, 0.15); } .ds-input:hover:not(:focus) { border-color: rgba(255, 255, 255, 0.14); }"
+    },
+    {
+      "name": "Stat Number",
+      "kind": "custom",
+      "refersTo": "stat-number",
+      "description": "Monospace number for scores, jersey numbers, and statistics.",
+      "html": "<span class=\"ds-stat\">23</span>",
+      "css": ".ds-stat { font-family: 'DM Mono', ui-monospace, monospace; font-size: 1.5rem; font-weight: 500; line-height: 1; color: #edf0f4; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Toolbar Sync Status",
+      "kind": "nav",
+      "refersTo": "toolbar-sync",
+      "description": "Sync status indicator in the toolbar. Shows connection state.",
+      "html": "<div class=\"ds-toolbar-sync\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M22 12c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2s10 4.48 10 10z\"/><path d=\"M8 12l2 2 4-4\"/></svg>SYNCED</div>",
+      "css": ".ds-toolbar-sync { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 999px; background: #141618; color: #7e8899; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.76rem; font-weight: 800; } .ds-toolbar-sync svg { color: #21d07a; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Broadcast Control Room",
+    "overview": "Spike's interface is built for game-speed decision making. Like a broadcast control room during a live match, information is dense but instantly scannable. Every element earns its place by being either actionable or immediately informative. There is no decoration for decoration's sake.\n\nThe system is dark-first because coaches track matches in variable gym lighting, often under bright overheads or afternoon sun through windows. High contrast text on deep surfaces cuts through the chaos. The court visualization grounds the interface in the physical space coaches already understand.\n\nThis is not enterprise software. It's not a dashboard full of charts. It's a tool that disappears into the workflow, letting the coach focus on the game, not the screen.",
+    "keyCharacteristics": [
+      "Dense information, instant readability",
+      "Dark surfaces with high-contrast text",
+      "Court-centric spatial organization",
+      "Monospace numerals for stats (DM Mono)",
+      "Tonal surface layering instead of shadows",
+      "Large touch targets for courtside taps"
+    ],
+    "rules": [
+      {
+        "name": "The Signal Color Rule",
+        "body": "Green, red, and amber are reserved for match state and system status. They never appear as decorative accents, button backgrounds, or brand elements. If a color communicates scoring or errors, it must be one of the three signals.",
+        "section": "colors"
+      },
+      {
+        "name": "The Volt Scarcity Rule",
+        "body": "The volt accent (#c8ff00) appears only on the SPIKE wordmark and match-winning celebrations. Its rarity is the point. Overuse dilutes its impact.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Rule",
+        "body": "Any number that a coach might need to scan quickly—score, jersey number, match time, stat count—uses DM Mono. Body text uses DM Sans even when numbers appear inline.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Default Rule",
+        "body": "Surfaces are flat at rest. If a card \"pops\" visually, it's because its surface color is lighter than its container, not because it has a shadow. Shadows are earned through interaction, not inheritance.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use DM Mono for all numeric stats, scores, and jersey numbers.",
+      "Do maintain 4.5:1 contrast minimum for all body text—gyms have variable lighting.",
+      "Do use signal colors only for their designated purpose (green = success, red = error, amber = warning).",
+      "Do provide 44x44px minimum touch targets for any button a coach might tap during a live match.",
+      "Do use tonal surface stepping (surface-1 → surface-2 → surface-3) for visual hierarchy.",
+      "Do respect the court's spatial logic—rotations, positions, and net orientation should match physical reality."
+    ],
+    "donts": [
+      "Don't use shadows for visual hierarchy—this system is flat by default with tonal layering.",
+      "Don't apply signal colors decoratively. If it's green, it means success. If it's red, it means error for all users.",
+      "Don't use Volt (#c8ff00) anywhere except the wordmark and match-winning moments.",
+      "Don't make it look like generic SaaS—white/gray grids, muted colors, corporate blandness. Spike is a sports tool.",
+      "Don't make it look like a toy sports app—no cartoon mascots, no rounded bubbly UI, no gamification excess.",
+      "Don't add shadows to cards at rest. If you're reaching for box-shadow, use a lighter surface color instead.",
+      "Don't use the eyebrow/kicker pattern on every section. One deliberate kicker per page is voice; kickers on every section is scaffold."
+    ]
+  }
+}

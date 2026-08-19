@@ -56,6 +56,7 @@ describe('CourtPage', () => {
     players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
 
     component.recordOpponentPoint(); // Opponent now serving
+    component.activePlayer = 1;
     component.recordAction('kill'); // Team wins while receiving -> side-out and rotate
 
     const rotated = teamRoster.lineup();
@@ -63,14 +64,24 @@ describe('CourtPage', () => {
     expect(rotated[5]).toBe(players[0].id);
   });
 
-  it('keeps selected player across action logs until user changes selection', () => {
+  it('starts without a selected player and clears selection after each rally', () => {
+    expect(component.activePlayer).toBeNull();
     component.activePlayer = 4;
 
     component.recordAction('kill');
-    expect(component.activePlayer).toBe(4);
+    expect(component.activePlayer).toBeNull();
 
+    component.activePlayer = 4;
     component.recordOpponentPoint();
-    expect(component.activePlayer).toBe(4);
+    expect(component.activePlayer).toBeNull();
+  });
+
+  it('does not record a player-specific action until a player is selected', () => {
+    const before = matchState.state().teamPoints;
+
+    component.recordAction('kill');
+
+    expect(matchState.state().teamPoints).toBe(before);
   });
 
   it('renders the standard scoring actions and prominent undo control', () => {
@@ -127,6 +138,7 @@ describe('CourtPage', () => {
     }
     const server = teamRoster.players()[0];
     teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    component.activePlayer = 1;
     const before = matchState.state().opponentPoints;
 
     component.recordStandardOutcome('service-error');

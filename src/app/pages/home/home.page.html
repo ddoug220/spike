@@ -1,166 +1,39 @@
 <ion-header [translucent]="true">
   <ion-toolbar class="home-toolbar">
     <ion-title class="app-wordmark">Spike</ion-title>
-    <div
-      slot="end"
-      class="toolbar-sync"
-      [ngClass]="{ 'toolbar-sync--warn': hasSyncAttention }"
-      [title]="syncStatusText"
-    >
-      <ion-icon [name]="syncIconName"></ion-icon>
-      <span>{{ compactSyncStatusText }}</span>
-    </div>
-    @if (offlineSync.lastError()) {
-      <ion-button slot="end" fill="clear" size="small" class="sync-retry-btn" (click)="offlineSync.retryNow()">
-        Retry
-      </ion-button>
-    }
-    <ion-button slot="end" fill="clear" size="small" class="history-nav-btn" [routerLink]="['/history']">
-      <ion-icon slot="start" name="time-outline"></ion-icon>
-      History
-    </ion-button>
-    <ion-button slot="end" fill="clear" size="small" class="signout-btn" (click)="signOut()" [title]="userEmail ?? ''">
-      <ion-icon slot="icon-only" name="log-out-outline"></ion-icon>
-    </ion-button>
+    <ion-button slot="end" fill="clear" size="small" [routerLink]="['/team']"><ion-icon slot="start" name="people-outline"></ion-icon>Team</ion-button>
+    <ion-button slot="end" fill="clear" size="small" [routerLink]="['/history']"><ion-icon slot="start" name="time-outline"></ion-icon>History</ion-button>
+    <ion-button slot="end" fill="clear" size="small" (click)="signOut()" [title]="userEmail ?? ''" aria-label="Sign out"><ion-icon slot="icon-only" name="log-out-outline"></ion-icon></ion-button>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
   <main class="home-shell">
-    <section class="home-hero">
-      <div class="hero-copy">
-        <div class="hero-team-row">
-          <span class="hero-kicker">{{ teamRoster.team().name }}</span>
-          @if (cloudTeams.length > 1) {
-            <button class="team-switch-trigger" type="button" (click)="toggleTeamPicker()" [attr.aria-expanded]="showTeamPicker">
-              <ion-icon name="swap-horizontal-outline"></ion-icon>
-              Switch
-            </button>
-          }
-        </div>
-        @if (showTeamPicker) {
-          <div class="team-picker-list" role="listbox" aria-label="Select team">
-            @for (team of cloudTeams; track team.id) {
-              <button
-                class="team-picker-option"
-                [class.team-picker-option--active]="team.id === teamRoster.team().id"
-                type="button"
-                role="option"
-                [attr.aria-selected]="team.id === teamRoster.team().id"
-                (click)="switchToTeam(team.id)"
-              >
-                <span>{{ team.name }}</span>
-                @if (team.id === teamRoster.team().id) {
-                  <span class="team-picker-check" aria-hidden="true">✓</span>
-                }
-              </button>
-            }
-          </div>
-        }
-        <h1>Track a volleyball match without losing the court.</h1>
-        <p>
-          Build your roster, set the six starters, then score points, substitutions,
-          timeouts, and player stats from one live court.
-        </p>
+    <div *ngIf="signOutError" class="account-error" role="alert">{{ signOutError }}</div>
+    <section class="next-step" aria-labelledby="next-title">
+      <div class="next-copy">
+        <span class="team-name">{{ teamRoster.team().name }}</span>
+        <h1 id="next-title">{{ nextTitle }}</h1>
+        <p>{{ nextDetail }}</p>
+        <ion-button size="large" [routerLink]="nextActionRoute">{{ nextActionLabel }}</ion-button>
       </div>
 
-      <div class="hero-court" aria-label="Starting lineup preview">
-        <div class="hero-court-status">
-          <span>{{ heroCourtTitle }}</span>
-          <strong>{{ heroCourtDetail }}</strong>
-        </div>
-        <div class="court-outline"></div>
-        <div class="court-net"></div>
-        <div class="court-attack court-attack-left"></div>
-        <div class="court-attack court-attack-right"></div>
-        @for (slot of heroLineupSlots; track slot.position) {
-          <div
-            class="court-player"
-            [ngClass]="['court-player-' + slot.position, slot.player ? 'court-player--filled' : 'court-player--empty']"
-          >
-            <span class="court-player-number">{{ slot.player ? '#' + slot.player.jerseyNumber : 'P' + slot.position }}</span>
-            <span class="court-player-name">{{ slot.player?.name || 'Open' }}</span>
+      <div class="lineup-preview" aria-label="Saved starting lineup preview">
+        <div class="preview-head"><span>Next-match default</span><strong>{{ assignedDefaultCount }}/6</strong></div>
+        <div class="mini-court">
+          <div *ngFor="let slot of defaultLineup" class="mini-player" [ngClass]="'p' + slot.position">
+            <span>P{{ slot.position }}</span>
+            <strong>{{ slot.player ? '#' + slot.player.jerseyNumber : '—' }}</strong>
+            <small>{{ slot.player?.name || 'Open' }}</small>
           </div>
-        }
+        </div>
       </div>
     </section>
 
-    <section class="home-grid" aria-label="Match day dashboard">
-      <article class="next-card">
-        <span class="section-label">Next step</span>
-        <h2>{{ nextActionTitle }}</h2>
-        <p>{{ nextActionDetail }}</p>
-
-        <div class="next-actions">
-          <ion-button class="primary-action" [routerLink]="primaryActionRoute">
-            <ion-icon slot="start" [name]="hasActiveMatch ? 'play' : 'play-circle'"></ion-icon>
-            {{ primaryActionText }}
-          </ion-button>
-          <ion-button fill="outline" class="secondary-action" [routerLink]="['/pre-match']">
-            <ion-icon slot="start" name="create-outline"></ion-icon>
-            {{ secondaryActionText }}
-          </ion-button>
-        </div>
-      </article>
-
-      <article class="readiness-card">
-        <span class="section-label">Ready check</span>
-        <div class="readiness-list">
-          @for (row of readinessRows; track row.label) {
-            <div class="readiness-row" [ngClass]="'readiness-row--' + row.state">
-              <span class="readiness-icon">
-                @if (row.state === 'complete') { <span>✓</span> }
-                @else if (row.state === 'locked') { <span>·</span> }
-                @else { <span>!</span> }
-              </span>
-              <div class="readiness-copy">
-                <strong>{{ row.label }}</strong>
-                <span>{{ row.detail }}</span>
-              </div>
-              <strong class="readiness-value">{{ row.value }}</strong>
-            </div>
-          }
-        </div>
-      </article>
-
-      @if (showFirstMatchGuide) {
-        <article class="guide-card">
-          <span class="section-label">First match guide</span>
-          <div class="guide-list">
-            <div class="guide-step">
-              <ion-icon name="people-outline"></ion-icon>
-              <div>
-                <strong>Roster is saved once</strong>
-                <span>Add the full player pool here, then reuse it for future matches.</span>
-              </div>
-            </div>
-            <div class="guide-step">
-              <ion-icon name="grid-outline"></ion-icon>
-              <div>
-                <strong>Lineup is for today</strong>
-                <span>Tap a player, tap a court spot, and fill six unique starters.</span>
-              </div>
-            </div>
-            <div class="guide-step">
-              <ion-icon name="radio-button-on-outline"></ion-icon>
-              <div>
-                <strong>Live Court tracks the match</strong>
-                <span>Point buttons change score. Stat taps only record player actions.</span>
-              </div>
-            </div>
-          </div>
-        </article>
-      }
-
-      <article class="match-card">
-        <span class="section-label">Match</span>
-        <h3>{{ matchCardTitle }}</h3>
-        <p>{{ matchCardDetail }}</p>
-        <ion-button fill="clear" size="small" class="match-history-link" [routerLink]="['/history']">
-          <ion-icon slot="start" name="time-outline"></ion-icon>
-          Match History
-        </ion-button>
-      </article>
-    </section>
+    <footer class="home-status" [ngClass]="{ attention: hasSyncAttention }">
+      <ion-icon [name]="hasSyncAttention ? 'cloud-offline-outline' : 'cloud-done-outline'"></ion-icon>
+      <span>{{ syncText }}</span>
+      <button *ngIf="offlineSync.lastError()" type="button" (click)="offlineSync.retryNow()">Retry</button>
+    </footer>
   </main>
 </ion-content>

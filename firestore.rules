@@ -1,0 +1,95 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(data) {
+      return signedIn() && data.ownerId == request.auth.uid;
+    }
+
+    function ownsExisting() {
+      return owns(resource.data);
+    }
+
+    function ownsWrite() {
+      return owns(request.resource.data);
+    }
+
+    match /teams/{teamId} {
+      allow read: if ownsExisting();
+      allow create: if ownsWrite();
+      allow update, delete: if ownsExisting() && ownsWrite();
+    }
+
+    match /players/{playerId} {
+      allow read: if ownsExisting();
+      allow create: if ownsWrite();
+      allow update, delete: if ownsExisting() && ownsWrite();
+    }
+
+    match /roster/{rosterId} {
+      allow read: if ownsExisting();
+      allow create: if ownsWrite();
+      allow update, delete: if ownsExisting() && ownsWrite();
+    }
+
+    match /games/{gameId} {
+      allow read: if ownsExisting();
+      allow create: if ownsWrite() && request.resource.data.writerGeneration == 1;
+      allow update: if ownsExisting()
+        && ownsWrite()
+        && (
+          (
+            request.resource.data.writerGeneration == resource.data.writerGeneration
+            && request.resource.data.writerDeviceId == resource.data.writerDeviceId
+          )
+          || (
+            request.resource.data.writerGeneration == resource.data.writerGeneration + 1
+            && request.resource.data.writerDeviceId != resource.data.writerDeviceId
+          )
+        );
+      allow delete: if ownsExisting();
+
+      match /events/{eventId} {
+        function game() {
+          return get(/databases/$(database)/documents/games/$(gameId));
+        }
+
+        allow read: if signedIn() && game().data.ownerId == request.auth.uid;
+        allow create: if signedIn()
+          && game().data.ownerId == request.auth.uid
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.writerGeneration == game().data.writerGeneration
+          && request.resource.data.writerDeviceId == game().data.writerDeviceId;
+        allow update: if signedIn()
+          && game().data.ownerId == request.auth.uid
+          && resource.data.ownerId == request.auth.uid
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.writerGeneration == game().data.writerGeneration
+          && request.resource.data.writerDeviceId == game().data.writerDeviceId;
+      }
+    }
+
+    match /sets/{setId} {
+      allow read: if ownsExisting();
+      allow create: if ownsWrite();
+      allow update, delete: if ownsExisting() && ownsWrite();
+    }
+
+    match /playerSetStats/{statsId} {
+      function statsGame() {
+        return get(/databases/$(database)/documents/games/$(request.resource.data.gameId));
+      }
+
+      allow read: if ownsExisting();
+      allow create, update: if ownsWrite()
+        && statsGame().data.ownerId == request.auth.uid
+        && request.resource.data.writerGeneration == statsGame().data.writerGeneration
+        && request.resource.data.writerDeviceId == statsGame().data.writerDeviceId;
+      allow delete: if ownsExisting();
+    }
+  }
+}

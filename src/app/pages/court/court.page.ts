@@ -39,7 +39,6 @@ type StandardOutcomeAction =
   | 'receive-error';
 type StatOnlyAction = 'dig';
 type ExitAction = 'home' | 'lineup' | 'history' | 'end-home' | 'new-match';
-type TileEfficiencyState = 'neutral' | 'low' | 'medium' | 'high';
 
 interface PlayerPosition {
   id: number;
@@ -139,6 +138,10 @@ interface SetBreakdownRow {
   ],
 })
 export class CourtPage {
+  readonly rotationChoices = [1, 2, 3, 4, 5, 6];
+  isMatchControlsOpen = false;
+  nextSetLineup: Array<string | null> = [];
+  nextSetServe: 'team' | 'opponent' = 'team';
   public readonly analyticsTabs: Array<{ id: AnalyticsTabId; label: string }> = [
     { id: 'efficiency', label: 'Efficiency' },
     { id: 'rotation', label: 'Rotation Performance' },
@@ -192,6 +195,7 @@ export class CourtPage {
   ) {
     addIcons({'arrowUndo':arrowUndo,flash,'closeCircle':closeCircle,baseball,'handLeft':handLeft,'addCircle':addCircle,'playForward':playForward,star});
     this.liveStore.syncActiveGame();
+    this.prepareNextSetDraft();
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -234,11 +238,11 @@ export class CourtPage {
     return this.liveStore.gameState();
   }
 
-  get activePlayer(): number {
+  get activePlayer(): number | null {
     return this.liveStore.ui().activePlayer;
   }
 
-  set activePlayer(activePlayer: number) {
+  set activePlayer(activePlayer: number | null) {
     this.liveStore.setUi({ activePlayer });
   }
 
@@ -454,24 +458,33 @@ export class CourtPage {
       return;
     }
 
-    const event = this.matchEngine.recordPlayerAction(this.activePlayer, action);
+    if (action !== 'opponent-error' && this.activePlayer === null) {
+      return;
+    }
+
+    const selectedPosition = this.activePlayer ?? 1;
+    const event = this.matchEngine.recordPlayerAction(selectedPosition, action);
     if (action === 'opponent-error') {
       this.lastEvent = {
         kind: 'opponent-error-point',
         impactedScore: event.impactedScore,
         impactedStats: event.impactedStats,
       };
+      this.activePlayer = null;
+      this.prepareNextSetDraft();
       this.refreshReviewLoadMetricIfVisible();
       return;
     }
 
     this.lastEvent = {
       kind: 'player-action',
-      playerId: this.activePlayer,
+      playerId: selectedPosition,
       action,
       impactedScore: event.impactedScore,
       impactedStats: event.impactedStats,
     };
+    this.activePlayer = null;
+    this.prepareNextSetDraft();
     this.refreshReviewLoadMetricIfVisible();
   }
 
@@ -486,11 +499,13 @@ export class CourtPage {
       impactedScore: true,
       impactedStats: event.impactedStats,
     };
+    this.activePlayer = null;
+    this.prepareNextSetDraft();
     this.refreshReviewLoadMetricIfVisible();
   }
 
   undoLastAction(): void {
-    if (this.isMatchOver) {
+    if (this.isEndedEarly) {
       return;
     }
 
@@ -504,7 +519,7 @@ export class CourtPage {
     return this.teamRoster.getPlayerById(playerId);
   }
 
-  isFrontRow(position: number): boolean {
+  isFrontRow(position: number | null): boolean {
     return position === 2 || position === 3 || position === 4;
   }
 
@@ -521,44 +536,8 @@ export class CourtPage {
     return `${setStats.kills}K / ${setStats.attackErrors}E`;
   }
 
-  getPlayerTileEfficiencyState(position: number): TileEfficiencyState {
-    const player = this.getPlayerForPosition(position);
-    if (!player) {
-      return 'neutral';
-    }
-
-    const setStats = this.liveStore.getPlayerSetStats(player.id, this.gameState.currentSet);
-    if (setStats.totalAttacks === 0) {
-      return 'neutral';
-    }
-
-    const efficiency = (setStats.kills - setStats.attackErrors) / setStats.totalAttacks;
-    if (efficiency >= 0.3) {
-      return 'high';
-    }
-    if (efficiency >= 0.1) {
-      return 'medium';
-    }
-    return 'low';
-  }
-
-  getPlayerTileEfficiencyLabel(position: number): string {
-    const state = this.getPlayerTileEfficiencyState(position);
-    if (state === 'high') {
-      return 'High efficiency';
-    }
-    if (state === 'medium') {
-      return 'Medium efficiency';
-    }
-    if (state === 'low') {
-      return 'Low efficiency';
-    }
-    return 'No attack attempts yet';
-  }
-
   getPlayerTileAriaLabel(position: number): string {
     const player = this.getPlayerForPosition(position);
-    const efficiencyLabel = this.getPlayerTileEfficiencyLabel(position);
     const positionLabel = this.playerPositions.find((p) => p.id === position)?.label ?? `P${position}`;
     const isServer = position === 1 && this.gameState.servingTeam === 'team';
     const isSelected = position === this.activePlayer;
@@ -572,7 +551,6 @@ export class CourtPage {
       `Jersey ${player.jerseyNumber}`,
       player.primaryPosition,
       positionLabel,
-      efficiencyLabel,
     ];
 
     if (isServer) {
@@ -625,6 +603,9 @@ export class CourtPage {
   }
 
   getSelectedPlayerText(): string {
+    if (this.activePlayer === null) {
+      return 'No player selected';
+    }
     const selectedPlayer = this.getPlayerForPosition(this.activePlayer);
     if (!selectedPlayer) {
       return `P${this.activePlayer}`;
@@ -698,6 +679,36 @@ export class CourtPage {
       impactedStats: false,
     };
     this.refreshReviewLoadMetricIfVisible();
+  }
+
+  openMatchControls(): void {
+    if (!this.isMatchOver) {
+      this.isMatchControlsOpen = true;
+    }
+  }
+
+  closeMatchControls(): void {
+    this.isMatchControlsOpen = false;
+  }
+
+  manualRotateTo(rotation: number): void {
+    if (!this.matchEngine.manualRotateTeamTo(rotation)) {
+      return;
+    }
+    this.lastEvent = { kind: 'manual-rotation', impactedScore: false, impactedStats: false };
+  }
+
+  endMatchEarly(): void {
+    const confirmed = typeof window === 'undefined' || window.confirm('End this match early? It will have no final result.');
+    if (!confirmed) {
+      return;
+    }
+    this.matchEngine.endMatchEarly();
+    this.isMatchControlsOpen = false;
+  }
+
+  async openMatchReview(): Promise<void> {
+    await this.router.navigate(['/review', this.offlineSync.getActiveMatchId()]);
   }
 
   setSurfaceMode(mode: SurfaceMode): void {
@@ -838,6 +849,42 @@ export class CourtPage {
     return this.gameState.isMatchOver;
   }
 
+  get isEndedEarly(): boolean {
+    return this.liveStore.game()?.status === 'ended-early';
+  }
+
+  get isSetBreak(): boolean {
+    return this.gameState.isSetBreak;
+  }
+
+  get canStartNextSet(): boolean {
+    const assigned = this.nextSetLineup.filter((playerId): playerId is string => typeof playerId === 'string');
+    return assigned.length === 6 && new Set(assigned).size === 6;
+  }
+
+  setNextSetPlayer(position: number, playerId: string): void {
+    const next = this.nextSetLineup.length === 6
+      ? [...this.nextSetLineup]
+      : this.matchEngine.getNextSetDefaultLineup();
+    next[position - 1] = playerId || null;
+    this.nextSetLineup = next;
+  }
+
+  startNextSet(): void {
+    if (!this.canStartNextSet || !this.matchEngine.startNextSet(this.nextSetLineup, this.nextSetServe)) {
+      return;
+    }
+    this.nextSetLineup = [];
+    this.activePlayer = null;
+  }
+
+  private prepareNextSetDraft(): void {
+    if (this.gameState.isSetBreak && this.nextSetLineup.length !== 6) {
+      this.nextSetLineup = this.matchEngine.getNextSetDefaultLineup();
+      this.nextSetServe = 'team';
+    }
+  }
+
   get opponentName(): string {
     return this.liveStore.game()?.opponentName?.trim() || 'Opponent';
   }
@@ -864,6 +911,9 @@ export class CourtPage {
   }
 
   get selectedPlayerDetail(): string {
+    if (this.activePlayer === null) {
+      return 'Select a player for player-specific actions';
+    }
     const selectedPlayer = this.getPlayerForPosition(this.activePlayer);
     if (!selectedPlayer) {
       return `Position ${this.activePlayer} is empty`;
@@ -877,7 +927,15 @@ export class CourtPage {
       return 'Scoring is locked because the match is final.';
     }
 
-    return 'Point outcome buttons update the score. Stat taps only add player context.';
+    if (this.activePlayer === null) {
+      return 'Select a player, then record their action. Team-only outcomes stay available.';
+    }
+
+    return 'Record one action. Player selection clears after the tap.';
+  }
+
+  requiresPlayerAttribution(action: StandardOutcomeAction): boolean {
+    return action !== 'opponent-error' && action !== 'opponent-point';
   }
 
   get rotationIndicatorText(): string {
@@ -979,7 +1037,7 @@ export class CourtPage {
         return;
       }
 
-      this.matchEngine.endMatch();
+      this.matchEngine.endMatchEarly();
       await this.router.navigate(['/home']);
       return;
     }
@@ -1004,7 +1062,7 @@ export class CourtPage {
 
   private openSubOverlay(): void {
     this.isSubOverlayOpen = true;
-    const selectedOutPlayer = this.getPlayerForPosition(this.activePlayer);
+    const selectedOutPlayer = this.activePlayer === null ? null : this.getPlayerForPosition(this.activePlayer);
     this.substitutionOutPlayerId = selectedOutPlayer?.id ?? null;
     this.substitutionStatus = selectedOutPlayer
       ? `OUT selected: ${selectedOutPlayer.name}. Tap a bench player to swap.`

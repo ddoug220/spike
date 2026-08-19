@@ -4,9 +4,11 @@ import {
   Auth,
   GoogleAuthProvider,
   User,
+  browserLocalPersistence,
   createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
+  setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
@@ -28,7 +30,9 @@ export class AuthService {
       getApps().find((a) => a.name === AuthService.appName) ??
       initializeApp(environment.firebase, AuthService.appName);
     this.auth = getAuth(app);
-    onAuthStateChanged(this.auth, (user) => this.userSignal.set(user));
+    void setPersistence(this.auth, browserLocalPersistence)
+      .catch(() => undefined)
+      .then(() => onAuthStateChanged(this.auth, (user) => this.userSignal.set(user)));
   }
 
   get uid(): string | null {

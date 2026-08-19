@@ -4,6 +4,7 @@ import { Game, GameEvent, PlayerSetStats } from '../models/firestore.models';
 import { FirebaseDbService } from './firebase-db.service';
 import { MatchScoreState, MatchStateService } from './match-state.service';
 import { MatchStatsService, PlayerStatLine, StatsAction } from './match-stats.service';
+import { MatchV2StoreService } from './match-v2-store.service';
 import { OfflineSyncService } from './offline-sync.service';
 
 export type SurfaceMode = 'live' | 'review';
@@ -18,7 +19,7 @@ export type LiveLastEvent =
   | { kind: 'timeout'; team: 'team' | 'opponent'; impactedScore: false; impactedStats: false };
 
 export interface LiveMatchUiState {
-  activePlayer: number;
+  activePlayer: number | null;
   lastEvent?: LiveLastEvent;
   isSubOverlayOpen: boolean;
   substitutionOutPlayerId: string | null;
@@ -52,9 +53,16 @@ export class LiveMatchStoreService implements OnDestroy {
 
   readonly ui = computed(() => this.uiSignal());
   readonly game = computed(() => this.latestGame(this.offlineSync.getGame(this.activeGameId()), this.firestoreGameSignal()));
-  readonly gameState = computed(() => this.toGameState(this.game()) ?? this.matchState.state());
-  readonly stats = computed(() => this.firestoreStatsSignal());
   readonly events = computed(() => this.mergeEvents(this.offlineSync.getMatchEvents(this.activeGameId()), this.firestoreEventsSignal()));
+  readonly projection = computed(() => {
+    const game = this.game();
+    return game ? this.matchV2Store.projectionFor(game, this.events()) : null;
+  });
+  readonly gameState = computed(() => {
+    const projection = this.projection();
+    return projection ? this.matchV2Store.scoreStateFrom(projection) : this.toGameState(this.game()) ?? this.matchState.state();
+  });
+  readonly stats = computed(() => this.firestoreStatsSignal());
   readonly state = computed<LiveMatchState>(() => ({
     gameState: this.gameState(),
     game: this.game(),
@@ -68,6 +76,7 @@ export class LiveMatchStoreService implements OnDestroy {
     private readonly matchStats: MatchStatsService,
     private readonly offlineSync: OfflineSyncService,
     private readonly firebaseDb: FirebaseDbService,
+    private readonly matchV2Store: MatchV2StoreService,
   ) {}
 
   ngOnDestroy(): void {
@@ -118,6 +127,18 @@ export class LiveMatchStoreService implements OnDestroy {
   }
 
   getPlayerStats(playerId: string): PlayerStatLine {
+    const projection = this.projection();
+    if (projection) {
+      const projected = this.matchV2Store.statsStateFrom(projection)[playerId];
+      if (projected) {
+        const tracked = this.matchStats.getPlayerStats(playerId);
+        return {
+          ...projected,
+          sideOutOpportunities: tracked.sideOutOpportunities,
+          sideOutConversions: tracked.sideOutConversions,
+        };
+      }
+    }
     const synced = this.stats().find((entry) => entry.playerId === playerId && entry.setNumber === null);
     if (!synced) {
       return this.matchStats.getPlayerStats(playerId);
@@ -187,6 +208,7 @@ export class LiveMatchStoreService implements OnDestroy {
       currentSet: game.currentSet,
       servingTeam: game.servingTeam,
       isMatchOver: game.isMatchOver,
+      isSetBreak: game.isSetBreak === true,
       teamTimeoutsRemaining: game.teamTimeoutsRemaining,
       opponentTimeoutsRemaining: game.opponentTimeoutsRemaining,
       teamRotation: game.teamRotation,
@@ -214,7 +236,7 @@ export class LiveMatchStoreService implements OnDestroy {
 
   private createInitialUiState(): LiveMatchUiState {
     return {
-      activePlayer: 1,
+      activePlayer: null,
       isSubOverlayOpen: false,
       substitutionOutPlayerId: null,
       substitutionStatus: '',

@@ -59,9 +59,14 @@ describe('MatchStateService', () => {
     const state = service.state();
     expect(state.teamSets).toBe(1);
     expect(state.opponentSets).toBe(0);
-    expect(state.teamPoints).toBe(0);
+    expect(state.teamPoints).toBe(25);
     expect(state.opponentPoints).toBe(0);
-    expect(state.currentSet).toBe(2);
+    expect(state.currentSet).toBe(1);
+    expect(state.isSetBreak).toBeTrue();
+
+    expect(service.startNextSet('opponent')).toBeTrue();
+    expect(service.state().currentSet).toBe(2);
+    expect(service.state().teamPoints).toBe(0);
   });
 
   it('requires a two-point lead to close a set', () => {
@@ -79,7 +84,8 @@ describe('MatchStateService', () => {
     service.recordTeamPoint(); // 26-24 closes
     state = service.state();
     expect(state.teamSets).toBe(1);
-    expect(state.currentSet).toBe(2);
+    expect(state.currentSet).toBe(1);
+    expect(state.isSetBreak).toBeTrue();
   });
 
   it('supports undoing the last point', () => {

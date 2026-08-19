@@ -1,0 +1,141 @@
+<ion-header [translucent]="true">
+  <ion-toolbar class="team-toolbar">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Team Roster</ion-title>
+    <ion-button slot="end" fill="clear" class="setup-link" [routerLink]="['/pre-match']">Match Setup</ion-button>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <main class="team-shell">
+    <section class="team-intro">
+      <div>
+        <span class="team-kicker">Saved team</span>
+        <h1>{{ team.name }}</h1>
+        <p>Manage the player details you reuse in every match.</p>
+      </div>
+      <div class="player-count"><strong>{{ players.length }}</strong><span>Players</span></div>
+    </section>
+
+    <div class="team-grid">
+      <section class="team-panel">
+        <header>
+          <h2>Team</h2>
+          <p>Changes save on this device first, then sync to the cloud.</p>
+        </header>
+
+        <form class="team-form" (ngSubmit)="saveTeam()">
+          <label>
+            <span>Team Name</span>
+            <input type="text" name="teamName" [(ngModel)]="teamNameDraft" required autocomplete="organization" />
+          </label>
+          <ion-button type="submit">
+            <ion-icon slot="start" name="save"></ion-icon>
+            Save
+          </ion-button>
+        </form>
+
+        @if (cloudTeams.length > 1) {
+          <div class="saved-teams">
+            <button type="button" class="team-picker-trigger" (click)="toggleTeamPicker()" [attr.aria-expanded]="showTeamPicker">
+              <ion-icon name="cloud-download-outline"></ion-icon>
+              Switch saved team
+              <span>{{ cloudTeams.length }}</span>
+            </button>
+            @if (showTeamPicker) {
+              <div class="team-picker" role="listbox" aria-label="Saved teams">
+                @for (savedTeam of cloudTeams; track savedTeam.id) {
+                  <button
+                    type="button"
+                    role="option"
+                    [attr.aria-selected]="savedTeam.id === team.id"
+                    [ngClass]="{ active: savedTeam.id === team.id }"
+                    (click)="switchToTeam(savedTeam.id)"
+                  >
+                    {{ savedTeam.name }}
+                    @if (savedTeam.id === team.id) { <ion-icon name="checkmark-circle-outline"></ion-icon> }
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <div class="sync-state" [ngClass]="{ error: offlineSync.lastError() }" aria-live="polite">
+          <span>{{ syncStatusText }}</span>
+          @if (offlineSync.lastError()) {
+            <button type="button" (click)="retrySync()">Retry</button>
+          }
+        </div>
+      </section>
+
+      <section class="player-panel">
+        <header>
+          <h2>{{ editingPlayerId ? 'Edit Player' : 'Add Player' }}</h2>
+          <p>Match Setup uses this saved player pool.</p>
+        </header>
+
+        <form class="player-form" (ngSubmit)="submitPlayer()">
+          <label class="name-field">
+            <span>Player Name</span>
+            <input type="text" name="playerName" [(ngModel)]="draft.name" required placeholder="Ava Johnson" />
+          </label>
+          <label>
+            <span>Jersey</span>
+            <input type="number" name="jersey" [(ngModel)]="draft.jerseyNumber" min="0" max="99" required />
+          </label>
+          <label>
+            <span>Position</span>
+            <select name="position" [(ngModel)]="draft.primaryPosition">
+              @for (position of primaryPositions; track position) { <option [value]="position">{{ position }}</option> }
+            </select>
+          </label>
+          <ion-button type="submit">
+            <ion-icon slot="start" [name]="editingPlayerId ? 'create' : 'person-add'"></ion-icon>
+            {{ editingPlayerId ? 'Save Player' : 'Add Player' }}
+          </ion-button>
+          @if (editingPlayerId) {
+            <ion-button type="button" fill="outline" (click)="cancelEdit()">
+              <ion-icon slot="start" name="close"></ion-icon>
+              Cancel
+            </ion-button>
+          }
+        </form>
+      </section>
+    </div>
+
+    <section class="roster-panel">
+      <header>
+        <div>
+          <h2>Saved Players</h2>
+          <p>Team Roster stores identity. Match Setup decides who dresses and starts.</p>
+        </div>
+        <ion-button [routerLink]="['/pre-match']">Set Up Match</ion-button>
+      </header>
+
+      @if (players.length === 0) {
+        <div class="empty-players">
+          <strong>Add your first player</strong>
+          <span>Use the form above. Add at least six players before starting a match.</span>
+        </div>
+      } @else {
+        <div class="roster-list">
+          @for (player of players; track player.id) {
+            <article class="roster-row" [ngClass]="{ editing: editingPlayerId === player.id }">
+              <span class="jersey">#{{ player.jerseyNumber }}</span>
+              <div class="player-name"><strong>{{ player.name }}</strong><span>{{ player.primaryPosition }}</span></div>
+              <button type="button" class="edit" (click)="editPlayer(player.id)" aria-label="Edit {{ player.name }}">
+                <ion-icon name="create"></ion-icon><span>Edit</span>
+              </button>
+              <button type="button" class="remove" (click)="removePlayer(player.id)" aria-label="Remove {{ player.name }}">
+                <ion-icon name="trash"></ion-icon><span>Remove</span>
+              </button>
+            </article>
+          }
+        </div>
+      }
+    </section>
+  </main>
+</ion-content>

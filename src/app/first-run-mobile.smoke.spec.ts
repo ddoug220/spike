@@ -3,10 +3,15 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
+import { CourtPage } from './pages/court/court.page';
+import { HistoryPage } from './pages/history/history.page';
 import { LoginPage } from './pages/login/login.page';
 import { PreMatchPage } from './pages/pre-match/pre-match.page';
+import { ReviewPage } from './pages/review/review.page';
+import { TeamPage } from './pages/team/team.page';
 import { AuthService } from './services/auth.service';
 import { FirebaseDbService } from './services/firebase-db.service';
+import { OfflineSyncService } from './services/offline-sync.service';
 
 const firebaseDbStub = {
   isConfigured: () => false,
@@ -75,7 +80,7 @@ describe('First-run mobile smoke flow', () => {
     restoreViewport();
   });
 
-  it('signs in, builds an empty roster, starts six players, and reaches the live court', async () => {
+  it('completes the first real match and shows its saved recap in history', async () => {
     const harness = await RouterTestingHarness.create();
     const router = TestBed.inject(Router);
     expect(window.innerWidth).toBeLessThanOrEqual(390);
@@ -88,28 +93,37 @@ describe('First-run mobile smoke flow', () => {
     harness.detectChanges();
 
     expect(router.url).toBe('/home');
-    expect(harness.routeNativeElement?.textContent).toContain('Add your roster before setting starters');
+    expect(harness.routeNativeElement?.textContent).toContain('Build your team');
+
+    const team = await harness.navigateByUrl('/team', TeamPage);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    expect(team.players.length).toBe(0);
+
+    team.teamNameDraft = 'West Ridge';
+    team.saveTeam();
+    for (let i = 1; i <= 6; i += 1) {
+      team.draft = { name: `Player ${i}`, jerseyNumber: i, primaryPosition: 'OH' };
+      team.submitPlayer();
+    }
 
     const preMatch = await harness.navigateByUrl('/pre-match', PreMatchPage);
     await harness.fixture.whenStable();
     harness.detectChanges();
-
-    expect(preMatch.players.length).toBe(0);
-
-    for (let i = 1; i <= 6; i += 1) {
-      preMatch.draft = { name: `Player ${i}`, jerseyNumber: i, primaryPosition: 'OH' };
-      preMatch.submitPlayer();
-    }
     preMatch.players.forEach((player, index) => {
-      preMatch.selectBenchPlayer(player.id);
+      preMatch.teamRoster.setMatchSquadPlayer(player.id, true);
+      preMatch.selectPlayer(player.id);
       preMatch.assignSelectedToPosition(index + 1);
     });
     harness.detectChanges();
 
+    expect(preMatch.teamRoster.team().name).toBe('West Ridge');
     expect(preMatch.players.length).toBe(6);
     expect(preMatch.assignedStarterCount).toBe(6);
-    expect(preMatch.canStartMatch).toBeTrue();
 
+    preMatch.opponentName = 'Central High';
+    expect(preMatch.canStartMatch).toBeTrue();
     await preMatch.startMatch();
     await harness.fixture.whenStable();
     harness.detectChanges();
@@ -117,6 +131,39 @@ describe('First-run mobile smoke flow', () => {
     expect(router.url).toBe('/court');
     expect(harness.routeNativeElement?.textContent).toContain('Live Court');
     expect(harness.routeNativeElement?.textContent).toContain('Score the Point');
+
+    const court = harness.routeDebugElement?.componentInstance as CourtPage;
+    for (let set = 1; set <= 3; set += 1) {
+      for (let point = 0; point < 25; point += 1) {
+        court.activePlayer = 1;
+        court.recordStandardOutcome('kill');
+      }
+      if (set < 3) {
+        court.nextSetLineup = court.teamRoster.matchDefaults().startingLineup;
+        court.startNextSet();
+      }
+    }
+    harness.detectChanges();
+
+    expect(court.isMatchOver).toBeTrue();
+    expect(court.gameState.teamSets).toBe(3);
+    expect(court.gameState.opponentSets).toBe(0);
+
+    await harness.navigateByUrl('/history', HistoryPage);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const recap = harness.routeNativeElement?.textContent ?? '';
+    expect(router.url).toBe('/history');
+    expect(recap).toContain('vs Central High');
+    expect(recap).toContain('Final');
+    expect(recap).toContain('3–0');
+    const matchId = TestBed.inject(OfflineSyncService).getActiveMatchId();
+    const review = await harness.navigateByUrl(`/review/${matchId}`, ReviewPage);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(review).toBeTruthy();
+    expect(harness.routeNativeElement?.textContent).toContain('Player 1');
   });
 });
 

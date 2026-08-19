@@ -6,6 +6,7 @@ import { LiveMatchStoreService } from './live-match-store.service';
 import { MatchEngineService } from './match-engine.service';
 import { MatchStateService } from './match-state.service';
 import { MatchStatsService } from './match-stats.service';
+import { MatchV2StoreService } from './match-v2-store.service';
 import type { PlayerStatLine } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
 import { RotationService } from './rotation.service';
@@ -88,7 +89,13 @@ describe('LiveMatchStoreService', () => {
     const auth = new FakeAuthService() as unknown as AuthService;
     offlineSync = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, auth);
     teamRoster = new TeamRosterService(new RotationService(), auth);
-    store = new LiveMatchStoreService(matchState, matchStats, offlineSync, firebaseDb as unknown as FirebaseDbService);
+    store = new LiveMatchStoreService(
+      matchState,
+      matchStats,
+      offlineSync,
+      firebaseDb as unknown as FirebaseDbService,
+      new MatchV2StoreService(),
+    );
     engine = new MatchEngineService(matchState, matchStats, teamRoster, offlineSync);
   });
 

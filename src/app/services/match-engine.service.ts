@@ -34,6 +34,7 @@ type EngineEvent =
       impactedScore: true;
       impactedStats: false;
       rotatedClockwise: true;
+      rotationSteps: number;
     }
   | {
       kind: 'substitution';
@@ -51,6 +52,13 @@ type EngineEvent =
       impactedScore: true;
       impactedStats: false;
       rotatedClockwise: false;
+    }
+  | {
+      kind: 'serve-correction';
+      eventId: string;
+      impactedScore: true;
+      impactedStats: false;
+      rotatedClockwise: false;
     };
 
 @Injectable({
@@ -63,6 +71,8 @@ export class MatchEngineService {
   private matchStartedAtByMatchId = new Map<string, string>();
   private opponentNameByMatchId = new Map<string, string>();
   private undoStack: EngineEvent[] = [];
+  private currentRallyId = this.createEventId('rally');
+  private currentSetStartingLineup: Array<string | null> = [null, null, null, null, null, null];
 
   constructor(
     private readonly matchState: MatchStateService,
@@ -79,6 +89,8 @@ export class MatchEngineService {
     this.matchState.setServingTeam(initialServe);
     this.matchStats.resetMatch();
     this.undoStack = [];
+    this.currentRallyId = this.createEventId('rally');
+    this.currentSetStartingLineup = this.teamRoster.getLineupSnapshot();
     this.teamServeAttemptTrackedThisRally = false;
     this.boxScoreQueuedForMatchId = null;
     this.matchEndedEventQueuedForMatchId = null;
@@ -92,6 +104,7 @@ export class MatchEngineService {
       gameId: matchId,
       type: 'matchStarted',
       action: 'match-started',
+      eventKind: 'match-started',
       ...this.gameEventStateFields(),
       servingTeam: initialServe,
       lineup: this.teamRoster.getLineupSnapshot(),
@@ -126,19 +139,95 @@ export class MatchEngineService {
     this.matchEndedEventQueuedForMatchId = matchId;
   }
 
+  endMatchEarly(): void {
+    const matchId = this.offlineSync.getActiveMatchId();
+    if (this.matchState.state().isMatchOver) {
+      return;
+    }
+    this.matchState.endMatch();
+    const createdAt = new Date().toISOString();
+    this.queueGameSnapshot(matchId, 'ended-early', createdAt);
+    this.offlineSync.logEvent({
+      id: this.createEventId('evt'),
+      gameId: matchId,
+      type: 'matchEndedEarly',
+      action: 'match-ended-early',
+      eventKind: 'match-ended-early',
+      ...this.gameEventStateFields(),
+      createdAt,
+      isDeleted: false,
+    });
+    this.queuePlayerStats(matchId);
+  }
+
+  getNextSetDefaultLineup(): Array<string | null> {
+    if (this.isCompleteLineup(this.currentSetStartingLineup)) {
+      return [...this.currentSetStartingLineup];
+    }
+    const matchId = this.offlineSync.getActiveMatchId();
+    const lastSubmitted = this.offlineSync.getMatchEvents(matchId)
+      .slice()
+      .reverse()
+      .find((event) => (event.type === 'setStarted' || event.type === 'matchStarted') && this.isCompleteLineup(event.lineup))
+      ?.lineup;
+    return [...(lastSubmitted ?? this.offlineSync.getGame(matchId)?.startingLineup ?? this.teamRoster.matchDefaults().startingLineup)];
+  }
+
+  startNextSet(lineup: Array<string | null>, servingTeam: PointSide): boolean {
+    const assigned = lineup.filter((playerId): playerId is string => typeof playerId === 'string');
+    if (assigned.length !== 6 || new Set(assigned).size !== 6 || assigned.some((id) => !this.teamRoster.getPlayerById(id))) {
+      return false;
+    }
+    if (!this.matchState.startNextSet(servingTeam)) {
+      return false;
+    }
+    this.teamRoster.setLineup(lineup);
+    this.currentSetStartingLineup = [...lineup];
+    this.currentRallyId = this.createEventId('rally');
+    const createdAt = new Date().toISOString();
+    const matchId = this.offlineSync.getActiveMatchId();
+    this.offlineSync.logEvent({
+      id: this.createEventId('evt'),
+      gameId: matchId,
+      type: 'setStarted',
+      action: 'set-started',
+      eventKind: 'set-started',
+      ...this.gameEventStateFields(),
+      lineup,
+      servingTeam,
+      actionSetNumber: this.matchState.state().currentSet,
+      createdAt,
+      isDeleted: false,
+    });
+    this.queueGameSnapshot(matchId, 'live', createdAt);
+    return true;
+  }
+
   setServingTeam(team: PointSide): void {
     if (this.matchState.state().isMatchOver) {
       return;
     }
 
-    this.matchState.setServingTeam(team);
+    if (team === this.matchState.state().servingTeam) {
+      return;
+    }
+    const eventId = this.createEventId('evt');
+    this.matchState.setServingTeam(team, true);
     this.teamServeAttemptTrackedThisRally = false;
+    this.undoStack.push({
+      kind: 'serve-correction',
+      eventId,
+      impactedScore: true,
+      impactedStats: false,
+      rotatedClockwise: false,
+    });
     this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), 'live');
     this.offlineSync.logEvent({
-      id: this.createEventId('evt'),
+      id: eventId,
       gameId: this.offlineSync.getActiveMatchId(),
       type: 'serveTeamSet',
       action: 'serve-team-set',
+      eventKind: 'serve-corrected',
       ...this.gameEventStateFields(),
       servingTeam: team,
       createdAt: new Date().toISOString(),
@@ -161,6 +250,8 @@ export class MatchEngineService {
 
     const matchId = this.offlineSync.getActiveMatchId();
     const servingTeamBefore = this.matchState.state().servingTeam;
+    const teamRotationBefore = this.matchState.state().teamRotation;
+    const rallyId = this.currentRallyId;
     const currentSetBefore = this.matchState.state().currentSet;
     const wasReceiving = servingTeamBefore === 'opponent';
     const isTeamPointFromOpponentError = action === 'opponent-error';
@@ -222,6 +313,7 @@ export class MatchEngineService {
       gameId: matchId,
       type: 'playerAction',
       action,
+      eventKind: action === 'dig' ? 'stat-observation' : 'rally-outcome',
       ...this.gameEventStateFields(),
       rotationPosition,
       playerId: selectedPlayer?.id ?? null,
@@ -229,6 +321,9 @@ export class MatchEngineService {
       sideOutWon: scoreResult.sideOutWon,
       inferredServeInServerPlayerId,
       actionSetNumber: currentSetBefore,
+      rallyId,
+      servingTeamBefore,
+      teamRotationBefore,
       teamPoints: this.matchState.state().teamPoints,
       opponentPoints: this.matchState.state().opponentPoints,
       teamSets: this.matchState.state().teamSets,
@@ -239,6 +334,9 @@ export class MatchEngineService {
 
     if (scoreResult.matchEnded) {
       this.queuePlayerStats(matchId);
+    }
+    if (scoreResult.impactedScore) {
+      this.currentRallyId = this.createEventId('rally');
     }
 
     return event;
@@ -257,6 +355,8 @@ export class MatchEngineService {
 
     const matchId = this.offlineSync.getActiveMatchId();
     const servingTeamBefore = this.matchState.state().servingTeam;
+    const teamRotationBefore = this.matchState.state().teamRotation;
+    const rallyId = this.currentRallyId;
     let impactedStats = false;
     if (servingTeamBefore === 'team' && !this.teamServeAttemptTrackedThisRally) {
       const serverPlayerId = this.getPlayerAtRotation(1)?.id;
@@ -285,7 +385,11 @@ export class MatchEngineService {
       gameId: matchId,
       type: 'opponentPoint',
       action: 'opponent-point',
+      eventKind: 'rally-outcome',
       ...this.gameEventStateFields(),
+      rallyId,
+      servingTeamBefore,
+      teamRotationBefore,
       teamPoints: this.matchState.state().teamPoints,
       opponentPoints: this.matchState.state().opponentPoints,
       teamSets: this.matchState.state().teamSets,
@@ -297,6 +401,7 @@ export class MatchEngineService {
     if (result.matchEnded) {
       this.queuePlayerStats(matchId);
     }
+    this.currentRallyId = this.createEventId('rally');
 
     return event;
   }
@@ -306,6 +411,7 @@ export class MatchEngineService {
       return false;
     }
 
+    const courtPosition = this.teamRoster.lineup().indexOf(outPlayerId) + 1;
     const didSubstitute = this.teamRoster.substitutePlayers(outPlayerId, inPlayerId);
     if (!didSubstitute) {
       return false;
@@ -328,9 +434,11 @@ export class MatchEngineService {
       gameId: this.offlineSync.getActiveMatchId(),
       type: 'substitution',
       action: 'substitution',
+      eventKind: 'substitution',
       ...this.gameEventStateFields(),
       outPlayerId,
       inPlayerId,
+      courtPosition,
       createdAt: new Date().toISOString(),
       isDeleted: false,
     });
@@ -365,6 +473,7 @@ export class MatchEngineService {
       gameId: this.offlineSync.getActiveMatchId(),
       type: 'timeoutCalled',
       action: 'timeout-called',
+      eventKind: 'timeout-called',
       ...this.gameEventStateFields(),
       timeoutTeam: team,
       teamTimeoutsRemaining: nextState.teamTimeoutsRemaining,
@@ -377,16 +486,29 @@ export class MatchEngineService {
   }
 
   manualRotateTeam(): boolean {
+    const nextRotation = (this.matchState.state().teamRotation % 6) + 1;
+    return this.manualRotateTeamTo(nextRotation);
+  }
+
+  manualRotateTeamTo(targetRotation: number): boolean {
     if (this.matchState.state().isMatchOver) {
       return false;
     }
 
-    const didRotate = this.matchState.rotateTeam();
+    const previousRotation = this.matchState.state().teamRotation;
+    const normalizedTarget = ((Math.trunc(targetRotation) - 1) % 6 + 6) % 6 + 1;
+    const rotationSteps = (normalizedTarget - previousRotation + 6) % 6;
+    if (rotationSteps === 0) {
+      return false;
+    }
+    const didRotate = this.matchState.setTeamRotation(normalizedTarget);
     if (!didRotate) {
       return false;
     }
 
-    this.teamRoster.rotateLineupClockwise();
+    for (let step = 0; step < rotationSteps; step += 1) {
+      this.teamRoster.rotateLineupClockwise();
+    }
     this.teamServeAttemptTrackedThisRally = false;
 
     const eventId = this.createEventId('evt');
@@ -396,6 +518,7 @@ export class MatchEngineService {
       impactedScore: true,
       impactedStats: false,
       rotatedClockwise: true,
+      rotationSteps,
     };
     this.undoStack.push(event);
 
@@ -406,10 +529,14 @@ export class MatchEngineService {
       gameId: this.offlineSync.getActiveMatchId(),
       type: 'manualRotation',
       action: 'manual-rotation',
+      eventKind: 'rotation-corrected',
       ...this.gameEventStateFields(),
       teamRotation: nextState.teamRotation,
       servingTeam: nextState.servingTeam,
       lineup: this.teamRoster.getLineupSnapshot(),
+      previousTeamRotation: previousRotation,
+      targetTeamRotation: normalizedTarget,
+      targetRotation: normalizedTarget,
       createdAt: new Date().toISOString(),
       isDeleted: false,
     });
@@ -437,7 +564,10 @@ export class MatchEngineService {
       this.matchState.undoLastPoint();
     }
     if (last.rotatedClockwise) {
-      this.teamRoster.rotateLineupCounterClockwise();
+      const steps = last.kind === 'manual-rotation' ? last.rotationSteps : 1;
+      for (let step = 0; step < steps; step += 1) {
+        this.teamRoster.rotateLineupCounterClockwise();
+      }
     }
     if (last.impactedStats) {
       this.matchStats.undoLastAction();
@@ -450,6 +580,11 @@ export class MatchEngineService {
     this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), this.matchState.state().isMatchOver ? 'final' : 'live');
 
     this.offlineSync.undoLastEvent(last.eventId);
+
+    if (!this.matchState.state().isMatchOver) {
+      this.boxScoreQueuedForMatchId = null;
+      this.matchEndedEventQueuedForMatchId = null;
+    }
 
     return last;
   }
@@ -552,7 +687,7 @@ export class MatchEngineService {
     this.boxScoreQueuedForMatchId = matchId;
   }
 
-  private queueGameSnapshot(matchId: string, status: 'live' | 'final', timestamp = new Date().toISOString()): void {
+  private queueGameSnapshot(matchId: string, status: 'live' | 'final' | 'ended-early', timestamp = new Date().toISOString()): void {
     const state = this.matchState.state();
     const existingGame = this.offlineSync.getGame(matchId);
     const startedAt = this.matchStartedAtByMatchId.get(matchId) ?? existingGame?.startedAt ?? timestamp;
@@ -573,11 +708,21 @@ export class MatchEngineService {
       opponentSets: state.opponentSets,
       currentSet: state.currentSet,
       isMatchOver: state.isMatchOver,
+      isSetBreak: state.isSetBreak,
       teamTimeoutsRemaining: state.teamTimeoutsRemaining,
       opponentTimeoutsRemaining: state.opponentTimeoutsRemaining,
       teamRotation: state.teamRotation,
+      matchSquad: this.teamRoster.getMatchSquadPlayers().map((player) => ({
+        id: player.id,
+        name: player.name,
+        jerseyNumber: player.jerseyNumber,
+        primaryPosition: player.primaryPosition,
+      })),
+      startingLineup: this.isCompleteLineup(this.currentSetStartingLineup)
+        ? [...this.currentSetStartingLineup]
+        : [...(existingGame?.startingLineup ?? this.teamRoster.matchDefaults().startingLineup)],
       startedAt,
-      endedAt: status === 'final' ? timestamp : null,
+      endedAt: status === 'live' ? null : timestamp,
       createdAt: startedAt,
       updatedAt: timestamp,
     });
@@ -610,6 +755,7 @@ export class MatchEngineService {
       currentSet: event.currentSet,
       servingTeam: event.servingTeam ?? 'team',
       isMatchOver: event.isMatchOver === true,
+      isSetBreak: event.isSetBreak === true,
       teamTimeoutsRemaining: event.teamTimeoutsRemaining,
       opponentTimeoutsRemaining: event.opponentTimeoutsRemaining,
       teamRotation: event.teamRotation,
@@ -752,6 +898,10 @@ export class MatchEngineService {
     this.teamRoster.setLineup(lineup);
   }
 
+  private isCompleteLineup(lineup: unknown): lineup is string[] {
+    return Array.isArray(lineup) && lineup.length === 6 && lineup.every((id) => typeof id === 'string' && id.length > 0);
+  }
+
   private isValidLineup(lineup: unknown): lineup is Array<string | null> {
     if (!Array.isArray(lineup) || lineup.length !== 6) {
       return false;
@@ -813,6 +963,19 @@ export class MatchEngineService {
         impactedScore: true,
         impactedStats: false,
         rotatedClockwise: true,
+        rotationSteps:
+          event.previousTeamRotation && event.targetTeamRotation
+            ? (event.targetTeamRotation - event.previousTeamRotation + 6) % 6 || 1
+            : 1,
+      };
+    }
+    if (event.type === 'serveTeamSet') {
+      return {
+        kind: 'serve-correction',
+        eventId: event.id,
+        impactedScore: true,
+        impactedStats: false,
+        rotatedClockwise: false,
       };
     }
     if (event.type === 'opponentPoint') {
@@ -844,6 +1007,7 @@ export class MatchEngineService {
     | 'opponentSets'
     | 'currentSet'
     | 'isMatchOver'
+    | 'isSetBreak'
     | 'teamTimeoutsRemaining'
     | 'opponentTimeoutsRemaining'
     | 'teamRotation'
@@ -857,6 +1021,7 @@ export class MatchEngineService {
       opponentSets: state.opponentSets,
       currentSet: state.currentSet,
       isMatchOver: state.isMatchOver,
+      isSetBreak: state.isSetBreak,
       teamTimeoutsRemaining: state.teamTimeoutsRemaining,
       opponentTimeoutsRemaining: state.opponentTimeoutsRemaining,
       teamRotation: state.teamRotation,

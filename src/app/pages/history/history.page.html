@@ -1,94 +1,42 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>Match History</ion-title>
-    <ion-button slot="end" [routerLink]="['/court']">Live Court</ion-button>
+    <ion-title>History</ion-title>
+    <ion-button slot="end" fill="clear" [routerLink]="['/home']">Home</ion-button>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <div class="history-layout">
-    <section class="matches-panel">
-      <h2>Saved Matches</h2>
-      <p *ngIf="matches.length === 0" class="empty">No matches have been logged yet.</p>
-      <button
-        *ngFor="let match of matches"
-        class="match-card"
-        [ngClass]="{ selected: selectedMatchId === match.matchId }"
-        (click)="selectMatch(match.matchId)"
-      >
-        <span class="match-opponent">vs {{ match.opponentName }}</span>
-        <span class="match-result" *ngIf="match.isFinal; else liveMatchResult">
-          Final {{ match.finalTeamSets ?? match.teamSets }} - {{ match.finalOpponentSets ?? match.opponentSets }}
-        </span>
-        <ng-template #liveMatchResult>
-          <span class="match-result">Live {{ match.teamPoints }} - {{ match.opponentPoints }}</span>
-        </ng-template>
-        <span class="match-meta">{{ match.startedAt | date:'mediumDate' }} | {{ match.totalEvents }} events</span>
-        <span class="match-meta">Updated: {{ match.lastUpdatedAt | date:'short' }}</span>
-        <span class="match-meta" *ngIf="match.isFinal">
-          Final: {{ match.finalTeamSets ?? 0 }} - {{ match.finalOpponentSets ?? 0 }}
-        </span>
-      </button>
-    </section>
+  <main class="history-shell">
+    <header class="history-heading">
+      <div>
+        <h1>Match history</h1>
+        <p>Open one match for its result, team rates, player totals, and event record.</p>
+      </div>
+      <span class="match-count" aria-label="Saved match count">{{ matches.length }}</span>
+    </header>
 
-    <section class="review-panel" *ngIf="selectedMatchSummary as selected; else selectPrompt">
-      <h2>Review</h2>
-      <p class="summary">
-        vs {{ selected.opponentName }} | {{ selected.totalEvents }} events | Last update {{ selected.lastUpdatedAt | date:'medium' }}
+    <section aria-labelledby="saved-matches-title">
+      <h2 id="saved-matches-title">Saved matches</h2>
+
+      <p *ngIf="matches.length === 0" class="empty-state">
+        No matches yet. A match appears here after you start tracking it.
       </p>
 
-      <div class="recap-grid" *ngIf="selectedLeaders.length > 0">
-        <div class="recap-card" *ngFor="let leader of selectedLeaders">
-          <span>{{ leader.label }}</span>
-          <strong>{{ leader.value }}</strong>
-        </div>
-      </div>
-
-      <h3>Event Timeline</h3>
-      <div class="timeline-list">
-        <div *ngFor="let item of timeline" class="timeline-item">
-          <span class="time">{{ item.createdAt | date:'shortTime' }}</span>
-          <span class="type">{{ item.type }}</span>
-          <span class="desc">{{ item.summary }}</span>
-        </div>
-      </div>
-
-      <h3>Box Score</h3>
-      <div class="box-grid" *ngIf="boxScoreRows.length > 0; else noBoxScore">
-        <div class="box-row box-header">
-          <span>Player</span>
-          <span>K</span>
-          <span>E</span>
-          <span>TA</span>
-          <span>Eff</span>
-          <span>SA</span>
-          <span>RE</span>
-          <span>Serve In %</span>
-          <span>Side-Out %</span>
-        </div>
-        <div class="box-row" *ngFor="let row of boxScoreRows">
-          <span>#{{ row.jerseyNumber ?? '--' }} {{ row.playerName }}</span>
-          <span>{{ row.kills }}</span>
-          <span>{{ row.attackErrors }}</span>
-          <span>{{ row.totalAttacks }}</span>
-          <span>{{ formatEfficiency(row.hittingEfficiency) }}</span>
-          <span>{{ row.serveAttempts }}</span>
-          <span>{{ row.receiveErrors }}</span>
-          <span>{{ formatRate(row.serveInPercentage) }}</span>
-          <span>{{ formatRate(row.sideOutPercentage) }}</span>
-        </div>
+      <div *ngIf="matches.length > 0" class="match-list">
+        <a
+          *ngFor="let match of matches"
+          class="match-row"
+          [routerLink]="['/review', match.matchId]"
+          [attr.aria-label]="'Review match against ' + match.opponentName"
+        >
+          <span class="date">{{ match.startedAt | date:'mediumDate' }}</span>
+          <span class="opponent">vs {{ match.opponentName }}</span>
+          <span class="status">{{ statusLabel(match) }}</span>
+          <strong class="score">{{ scoreLabel(match) }}</strong>
+          <span class="sync" [class.sync-pending]="syncLabel(match) === 'Pending sync'">{{ syncLabel(match) }}</span>
+          <span class="open" aria-hidden="true">Review →</span>
+        </a>
       </div>
     </section>
-  </div>
-
-  <ng-template #selectPrompt>
-    <section class="review-panel">
-      <h2>Review</h2>
-      <p class="empty">Select a match to view timeline and box score.</p>
-    </section>
-  </ng-template>
-
-  <ng-template #noBoxScore>
-    <p class="empty">No final box score has been saved for this match yet.</p>
-  </ng-template>
+  </main>
 </ion-content>

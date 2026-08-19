@@ -1,4 +1,5 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, Optional, computed, signal } from '@angular/core';
+import { AuthService } from './auth.service';
 
 export interface MatchScoreState {
   teamPoints: number;
@@ -8,6 +9,7 @@ export interface MatchScoreState {
   currentSet: number;
   servingTeam: PointWinner;
   isMatchOver: boolean;
+  isSetBreak: boolean;
   teamTimeoutsRemaining: number;
   opponentTimeoutsRemaining: number;
   teamRotation: number;
@@ -35,11 +37,17 @@ export class MatchStateService {
 
   readonly state = computed(() => this.stateSignal());
 
-  constructor() {
+  constructor(@Optional() private readonly auth?: AuthService) {
     this.restore();
   }
 
-  setServingTeam(servingTeam: PointWinner): void {
+  setServingTeam(servingTeam: PointWinner, recordHistory = false): void {
+    if (this.stateSignal().isSetBreak) {
+      return;
+    }
+    if (recordHistory && servingTeam !== this.stateSignal().servingTeam) {
+      this.historySignal.update((history) => [...history, this.stateSignal()]);
+    }
     this.stateSignal.update((state) => ({
       ...state,
       servingTeam,
@@ -57,7 +65,7 @@ export class MatchStateService {
 
   callTimeout(team: PointWinner): boolean {
     const current = this.stateSignal();
-    if (current.isMatchOver) {
+    if (current.isMatchOver || current.isSetBreak) {
       return false;
     }
 
@@ -81,7 +89,7 @@ export class MatchStateService {
 
   rotateTeam(): boolean {
     const current = this.stateSignal();
-    if (current.isMatchOver) {
+    if (current.isMatchOver || current.isSetBreak) {
       return false;
     }
 
@@ -90,6 +98,18 @@ export class MatchStateService {
       ...current,
       teamRotation: this.incrementRotation(current.teamRotation),
     });
+    this.persist();
+    return true;
+  }
+
+  setTeamRotation(teamRotation: number): boolean {
+    const current = this.stateSignal();
+    const normalized = this.normalizeRotation(teamRotation);
+    if (current.isMatchOver || normalized === current.teamRotation) {
+      return false;
+    }
+    this.historySignal.update((history) => [...history, current]);
+    this.stateSignal.set({ ...current, teamRotation: normalized });
     this.persist();
     return true;
   }
@@ -125,6 +145,27 @@ export class MatchStateService {
     this.persist();
   }
 
+  startNextSet(servingTeam: PointWinner): boolean {
+    const current = this.stateSignal();
+    if (current.isMatchOver || !current.isSetBreak || current.currentSet >= 5) {
+      return false;
+    }
+    this.historySignal.update((history) => [...history, current]);
+    this.stateSignal.set({
+      ...current,
+      currentSet: current.currentSet + 1,
+      teamPoints: 0,
+      opponentPoints: 0,
+      servingTeam,
+      teamRotation: 1,
+      teamTimeoutsRemaining: this.timeoutsPerSet,
+      opponentTimeoutsRemaining: this.timeoutsPerSet,
+      isSetBreak: false,
+    });
+    this.persist();
+    return true;
+  }
+
   hydrateState(state: MatchScoreState): void {
     this.historySignal.set([]);
     this.stateSignal.set(this.normalizeState(state));
@@ -133,7 +174,7 @@ export class MatchStateService {
 
   private recordPoint(winner: PointWinner): PointResult {
     const current = this.stateSignal();
-    if (current.isMatchOver) {
+    if (current.isMatchOver || current.isSetBreak) {
       return { sideOut: false, setEnded: false, matchEnded: true };
     }
 
@@ -157,11 +198,7 @@ export class MatchStateService {
         ...next,
         teamSets: next.teamSets + (teamWonSet ? 1 : 0),
         opponentSets: next.opponentSets + (teamWonSet ? 0 : 1),
-        teamPoints: 0,
-        opponentPoints: 0,
-        currentSet: next.currentSet + 1,
-        teamTimeoutsRemaining: this.timeoutsPerSet,
-        opponentTimeoutsRemaining: this.timeoutsPerSet,
+        isSetBreak: true,
       };
 
       if (next.teamSets >= this.setsToWin || next.opponentSets >= this.setsToWin) {
@@ -169,7 +206,7 @@ export class MatchStateService {
         next = {
           ...next,
           isMatchOver: true,
-          currentSet: Math.min(next.currentSet - 1, 5),
+          isSetBreak: false,
         };
       }
     }
@@ -189,7 +226,7 @@ export class MatchStateService {
     }
 
     window.localStorage.setItem(
-      MatchStateService.STORAGE_KEY,
+      this.ownerKey(),
       JSON.stringify({
         state: this.stateSignal(),
         history: this.historySignal(),
@@ -202,7 +239,7 @@ export class MatchStateService {
       return;
     }
 
-    const raw = window.localStorage.getItem(MatchStateService.STORAGE_KEY);
+    const raw = window.localStorage.getItem(this.ownerKey());
     if (!raw) {
       return;
     }
@@ -219,6 +256,18 @@ export class MatchStateService {
     }
   }
 
+  clearOwnerLocalData(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(this.ownerKey());
+    }
+    this.historySignal.set([]);
+    this.stateSignal.set(this.createInitialState());
+  }
+
+  private ownerKey(): string {
+    return `${MatchStateService.STORAGE_KEY}:${this.auth?.uid ?? 'signed-out'}`;
+  }
+
   private createInitialState(): MatchScoreState {
     return {
       teamPoints: 0,
@@ -228,6 +277,7 @@ export class MatchStateService {
       currentSet: 1,
       servingTeam: 'team',
       isMatchOver: false,
+      isSetBreak: false,
       teamTimeoutsRemaining: this.timeoutsPerSet,
       opponentTimeoutsRemaining: this.timeoutsPerSet,
       teamRotation: 1,
@@ -244,6 +294,7 @@ export class MatchStateService {
       currentSet: Math.max(1, this.readWholeNumber(state.currentSet, defaults.currentSet)),
       servingTeam: this.isPointWinner(state.servingTeam) ? state.servingTeam : defaults.servingTeam,
       isMatchOver: state.isMatchOver === true,
+      isSetBreak: state.isSetBreak === true,
       teamTimeoutsRemaining: this.readTimeoutCount(state.teamTimeoutsRemaining),
       opponentTimeoutsRemaining: this.readTimeoutCount(state.opponentTimeoutsRemaining),
       teamRotation: this.normalizeRotation(state.teamRotation),

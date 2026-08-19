@@ -40,7 +40,13 @@ const canActivateCourt: CanActivateFn = () => {
     !!offlineSync.getGame(activeMatchId);
   const hasActiveMatch = hasStartedMatch && !matchState.state().isMatchOver;
 
-  return hasActiveMatch ? true : router.createUrlTree(['/pre-match']);
+  if (!hasActiveMatch) {
+    return router.createUrlTree(['/pre-match']);
+  }
+
+  return offlineSync.isCurrentScoringDevice(activeMatchId)
+    ? true
+    : router.createUrlTree(['/review', activeMatchId]);
 };
 
 export const routes: Routes = [
@@ -59,6 +65,11 @@ export const routes: Routes = [
     canActivate: [canActivateAuth],
   },
   {
+    path: 'team',
+    loadComponent: () => import('./pages/team/team.page').then((m) => m.TeamPage),
+    canActivate: [canActivateAuth],
+  },
+  {
     path: 'pre-match',
     loadComponent: () => import('./pages/pre-match/pre-match.page').then((m) => m.PreMatchPage),
     canActivate: [canActivateAuth],
@@ -71,6 +82,11 @@ export const routes: Routes = [
   {
     path: 'history',
     loadComponent: () => import('./pages/history/history.page').then((m) => m.HistoryPage),
+    canActivate: [canActivateAuth],
+  },
+  {
+    path: 'review/:matchId',
+    loadComponent: () => import('./pages/review/review.page').then((m) => m.ReviewPage),
     canActivate: [canActivateAuth],
   },
 ];

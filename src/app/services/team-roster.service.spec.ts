@@ -66,7 +66,7 @@ describe('TeamRosterService', () => {
 
   it('restores legacy roster data that does not have a team profile', () => {
     window.localStorage.setItem(
-      'spike-volleyball-roster-v1',
+      'spike-volleyball-roster-v1:owner-1',
       JSON.stringify({
         players: [{ id: 'p-1', name: 'Ava Johnson', jerseyNumber: 4, primaryPosition: 'OH' }],
         lineup: ['p-1', null, null, null, null, null],

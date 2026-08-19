@@ -1,5 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, Optional, signal } from '@angular/core';
 import { GameEvent, PlayerSetStats } from '../models/firestore.models';
+import { AuthService } from './auth.service';
 
 export type StatsAction =
   | 'kill'
@@ -42,7 +43,7 @@ export class MatchStatsService {
   private readonly statsSignal = signal<StatsState>({});
   private readonly setStatsSignal = signal<SetStatsState>({});
 
-  constructor() {
+  constructor(@Optional() private readonly auth?: AuthService) {
     this.restore();
   }
 
@@ -387,7 +388,7 @@ export class MatchStatsService {
     }
 
     window.localStorage.setItem(
-      MatchStatsService.STORAGE_KEY,
+      this.ownerKey(),
       JSON.stringify({
         history: this.historySignal(),
         stats: this.statsSignal(),
@@ -400,7 +401,7 @@ export class MatchStatsService {
     if (typeof window === 'undefined' || !window.localStorage) {
       return;
     }
-    const raw = window.localStorage.getItem(MatchStatsService.STORAGE_KEY);
+    const raw = window.localStorage.getItem(this.ownerKey());
     if (!raw) {
       return;
     }
@@ -416,5 +417,18 @@ export class MatchStatsService {
     } catch {
       // Ignore corrupt local state.
     }
+  }
+
+  clearOwnerLocalData(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(this.ownerKey());
+    }
+    this.historySignal.set([]);
+    this.statsSignal.set({});
+    this.setStatsSignal.set({});
+  }
+
+  private ownerKey(): string {
+    return `${MatchStatsService.STORAGE_KEY}:${this.auth?.uid ?? 'signed-out'}`;
   }
 }

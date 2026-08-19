@@ -1,21 +1,19 @@
 <ion-header [translucent]="true">
   <ion-toolbar class="stats-toolbar">
     <ion-title>Live Court</ion-title>
-    <div class="surface-toggle" slot="end">
-      <ion-button size="small" [ngClass]="{ active: activeSurfaceMode === 'live' }" (click)="setSurfaceMode('live')">
-        Live
-      </ion-button>
-      <ion-button size="small" [ngClass]="{ active: activeSurfaceMode === 'review' }" (click)="setSurfaceMode('review')">
-        Game Review
-      </ion-button>
-    </div>
     <ion-button slot="end" class="exit-link" (click)="openExitSheet()">Exit</ion-button>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
   <section class="scoreboard-banner">
-    <div class="match-over-banner" *ngIf="isMatchOver">&#9888; Match is final. Start a new match to continue tracking.</div>
+    <div class="match-over-banner" *ngIf="isMatchOver">
+      <strong>{{ isEndedEarly ? 'Match ended early. No final result.' : 'Match final.' }}</strong>
+      <div class="match-over-actions">
+        <ion-button size="small" (click)="openMatchReview()">Review Match</ion-button>
+        <ion-button *ngIf="!isEndedEarly" size="small" fill="outline" (click)="undoLastAction()">Undo Final Rally</ion-button>
+      </div>
+    </div>
     <div class="score-layout">
       <div class="score-side home">
         <span class="score-team-name">{{ teamDisplayName }}</span>
@@ -47,8 +45,36 @@
     </div>
   </section>
 
-  <ng-container *ngIf="activeSurfaceMode === 'live'; else reviewSurface">
-    <div class="tablet-layout">
+  <section class="next-set-setup" *ngIf="isSetBreak" aria-labelledby="next-set-title">
+    <div class="next-set-heading">
+      <div>
+        <span>Set {{ gameState.currentSet }} complete</span>
+        <h2 id="next-set-title">Set up Set {{ gameState.currentSet + 1 }}</h2>
+      </div>
+      <p>Confirm the submitted P1-P6 order and first serve before scoring resumes.</p>
+    </div>
+
+    <div class="next-set-grid">
+      <label *ngFor="let position of rotationChoices">
+        <span>P{{ position }}</span>
+        <select [value]="nextSetLineup[position - 1] || ''" (change)="setNextSetPlayer(position, $any($event.target).value)">
+          <option value="">Choose player</option>
+          <option *ngFor="let player of teamRoster.getMatchSquadPlayers()" [value]="player.id">#{{ player.jerseyNumber }} {{ player.name }}</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="next-set-footer">
+      <div class="next-set-serve" role="radiogroup" aria-label="First serve for next set">
+        <button type="button" role="radio" [attr.aria-checked]="nextSetServe === 'team'" [class.active]="nextSetServe === 'team'" (click)="nextSetServe = 'team'">{{ teamDisplayName }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="nextSetServe === 'opponent'" [class.active]="nextSetServe === 'opponent'" (click)="nextSetServe = 'opponent'">{{ opponentName }}</button>
+      </div>
+      <ion-button [disabled]="!canStartNextSet" (click)="startNextSet()">Start Set {{ gameState.currentSet + 1 }}</ion-button>
+    </div>
+  </section>
+
+  <ng-container>
+    <div class="tablet-layout" *ngIf="!isSetBreak">
       <section class="court-section">
         <div class="section-head">
           <h2>Live Court</h2>
@@ -93,10 +119,7 @@
               selected: player.id === activePlayer,
               'current-server': player.id === 1 && gameState.servingTeam === 'team',
               dimmed: player.id !== activePlayer,
-              'sub-out-selected': isSelectedOutPlayer(player.id),
-              'eff-high': getPlayerTileEfficiencyState(player.id) === 'high',
-              'eff-medium': getPlayerTileEfficiencyState(player.id) === 'medium',
-              'eff-low': getPlayerTileEfficiencyState(player.id) === 'low'
+              'sub-out-selected': isSelectedOutPlayer(player.id)
             }"
             [style.top]="player.top"
             [style.left]="player.left"
@@ -107,7 +130,6 @@
             (click)="handleCourtPlayerTap(player.id)"
             (keydown)="handleCourtKeydown($event, player.id)"
           >
-            <span class="chip-eff-bar"></span>
             <ng-container *ngIf="getPlayerForPosition(player.id) as assigned; else unassignedPlayer">
               <span class="chip-meta">
                 <span class="chip-jersey">#{{ assigned.jerseyNumber }}</span>
@@ -151,7 +173,7 @@
             class="action-btn"
             [ngClass]="action.accent"
             (click)="recordStandardOutcome(action.id)"
-            [disabled]="isMatchOver"
+            [disabled]="isMatchOver || (requiresPlayerAttribution(action.id) && activePlayer === null)"
             [attr.aria-label]="action.label + ' - awards point'"
           >
             <ion-icon [name]="action.icon" slot="start" aria-hidden="true"></ion-icon>
@@ -167,7 +189,7 @@
             class="action-btn stat-only-btn"
             [ngClass]="action.accent"
             (click)="recordAction(action.id)"
-            [disabled]="isMatchOver"
+            [disabled]="isMatchOver || activePlayer === null"
             [attr.aria-label]="action.label + ' - stat only, no point'"
           >
             <ion-icon [name]="action.icon" slot="start" aria-hidden="true"></ion-icon>
@@ -201,6 +223,16 @@
             aria-keyshortcuts="s Escape"
           >
             {{ isSubOverlayOpen ? 'Close Sub Panel' : 'Substitute' }}
+          </ion-button>
+
+          <ion-button
+            expand="block"
+            fill="outline"
+            class="controls-btn"
+            (click)="openMatchControls()"
+            [disabled]="isMatchOver"
+          >
+            Match Controls
           </ion-button>
         </div>
 
@@ -275,204 +307,59 @@
       </div>
     </section>
 
-    <section *ngIf="gameState.isMatchOver" class="box-score-panel" aria-label="Post-match statistics">
-      <div class="box-head">
-        <h2>Post-Match Box Score</h2>
-        <p>Hitting Efficiency = (Kills - Attack Errors) / Total Attacks</p>
-      </div>
-
-      <div class="box-scroll-wrap" tabindex="0" role="region" aria-label="Scrollable statistics table">
-        <div class="box-grid" role="table" aria-label="Player statistics">
-          <div class="box-row box-header" role="row">
-            <span role="columnheader">Player</span>
-            <span role="columnheader" aria-label="Kills">K</span>
-            <span role="columnheader" aria-label="Errors">E</span>
-            <span role="columnheader" aria-label="Total Attacks">TA</span>
-            <span role="columnheader" aria-label="Serve Attempts">SA</span>
-            <span role="columnheader" aria-label="Receive Errors">RE</span>
-            <span role="columnheader">Serve In %</span>
-            <span role="columnheader">Hit Eff</span>
-            <span role="columnheader">Side-Out %</span>
-          </div>
-
-          <div class="box-row" role="row" *ngFor="let row of boxScoreRows">
-            <span role="cell">#{{ row.player.jerseyNumber }} {{ row.player.name }}</span>
-            <span role="cell">{{ row.kills }}</span>
-            <span role="cell">{{ row.attackErrors }}</span>
-            <span role="cell">{{ row.totalAttacks }}</span>
-            <span role="cell">{{ row.serveAttempts }}</span>
-            <span role="cell">{{ row.receiveErrors }}</span>
-            <span role="cell">{{ formatRate(row.serveInPercentage) }}</span>
-            <span role="cell">{{ formatRate(row.hittingEfficiency) }}</span>
-            <span role="cell">{{ formatRate(row.sideOutPercentage) }}</span>
-          </div>
-        </div>
-      </div>
-    </section>
   </ng-container>
-
-  <ng-template #reviewSurface>
-    <section class="review-surface">
-      <aside class="review-player-panel">
-        <div class="review-panel-head">
-          <h2>Player List</h2>
-          <p>Compact rows with efficiency rating</p>
-        </div>
-
-        <div class="review-search-wrap">
-          <label for="player-search" class="review-label">Search</label>
-          <input id="player-search" class="review-search" type="text" placeholder="Name, #, position" [(ngModel)]="playerSearchQuery" />
-        </div>
-
-        <div class="review-filter-row">
-          <button
-            type="button"
-            class="review-filter-btn"
-            [ngClass]="{ active: playerListFilter === 'all' }"
-            (click)="setPlayerListFilter('all')"
-          >
-            All
-          </button>
-          <button
-            type="button"
-            class="review-filter-btn"
-            [ngClass]="{ active: playerListFilter === 'starters' }"
-            (click)="setPlayerListFilter('starters')"
-          >
-            Starters
-          </button>
-          <button
-            type="button"
-            class="review-filter-btn"
-            [ngClass]="{ active: playerListFilter === 'bench' }"
-            (click)="setPlayerListFilter('bench')"
-          >
-            Bench
-          </button>
-        </div>
-
-        <div class="review-player-list">
-          <div class="review-player-row" *ngFor="let player of filteredReviewPlayers">
-            <div class="review-player-line">
-              #{{ player.jerseyNumber }} | {{ player.primaryPosition }} | {{ player.kills }}K {{ player.attackErrors }}E | {{ player.efficiencyText }}
-            </div>
-            <div class="review-player-meta">
-              <span>{{ player.name }}</span>
-              <span class="review-rating">{{ player.efficiencyRating }}</span>
-            </div>
-          </div>
-          <p class="review-empty" *ngIf="filteredReviewPlayers.length === 0">No players match this filter.</p>
-        </div>
-      </aside>
-
-      <section class="review-analytics-panel">
-        <div class="review-panel-head analytics-head">
-          <div>
-            <h2>Main Analytics</h2>
-            <p>Clean line/bar charts on dark surfaces</p>
-          </div>
-          <span class="review-load-chip" [ngClass]="{ met: reviewLoadTargetHit, missed: !reviewLoadTargetHit }">
-            {{ reviewLoadMs }}ms (target &lt; 500ms)
-          </span>
-        </div>
-
-        <div class="analytics-tabs">
-          <button
-            type="button"
-            class="analytics-tab-btn"
-            *ngFor="let tab of analyticsTabs"
-            [ngClass]="{ active: activeAnalyticsTab === tab.id }"
-            (click)="setAnalyticsTab(tab.id)"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-
-        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'efficiency'">
-          <h3>Efficiency</h3>
-          <div class="chart-grid">
-            <div class="chart-row" *ngFor="let item of efficiencyChartBars">
-              <span class="chart-label">{{ item.label }}</span>
-              <div class="chart-track">
-                <div class="chart-fill efficiency-fill" [style.width.%]="item.width"></div>
-              </div>
-              <span class="chart-value">{{ item.displayValue }}</span>
-              <span class="chart-detail">{{ item.detail }}</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'rotation'">
-          <h3>Rotation Performance</h3>
-          <div class="chart-grid">
-            <div class="chart-row" *ngFor="let item of rotationPerformanceBars">
-              <span class="chart-label">{{ item.label }}</span>
-              <div class="chart-track">
-                <div class="chart-fill rotation-fill" [style.width.%]="item.width"></div>
-              </div>
-              <span class="chart-value">{{ item.displayValue }}</span>
-              <span class="chart-detail">{{ item.detail }}</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'serve-receive'">
-          <h3>Serve Receive</h3>
-          <div class="chart-grid">
-            <div class="chart-row" *ngFor="let item of serveReceiveBars">
-              <span class="chart-label">{{ item.label }}</span>
-              <div class="chart-track">
-                <div class="chart-fill receive-fill" [style.width.%]="item.width"></div>
-              </div>
-              <span class="chart-value">{{ item.displayValue }}</span>
-              <span class="chart-detail">{{ item.detail }}</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'errors'">
-          <h3>Error Breakdown</h3>
-          <div class="chart-grid">
-            <div class="chart-row" *ngFor="let item of errorBreakdownBars">
-              <span class="chart-label">{{ item.label }}</span>
-              <div class="chart-track">
-                <div class="chart-fill error-fill" [style.width.%]="item.width"></div>
-              </div>
-              <span class="chart-value">{{ item.displayValue }}</span>
-              <span class="chart-detail">{{ item.detail }}</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="chart-panel" *ngIf="activeAnalyticsTab === 'sets'">
-          <h3>Set Breakdown</h3>
-          <div class="line-chart-wrap" [ngClass]="{ empty: !setChartHasData }">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <polyline class="line-kills" [attr.points]="setKillsLinePoints"></polyline>
-              <polyline class="line-errors" [attr.points]="setErrorsLinePoints"></polyline>
-            </svg>
-          </div>
-          <div class="set-table">
-            <div class="set-row set-head">
-              <span>Set</span>
-              <span>K</span>
-              <span>E</span>
-              <span>TA</span>
-              <span>Eff</span>
-            </div>
-            <div class="set-row" *ngFor="let row of setBreakdownRows">
-              <span>S{{ row.setNumber }}</span>
-              <span>{{ row.kills }}</span>
-              <span>{{ row.attackErrors }}</span>
-              <span>{{ row.totalAttacks }}</span>
-              <span>{{ formatEfficiencyValue(row.efficiency) }}</span>
-            </div>
-          </div>
-        </section>
-      </section>
-    </section>
-  </ng-template>
 </ion-content>
+
+<div class="controls-backdrop" *ngIf="isMatchControlsOpen" (click)="closeMatchControls()"></div>
+<section class="match-controls-sheet" *ngIf="isMatchControlsOpen" role="dialog" aria-modal="true" aria-labelledby="match-controls-title">
+  <div class="match-controls-head">
+    <div>
+      <span>Live corrections</span>
+      <h2 id="match-controls-title">Match Controls</h2>
+    </div>
+    <button type="button" (click)="closeMatchControls()" aria-label="Close match controls">Close</button>
+  </div>
+
+  <div class="control-group">
+    <div class="control-group-copy">
+      <strong>Serve</strong>
+      <span>{{ gameState.servingTeam === 'team' ? teamDisplayName : opponentName }} serving</span>
+    </div>
+    <div class="control-options">
+      <button type="button" [class.active]="gameState.servingTeam === 'team'" (click)="setServingTeam('team')">{{ teamDisplayName }}</button>
+      <button type="button" [class.active]="gameState.servingTeam === 'opponent'" (click)="setServingTeam('opponent')">{{ opponentName }}</button>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <div class="control-group-copy">
+      <strong>Team Rotation</strong>
+      <span>Current R{{ gameState.teamRotation }}</span>
+    </div>
+    <div class="rotation-options" aria-label="Correct team rotation">
+      <button
+        *ngFor="let rotation of rotationChoices"
+        type="button"
+        [class.active]="rotation === gameState.teamRotation"
+        [disabled]="rotation === gameState.teamRotation"
+        (click)="manualRotateTo(rotation)"
+      >R{{ rotation }}</button>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <div class="control-group-copy">
+      <strong>Timeouts</strong>
+      <span>{{ teamDisplayName }} {{ gameState.teamTimeoutsRemaining }} · {{ opponentName }} {{ gameState.opponentTimeoutsRemaining }}</span>
+    </div>
+    <div class="control-options">
+      <button type="button" [disabled]="gameState.teamTimeoutsRemaining === 0" (click)="callTimeout('team')">Our timeout</button>
+      <button type="button" [disabled]="gameState.opponentTimeoutsRemaining === 0" (click)="callTimeout('opponent')">Opponent timeout</button>
+    </div>
+  </div>
+
+  <button type="button" class="end-early-control" (click)="endMatchEarly()">End Match Early</button>
+</section>
 
 <ion-action-sheet
   [isOpen]="isExitSheetOpen"

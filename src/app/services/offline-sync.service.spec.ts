@@ -2,6 +2,7 @@ import { OfflineSyncService } from './offline-sync.service';
 import {
   FirestoreCollection,
   FirestoreDocumentMap,
+  Game,
   GameEvent,
   Player,
   PlayerSetStats,
@@ -249,5 +250,23 @@ describe('OfflineSyncService', () => {
     expect(service.pendingCount()).toBe(0);
     expect(service.lastError()).toBeNull();
     expect(service.lastSuccessfulSyncAt()).not.toBeNull();
+  });
+
+  it('takes over a live match with a new writer generation', () => {
+    const now = '2026-02-10T10:00:00.000Z';
+    const game: Game = {
+      id: 'm-live', ownerId: 'owner-1', teamId: 'team-1', opponentName: 'Central High', status: 'live',
+      servingTeam: 'team', teamPoints: 4, opponentPoints: 3, teamSets: 0, opponentSets: 0, currentSet: 1,
+      isMatchOver: false, teamTimeoutsRemaining: 2, opponentTimeoutsRemaining: 2, teamRotation: 1,
+      startedAt: now, endedAt: null, createdAt: now, updatedAt: now,
+      writerDeviceId: 'other-device', writerGeneration: 3,
+    };
+    service.queueGame(game);
+
+    expect(service.isCurrentScoringDevice(game.id)).toBeFalse();
+    expect(service.takeOverScoring(game.id)).toBeTrue();
+    expect(service.getGame(game.id)?.writerGeneration).toBe(4);
+    expect(service.getGame(game.id)?.writerDeviceId).not.toBe('other-device');
+    expect(service.isCurrentScoringDevice(game.id)).toBeTrue();
   });
 });

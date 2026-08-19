@@ -1,323 +1,117 @@
-import { NgClass } from '@angular/common';
+import { NgClass, NgFor, NgIf } from '@angular/common';
 import { Component } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import {
-  alertCircleOutline,
-  cloudDoneOutline,
-  cloudOfflineOutline,
-  createOutline,
-  gridOutline,
-  informationCircleOutline,
-  logOutOutline,
-  people,
-  peopleOutline,
-  play,
-  playCircle,
-  radioButtonOnOutline,
-  swapHorizontalOutline,
-  timeOutline,
-} from 'ionicons/icons';
+import { cloudDoneOutline, cloudOfflineOutline, logOutOutline, peopleOutline, timeOutline } from 'ionicons/icons';
 import { AuthService } from '../../services/auth.service';
 import { MatchStateService } from '../../services/match-state.service';
+import { MatchStatsService } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
-import { LineupSlot, RosterTeam, TeamRosterService } from '../../services/team-roster.service';
-
-type HomeStepState = 'complete' | 'current' | 'locked';
-
-interface HomeReadinessRow {
-  label: string;
-  detail: string;
-  state: HomeStepState;
-  value: string;
-}
+import { TeamRosterService } from '../../services/team-roster.service';
 
 @Component({
   selector: 'app-home',
   templateUrl: './home.page.html',
   styleUrls: ['./home.page.scss'],
   standalone: true,
-  imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonIcon, NgClass, RouterLink],
+  imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonIcon, NgClass, NgFor, NgIf, RouterLink],
 })
 export class HomePage {
-  showTeamPicker = false;
+  signOutError: string | null = null;
 
   constructor(
     public readonly teamRoster: TeamRosterService,
     public readonly matchState: MatchStateService,
     public readonly offlineSync: OfflineSyncService,
+    private readonly matchStats: MatchStatsService,
     private readonly auth: AuthService,
     private readonly router: Router,
   ) {
-    addIcons({
-      timeOutline,
-      playCircle,
-      people,
-      createOutline,
-      play,
-      cloudDoneOutline,
-      cloudOfflineOutline,
-      swapHorizontalOutline,
-      logOutOutline,
-      peopleOutline,
-      gridOutline,
-      radioButtonOnOutline,
-      alertCircleOutline,
-      informationCircleOutline,
-    });
+    addIcons({ cloudDoneOutline, cloudOfflineOutline, logOutOutline, peopleOutline, timeOutline });
   }
 
-  get userEmail(): string | null {
-    return this.auth.email;
+  get userEmail(): string | null { return this.auth.email; }
+  get activeMatchId(): string { return this.offlineSync.getActiveMatchId(); }
+  get activeGame() { return this.offlineSync.getGame(this.activeMatchId); }
+
+  get hasStartedMatch(): boolean {
+    return !!this.activeGame || this.offlineSync.getMatchEvents(this.activeMatchId).some((event) => event.type === 'matchStarted');
   }
 
-  async signOut(): Promise<void> {
-    await this.auth.signOut();
-    await this.router.navigate(['/login']);
+  get hasLiveMatch(): boolean {
+    return this.activeGame ? this.activeGame.status === 'live' : this.hasStartedMatch && !this.matchState.state().isMatchOver;
   }
 
-  get cloudTeams(): RosterTeam[] {
-    return this.teamRoster.cloudTeams();
+  get hasReviewableMatch(): boolean {
+    return this.activeGame?.status === 'final' ||
+      this.activeGame?.status === 'ended-early' ||
+      this.matchState.state().isMatchOver;
   }
 
-  toggleTeamPicker(): void {
-    this.showTeamPicker = !this.showTeamPicker;
+  get playerCount(): number { return this.teamRoster.players().length; }
+  get defaultLineup() { return this.teamRoster.getMatchStartingSlots(); }
+  get assignedDefaultCount(): number { return this.teamRoster.matchDefaults().startingLineup.filter((id) => !!id).length; }
+
+  get nextTitle(): string {
+    if (this.hasLiveMatch) return this.matchState.state().isSetBreak ? 'Set up the next set' : 'Resume the live match';
+    if (this.hasReviewableMatch) return this.activeGame?.status === 'ended-early' ? 'Review the ended match' : 'Review the final match';
+    if (this.playerCount < 6) return 'Build your team';
+    return 'Set up the next match';
   }
 
-  switchToTeam(teamId: string): void {
-    this.teamRoster.switchToTeam(teamId);
-    this.showTeamPicker = false;
-  }
-
-  get hasValidLineup(): boolean {
-    const lineup = this.teamRoster.lineup();
-    const assigned = lineup.filter((playerId): playerId is string => !!playerId);
-    return (
-      assigned.length === 6 &&
-      new Set(assigned).size === 6 &&
-      assigned.every((playerId) => !!this.teamRoster.getPlayerById(playerId))
-    );
-  }
-
-  get lineupAssignedCount(): number {
-    return this.teamRoster.lineup().filter((playerId) => !!playerId).length;
-  }
-
-  get playerPoolCount(): number {
-    return this.teamRoster.players().length;
-  }
-
-  get hasMatchStarted(): boolean {
+  get nextDetail(): string {
     const state = this.matchState.state();
-    if (state.teamPoints > 0 || state.opponentPoints > 0 || state.teamSets > 0 || state.opponentSets > 0 || state.currentSet > 1) {
-      return true;
+    if (this.hasLiveMatch) {
+      return state.isSetBreak
+        ? `Set ${state.currentSet} is complete. Confirm the next lineup and first serve.`
+        : `vs ${this.activeGame?.opponentName || 'Opponent'} · Set ${state.currentSet} · ${state.teamPoints}–${state.opponentPoints}`;
     }
-
-    const events = this.offlineSync.getMatchEvents(this.offlineSync.getActiveMatchId());
-    return events.some((event) => event.type === 'matchStarted');
+    if (this.hasReviewableMatch) {
+      return `vs ${this.activeGame?.opponentName || 'Opponent'} · ${this.activeGame?.teamSets ?? state.teamSets}–${this.activeGame?.opponentSets ?? state.opponentSets} sets`;
+    }
+    if (this.playerCount < 6) {
+      const missing = 6 - this.playerCount;
+      return `Add ${missing} more player${missing === 1 ? '' : 's'} to prepare a Match Squad.`;
+    }
+    return 'Confirm the opponent, Match Squad, Starting Lineup, and first serve.';
   }
 
-  get matchStatusText(): string {
-    const state = this.matchState.state();
-    if (state.isMatchOver) {
-      return `Final vs ${this.opponentName}: ${state.teamSets}-${state.opponentSets} sets`;
-    }
-    if (!this.hasMatchStarted) {
-      return 'No live match in progress';
-    }
-    return `Live vs ${this.opponentName}: ${state.teamPoints}-${state.opponentPoints} in set ${state.currentSet}`;
+  get nextActionLabel(): string {
+    if (this.hasLiveMatch) return this.matchState.state().isSetBreak ? 'Continue Match' : 'Resume Match';
+    if (this.hasReviewableMatch) return 'Review Match';
+    if (this.playerCount < 6) return 'Manage Team';
+    return 'Set Up Match';
   }
 
-  get syncStatusText(): string {
-    if (this.offlineSync.lastError()) {
-      return 'Saved on device. Cloud sync needs retry';
-    }
-
-    if (this.offlineSync.pendingCount() > 0) {
-      return `${this.offlineSync.pendingCount()} change(s) pending sync`;
-    }
-
-    if (this.offlineSync.lastSuccessfulSyncAt()) {
-      return 'All changes synced';
-    }
-
-    return 'No successful sync yet';
+  get nextActionRoute(): string[] {
+    if (this.hasLiveMatch) return ['/court'];
+    if (this.hasReviewableMatch) return ['/review', this.activeMatchId];
+    if (this.playerCount < 6) return ['/team'];
+    return ['/pre-match'];
   }
 
-  get compactSyncStatusText(): string {
-    if (this.offlineSync.lastError()) {
-      return 'Sync needs retry';
-    }
-
-    if (this.offlineSync.pendingCount() > 0) {
-      return `${this.offlineSync.pendingCount()} pending`;
-    }
-
-    if (this.offlineSync.lastSuccessfulSyncAt()) {
-      return 'Synced';
-    }
-
-    return 'Local save';
+  get syncText(): string {
+    if (this.offlineSync.lastError()) return 'Saved here · Sync needs retry';
+    if (this.offlineSync.pendingCount() > 0) return `Saved here · ${this.offlineSync.pendingCount()} pending`;
+    return this.offlineSync.lastSuccessfulSyncAt() ? 'Synced' : 'Saved on this device';
   }
 
   get hasSyncAttention(): boolean {
     return this.offlineSync.pendingCount() > 0 || !!this.offlineSync.lastError();
   }
 
-  get hasActiveMatch(): boolean {
-    return this.hasMatchStarted && !this.matchState.state().isMatchOver;
-  }
-
-  get opponentName(): string {
-    return this.offlineSync.getGame(this.offlineSync.getActiveMatchId())?.opponentName?.trim() || 'Opponent';
-  }
-
-  get liveMatchButtonText(): string {
-    return this.hasActiveMatch ? 'Resume Live Match' : 'Open Live Match';
-  }
-
-  get showFirstMatchGuide(): boolean {
-    return !this.hasMatchStarted && (!this.hasValidLineup || this.playerPoolCount < 6);
-  }
-
-  get heroLineupSlots(): LineupSlot[] {
-    return this.teamRoster.getLineupSlots();
-  }
-
-  get heroCourtTitle(): string {
-    if (this.hasValidLineup) {
-      return 'Starting six';
+  async signOut(): Promise<void> {
+    this.signOutError = null;
+    if (!(await this.offlineSync.prepareForSignOut())) {
+      this.signOutError = 'Sign out is blocked until saved changes reach the cloud. Reconnect, then try again.';
+      return;
     }
-
-    if (this.playerPoolCount >= 6) {
-      return 'Lineup not set';
-    }
-
-    return 'Build your roster';
-  }
-
-  get heroCourtDetail(): string {
-    if (this.hasValidLineup) {
-      return `${this.lineupAssignedCount}/6 starters ready`;
-    }
-
-    if (this.playerPoolCount >= 6) {
-      return `${this.lineupAssignedCount}/6 starters assigned`;
-    }
-
-    return `${this.playerPoolCount}/6 players added`;
-  }
-
-  get nextActionTitle(): string {
-    if (this.hasActiveMatch) {
-      return 'Resume the live match';
-    }
-    if (this.matchState.state().isMatchOver) {
-      return 'Review the final match';
-    }
-    if (this.playerPoolCount < 6) {
-      return 'Build your team';
-    }
-    if (!this.hasValidLineup) {
-      return 'Set your starting lineup';
-    }
-    return 'Start a tracked match';
-  }
-
-  get nextActionDetail(): string {
-    if (this.hasActiveMatch) {
-      return this.matchStatusText;
-    }
-    if (this.matchState.state().isMatchOver) {
-      return `${this.matchStatusText}. Start another match from lineup setup when you are ready.`;
-    }
-    if (this.playerPoolCount < 6) {
-      return 'Add at least 6 players once. Spike reuses this player pool for every match.';
-    }
-    if (!this.hasValidLineup) {
-      return 'Place 6 starters on the court so every scoring tap is tied to the right player.';
-    }
-    return 'Name the opponent, choose first serve, then score the match from the live court.';
-  }
-
-  get primaryActionText(): string {
-    if (this.hasActiveMatch) {
-      return 'Resume Match';
-    }
-    if (this.matchState.state().isMatchOver) {
-      return 'View Match History';
-    }
-    if (this.hasValidLineup) {
-      return 'Start Match';
-    }
-    return this.playerPoolCount < 6 ? 'Add Players' : 'Set Lineup';
-  }
-
-  get secondaryActionText(): string {
-    if (this.playerPoolCount < 6) {
-      return 'Add Players';
-    }
-
-    return this.hasValidLineup ? 'Edit Lineup' : 'Set Lineup';
-  }
-
-  get primaryActionRoute(): string[] {
-    if (this.hasActiveMatch) {
-      return ['/court'];
-    }
-    if (this.matchState.state().isMatchOver) {
-      return ['/history'];
-    }
-    return ['/pre-match'];
-  }
-
-  get readinessRows(): HomeReadinessRow[] {
-    return [
-      {
-        label: 'Roster',
-        detail: this.playerPoolCount >= 6 ? 'Player pool is ready for lineup setup' : 'Add at least 6 players once',
-        state: this.playerPoolCount >= 6 ? 'complete' : 'current',
-        value: `${this.playerPoolCount}/6`,
-      },
-      {
-        label: 'Starting six',
-        detail: this.hasValidLineup
-          ? 'Six unique starters assigned'
-          : this.playerPoolCount < 6
-            ? 'Add your roster before setting starters'
-            : 'Tap players into open court spots',
-        state: this.playerPoolCount < 6 ? 'locked' : this.hasValidLineup ? 'complete' : 'current',
-        value: `${this.lineupAssignedCount}/6`,
-      },
-      {
-        label: 'Live match',
-        detail: this.hasActiveMatch ? this.matchStatusText : this.hasValidLineup ? 'Ready to name opponent and serve' : 'Unlocks after lineup is ready',
-        state: this.hasActiveMatch ? 'complete' : this.hasValidLineup ? 'current' : 'locked',
-        value: this.hasActiveMatch ? 'Live' : this.hasValidLineup ? 'Ready' : 'Locked',
-      },
-    ];
-  }
-
-  get matchCardTitle(): string {
-    if (this.hasActiveMatch) {
-      return `Live vs ${this.opponentName}`;
-    }
-    if (this.matchState.state().isMatchOver) {
-      return `Final vs ${this.opponentName}`;
-    }
-    return 'No live match yet';
-  }
-
-  get matchCardDetail(): string {
-    const state = this.matchState.state();
-    if (this.hasActiveMatch || state.isMatchOver) {
-      return `${state.teamSets}-${state.opponentSets} sets, ${state.teamPoints}-${state.opponentPoints} in set ${state.currentSet}`;
-    }
-    return 'Start from lineup setup when your starters are ready.';
-  }
-
-  get syncIconName(): string {
-    return this.offlineSync.lastError() || this.offlineSync.pendingCount() > 0 ? 'cloud-offline-outline' : 'cloud-done-outline';
+    this.offlineSync.clearOwnerLocalData();
+    this.teamRoster.clearOwnerLocalData();
+    this.matchState.clearOwnerLocalData();
+    this.matchStats.clearOwnerLocalData();
+    await this.auth.signOut();
+    await this.router.navigate(['/login']);
   }
 }

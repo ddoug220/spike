@@ -1,4 +1,4 @@
-import { Injectable, Optional, computed, effect, signal } from '@angular/core';
+import { Injectable, Injector, Optional, computed, effect, signal } from '@angular/core';
 import { Player, PrimaryPosition, Roster, Team } from '../models/firestore.models';
 import { AuthService } from './auth.service';
 import { FirebaseDbService, TeamRosterSnapshot } from './firebase-db.service';
@@ -35,10 +35,20 @@ export interface LineupSlot {
   player: RosterPlayer | null;
 }
 
+export interface MatchDefaults {
+  squadPlayerIds: string[];
+  startingLineup: Array<string | null>;
+}
+
 interface PersistedRosterState {
   team?: Partial<RosterTeam>;
   players: Array<Partial<RosterPlayer>>;
   lineup: Array<string | null>;
+  matchDefaultsByTeam?: Record<string, Partial<MatchDefaults>>;
+}
+
+interface MatchDefaultsRoster extends Roster {
+  squadPlayerIds?: string[];
 }
 
 type RosterSyncScope = 'all' | 'roster';
@@ -51,6 +61,7 @@ export class TeamRosterService {
   private readonly teamSignal = signal<RosterTeam>(this.createDefaultTeam());
   private readonly playersSignal = signal<RosterPlayer[]>([]);
   private readonly lineupSignal = signal<Array<string | null>>([null, null, null, null, null, null]);
+  private readonly matchDefaultsByTeamSignal = signal<Record<string, MatchDefaults>>({});
   private restoredLocalState = false;
 
   private readonly cloudSnapshotSignal = signal<TeamRosterSnapshot | null>(null);
@@ -58,6 +69,7 @@ export class TeamRosterService {
   readonly team = computed(() => this.teamSignal());
   readonly players = computed(() => this.playersSignal());
   readonly lineup = computed(() => this.lineupSignal());
+  readonly matchDefaults = computed(() => this.getMatchDefaults(this.teamSignal().id));
   readonly cloudTeams = computed<RosterTeam[]>(() => {
     const snapshot = this.cloudSnapshotSignal();
     if (!snapshot) return [];
@@ -72,14 +84,22 @@ export class TeamRosterService {
     private readonly auth: AuthService,
     @Optional() private readonly offlineSync?: OfflineSyncService,
     @Optional() private readonly firebaseDb?: FirebaseDbService,
+    @Optional() injector?: Injector,
   ) {
     this.restore();
-    effect(() => {
+    if (injector) {
+      effect(() => {
+        const uid = this.auth.user()?.uid ?? null;
+        if (uid) {
+          void this.restoreFromFirebase(uid);
+        }
+      }, { injector });
+    } else {
       const uid = this.auth.user()?.uid ?? null;
       if (uid) {
         void this.restoreFromFirebase(uid);
       }
-    });
+    }
   }
 
   updateTeamName(name: string): boolean {
@@ -150,6 +170,16 @@ export class TeamRosterService {
     const removedPlayer = this.getPlayerById(playerId);
     this.playersSignal.update((players) => players.filter((player) => player.id !== playerId));
     this.lineupSignal.update((lineup) => lineup.map((id) => (id === playerId ? null : id)));
+    this.matchDefaultsByTeamSignal.update((defaultsByTeam) => {
+      const nextDefaults: Record<string, MatchDefaults> = {};
+      for (const [teamId, defaults] of Object.entries(defaultsByTeam)) {
+        nextDefaults[teamId] = {
+          squadPlayerIds: defaults.squadPlayerIds.filter((id) => id !== playerId),
+          startingLineup: defaults.startingLineup.map((id) => (id === playerId ? null : id)),
+        };
+      }
+      return nextDefaults;
+    });
     this.persist('all');
     if (removedPlayer) {
       this.queueInactivePlayer(removedPlayer);
@@ -208,6 +238,85 @@ export class TeamRosterService {
       position: index + 1,
       player: this.getPlayerById(playerId),
     }));
+  }
+
+  getMatchStartingSlots(): LineupSlot[] {
+    return this.matchDefaults().startingLineup.map((playerId, index) => ({
+      position: index + 1,
+      player: this.getPlayerById(playerId),
+    }));
+  }
+
+  getMatchSquadPlayers(): RosterPlayer[] {
+    const squadIds = new Set(this.matchDefaults().squadPlayerIds);
+    return this.playersSignal().filter((player) => squadIds.has(player.id));
+  }
+
+  isInMatchSquad(playerId: string): boolean {
+    return this.matchDefaults().squadPlayerIds.includes(playerId);
+  }
+
+  setMatchSquadPlayer(playerId: string, selected: boolean): void {
+    if (!this.getPlayerById(playerId)) {
+      return;
+    }
+
+    const defaults = this.matchDefaults();
+    const squad = new Set(defaults.squadPlayerIds);
+    if (selected) {
+      squad.add(playerId);
+    } else {
+      squad.delete(playerId);
+    }
+
+    this.setCurrentMatchDefaults({
+      squadPlayerIds: [...squad],
+      startingLineup: defaults.startingLineup.map((id) => (id === playerId ? null : id)),
+    });
+  }
+
+  assignMatchStarter(playerId: string, position: number): void {
+    const targetIndex = position - 1;
+    if (targetIndex < 0 || targetIndex >= 6 || !this.isInMatchSquad(playerId)) {
+      return;
+    }
+
+    const defaults = this.matchDefaults();
+    const startingLineup = [...defaults.startingLineup];
+    const currentIndex = startingLineup.indexOf(playerId);
+    if (currentIndex >= 0) {
+      startingLineup[currentIndex] = null;
+    }
+    startingLineup[targetIndex] = playerId;
+    this.setCurrentMatchDefaults({ ...defaults, startingLineup });
+  }
+
+  unassignMatchStarter(position: number): void {
+    const targetIndex = position - 1;
+    if (targetIndex < 0 || targetIndex >= 6) {
+      return;
+    }
+
+    const defaults = this.matchDefaults();
+    const startingLineup = [...defaults.startingLineup];
+    startingLineup[targetIndex] = null;
+    this.setCurrentMatchDefaults({ ...defaults, startingLineup });
+  }
+
+  activateMatchLineup(): boolean {
+    const startingLineup = this.matchDefaults().startingLineup;
+    const assigned = startingLineup.filter((id): id is string => !!id);
+    if (
+      assigned.length !== 6 ||
+      new Set(assigned).size !== 6 ||
+      assigned.some((id) => !this.getPlayerById(id))
+    ) {
+      return false;
+    }
+
+    this.lineupSignal.set([...startingLineup]);
+    this.persist('roster');
+    return true;
   }
 
   isAssigned(playerId: string): boolean {
@@ -299,8 +408,9 @@ export class TeamRosterService {
       team: this.teamSignal(),
       players: this.playersSignal(),
       lineup: this.lineupSignal(),
+      matchDefaultsByTeam: this.matchDefaultsByTeamSignal(),
     };
-    window.localStorage.setItem(TeamRosterService.STORAGE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(this.ownerKey(), JSON.stringify(state));
     this.syncToFirebase(syncScope);
   }
 
@@ -309,7 +419,7 @@ export class TeamRosterService {
       return;
     }
 
-    const raw = window.localStorage.getItem(TeamRosterService.STORAGE_KEY);
+    const raw = window.localStorage.getItem(this.ownerKey());
     if (!raw) {
       return;
     }
@@ -322,12 +432,30 @@ export class TeamRosterService {
 
       const normalizedTeam = this.normalizeTeam(parsed.team);
       this.teamSignal.set(normalizedTeam);
-      this.playersSignal.set(this.normalizePlayers(parsed.players, normalizedTeam.createdAt));
-      this.lineupSignal.set(parsed.lineup.map((id) => (typeof id === 'string' ? id : null)));
+      const players = this.normalizePlayers(parsed.players, normalizedTeam.createdAt);
+      const lineup = parsed.lineup.map((id) => (typeof id === 'string' ? id : null));
+      this.playersSignal.set(players);
+      this.lineupSignal.set(lineup);
+      this.matchDefaultsByTeamSignal.set(
+        this.normalizeMatchDefaultsByTeam(parsed.matchDefaultsByTeam, normalizedTeam.id, players, lineup),
+      );
       this.restoredLocalState = true;
     } catch {
       // Ignore invalid persisted data and continue with defaults.
     }
+  }
+
+  clearOwnerLocalData(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(this.ownerKey());
+    }
+    this.teamSignal.set(this.createDefaultTeam());
+    this.playersSignal.set([]);
+    this.lineupSignal.set([null, null, null, null, null, null]);
+  }
+
+  private ownerKey(): string {
+    return `${TeamRosterService.STORAGE_KEY}:${this.auth.uid ?? 'signed-out'}`;
   }
 
   switchToTeam(teamId: string): boolean {
@@ -374,7 +502,7 @@ export class TeamRosterService {
     const roster = snapshot.rosters
       .filter((entry) => entry.teamId === team.id && entry.gameId === null)
       .slice()
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] as MatchDefaultsRoster | undefined;
     const playerIds = new Set(snapshot.players.filter((player) => player.teamId === team.id).map((player) => player.id));
     const cloudLineup = roster?.lineup.length === 6 ? roster.lineup.map((id) => (typeof id === 'string' && playerIds.has(id) ? id : null)) : this.lineupSignal();
 
@@ -390,6 +518,17 @@ export class TeamRosterService {
         .map((player) => this.fromFirestorePlayer(player)),
     );
     this.lineupSignal.set(cloudLineup);
+    this.matchDefaultsByTeamSignal.update((defaultsByTeam) => ({
+      ...defaultsByTeam,
+      [team.id]: defaultsByTeam[team.id] ?? {
+        squadPlayerIds: Array.isArray(roster?.squadPlayerIds)
+          ? roster.squadPlayerIds.filter((id) => playerIds.has(id))
+          : snapshot.players
+              .filter((player) => player.teamId === team.id && player.active)
+              .map((player) => player.id),
+        startingLineup: [...cloudLineup],
+      },
+    }));
     this.persist('all');
     return true;
   }
@@ -423,6 +562,53 @@ export class TeamRosterService {
     return players
       .map((player) => this.normalizePlayer(player, fallbackTimestamp))
       .filter((player): player is RosterPlayer => !!player);
+  }
+
+  private normalizeMatchDefaultsByTeam(
+    rawDefaults: Record<string, Partial<MatchDefaults>> | undefined,
+    currentTeamId: string,
+    players: RosterPlayer[],
+    legacyLineup: Array<string | null>,
+  ): Record<string, MatchDefaults> {
+    const playerIds = new Set(players.map((player) => player.id));
+    const defaultsByTeam: Record<string, MatchDefaults> = {};
+
+    for (const [teamId, raw] of Object.entries(rawDefaults ?? {})) {
+      const squadPlayerIds = Array.isArray(raw.squadPlayerIds)
+        ? [...new Set(raw.squadPlayerIds.filter((id): id is string => typeof id === 'string'))]
+        : [];
+      const startingLineup = Array.isArray(raw.startingLineup) && raw.startingLineup.length === 6
+        ? raw.startingLineup.map((id) => (typeof id === 'string' ? id : null))
+        : [null, null, null, null, null, null];
+      defaultsByTeam[teamId] = { squadPlayerIds, startingLineup };
+    }
+
+    if (!defaultsByTeam[currentTeamId]) {
+      defaultsByTeam[currentTeamId] = {
+        squadPlayerIds: players.map((player) => player.id),
+        startingLineup: legacyLineup.map((id) => (typeof id === 'string' && playerIds.has(id) ? id : null)),
+      };
+    }
+
+    return defaultsByTeam;
+  }
+
+  private getMatchDefaults(teamId: string): MatchDefaults {
+    return this.matchDefaultsByTeamSignal()[teamId] ?? {
+      squadPlayerIds: [],
+      startingLineup: [null, null, null, null, null, null],
+    };
+  }
+
+  private setCurrentMatchDefaults(defaults: MatchDefaults): void {
+    this.matchDefaultsByTeamSignal.update((defaultsByTeam) => ({
+      ...defaultsByTeam,
+      [this.teamSignal().id]: {
+        squadPlayerIds: [...defaults.squadPlayerIds],
+        startingLineup: [...defaults.startingLineup],
+      },
+    }));
+    this.persist('roster');
   }
 
   private normalizePlayer(player: Partial<RosterPlayer>, fallbackTimestamp: string): RosterPlayer | null {
@@ -506,13 +692,17 @@ export class TeamRosterService {
     };
   }
 
-  private toFirestoreRoster(teamId: string, timestamp: string): Roster {
+  private toFirestoreRoster(teamId: string, timestamp: string): MatchDefaultsRoster {
+    const defaults = this.getMatchDefaults(teamId);
+    const savedLineup = defaults.startingLineup;
+    const hasSavedLineup = savedLineup.some((playerId) => !!playerId);
     return {
       id: this.createRosterId(teamId),
       ownerId: this.auth.uid ?? '',
       teamId,
       gameId: null,
-      lineup: [...this.lineupSignal()],
+      squadPlayerIds: [...defaults.squadPlayerIds],
+      lineup: [...(hasSavedLineup ? savedLineup : this.lineupSignal())],
       createdAt: this.teamSignal().createdAt,
       updatedAt: timestamp,
     };

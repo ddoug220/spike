@@ -20,6 +20,10 @@ const firebaseDbStub = {
     onData(null);
     return () => undefined;
   },
+  subscribeGames: (_ownerId: string, onData: (games: []) => void) => {
+    onData([]);
+    return () => undefined;
+  },
   subscribeEvents: (_gameId: string, onData: (events: []) => void) => {
     onData([]);
     return () => undefined;

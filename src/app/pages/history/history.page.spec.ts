@@ -17,6 +17,8 @@ describe('HistoryPage', () => {
       getGame: () => null,
       getActiveMatchId: () => 'another-match',
       pendingCount: () => 0,
+      subscribeRemoteGames: () => () => undefined,
+      cacheRemoteGame: () => undefined,
     };
 
     await TestBed.configureTestingModule({

@@ -1,6 +1,6 @@
 import type { Game, GameEvent } from '../models/firestore.models';
 import type { MatchScoreState } from './match-state.service';
-import type { PlayerStatLine, StatsState } from './match-stats.service';
+import type { PlayerStatLine, SetStatsState, StatsState } from './match-stats.service';
 import {
   MATCH_SCHEMA_VERSION,
   type CourtPosition,
@@ -10,9 +10,16 @@ import {
   type MatchSession,
   type PlayerRallyAction,
   type RallyAction,
+  type SetNumber,
   type TeamRotation,
   selectPlayerCountStats,
+  reduceMatch,
 } from '../domain/match-v2';
+
+export function projectionFromFirestore(game: Game, storedEvents: readonly GameEvent[]): MatchProjection | null {
+  const session = sessionFromGame(game);
+  return session ? reduceMatch(session, eventsFromFirestore(game, storedEvents)) : null;
+}
 
 export function sessionFromGame(game: Game): MatchSession | null {
   if (game.schemaVersion !== MATCH_SCHEMA_VERSION || !game.matchSquad) return null;
@@ -29,10 +36,27 @@ export function sessionFromGame(game: Game): MatchSession | null {
 
 export function eventsFromFirestore(game: Game, storedEvents: readonly GameEvent[]): MatchEvent[] {
   const fallbackLineup = readLineup(game.startingLineup);
-  return storedEvents
+  return eventsFromValidWriters(game, storedEvents)
     .filter((event) => !event.isDeleted && (event.schemaVersion ?? game.schemaVersion) === MATCH_SCHEMA_VERSION)
     .map((event, index) => toDomainEvent(game, event, index + 1, fallbackLineup))
     .filter((event): event is MatchEvent => event !== null);
+}
+
+function eventsFromValidWriters(game: Game, storedEvents: readonly GameEvent[]): GameEvent[] {
+  const currentGeneration = game.writerGeneration ?? 1;
+  const ordered = [...storedEvents].sort(
+    (left, right) => (left.sequence ?? 0) - (right.sequence ?? 0) || left.createdAt.localeCompare(right.createdAt),
+  );
+  const firstCurrentSequence = ordered.find((event) => (event.writerGeneration ?? 1) === currentGeneration)?.sequence;
+
+  return ordered.filter((event) => {
+    const generation = event.writerGeneration ?? 1;
+    if (generation === currentGeneration) {
+      return !game.writerDeviceId || !event.writerDeviceId || event.writerDeviceId === game.writerDeviceId;
+    }
+    return generation < currentGeneration &&
+      (firstCurrentSequence === undefined || (event.sequence ?? 0) < firstCurrentSequence);
+  });
 }
 
 export function scoreStateFromProjection(state: MatchProjection): MatchScoreState {
@@ -65,9 +89,28 @@ export function statsStateFromProjection(state: MatchProjection): StatsState {
       digs: player.digs,
       serviceErrors: player.serviceErrors,
       receiveErrors: player.receiveErrors,
-      sideOutOpportunities: 0,
-      sideOutConversions: 0,
     } satisfies PlayerStatLine;
+  }
+  return stats;
+}
+
+export function setStatsStateFromProjection(state: MatchProjection): SetStatsState {
+  const stats: SetStatsState = {};
+  for (const rally of state.rallies) {
+    if (!rally.playerId || (rally.action !== 'kill' && rally.action !== 'attack-error')) continue;
+    const current = stats[rally.playerId]?.[rally.setNumber] ?? {
+      kills: 0,
+      attackErrors: 0,
+      totalAttacks: 0,
+    };
+    stats[rally.playerId] = {
+      ...(stats[rally.playerId] ?? {}),
+      [rally.setNumber]: {
+        kills: current.kills + (rally.action === 'kill' ? 1 : 0),
+        attackErrors: current.attackErrors + (rally.action === 'attack-error' ? 1 : 0),
+        totalAttacks: current.totalAttacks + 1,
+      },
+    };
   }
   return stats;
 }
@@ -85,6 +128,7 @@ function toDomainEvent(
     sequence: event.sequence ?? fallbackSequence,
     writerGeneration: event.writerGeneration ?? game.writerGeneration ?? 1,
     occurredAt: event.createdAt,
+    setNumber: readSetNumber(event.setNumber ?? event.actionSetNumber ?? event.currentSet) ?? 1,
   } as const;
   const kind = event.eventKind ?? legacyKind(event);
 
@@ -205,9 +249,9 @@ function readTeamRotation(value: number | undefined): TeamRotation | null {
   return isOneToSix(value) ? (value as TeamRotation) : null;
 }
 
-function readSetNumber(value: number | undefined): 1 | 2 | 3 | 4 | 5 | null {
+function readSetNumber(value: number | undefined): SetNumber | null {
   return typeof value === 'number' && value >= 1 && value <= 5 && Number.isInteger(value)
-    ? (value as 1 | 2 | 3 | 4 | 5)
+    ? (value as SetNumber)
     : null;
 }
 

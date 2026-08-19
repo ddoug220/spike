@@ -4,6 +4,7 @@ import {
   eventsFromFirestore,
   scoreStateFromProjection,
   sessionFromGame,
+  setStatsStateFromProjection,
   statsStateFromProjection,
 } from './match-v2.adapter';
 
@@ -58,6 +59,11 @@ describe('match v2 Firestore adapter', () => {
     expect(statsStateFromProjection(projection)['p1']).toEqual(
       jasmine.objectContaining({ serveAttempts: 2, servesIn: 2 }),
     );
+    expect(setStatsStateFromProjection(projection)['p3'][1]).toEqual({
+      kills: 1,
+      attackErrors: 0,
+      totalAttacks: 1,
+    });
   });
 
   it('maps explicit v2 fields and omits archived events', () => {
@@ -85,6 +91,20 @@ describe('match v2 Firestore adapter', () => {
     expect(projection.teamRotation).toBe(5);
     expect(projection.lineup?.[0]).toBe('p7');
     expect(projection.opponentPoints).toBe(0);
+  });
+
+  it('drops stale events from an older writer after takeover', () => {
+    const match = { ...game(), writerGeneration: 2, writerDeviceId: 'new-device' };
+    const projection = reduceMatch(sessionFromGame(match)!, eventsFromFirestore(match, [
+      event(1, { type: 'matchStarted', action: 'match-started', lineup, writerGeneration: 1, writerDeviceId: 'old-device' }),
+      event(2, { type: 'playerAction', action: 'kill', playerId: 'p1', writerGeneration: 1, writerDeviceId: 'old-device' }),
+      event(3, { type: 'opponentPoint', action: 'opponent-point', writerGeneration: 2, writerDeviceId: 'new-device' }),
+      event(4, { type: 'playerAction', action: 'kill', playerId: 'p1', writerGeneration: 1, writerDeviceId: 'old-device' }),
+      event(5, { type: 'playerAction', action: 'kill', playerId: 'p1', writerGeneration: 2, writerDeviceId: 'wrong-device' }),
+    ]));
+
+    expect(projection.teamPoints).toBe(1);
+    expect(projection.opponentPoints).toBe(1);
   });
 
   function game(): Game {

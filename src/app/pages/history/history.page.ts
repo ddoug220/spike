@@ -1,5 +1,5 @@
 import { DatePipe, NgFor, NgIf } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonHeader, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { MatchArchiveSummary, OfflineSyncService } from '../../services/offline-sync.service';
@@ -11,8 +11,18 @@ import { MatchArchiveSummary, OfflineSyncService } from '../../services/offline-
   standalone: true,
   imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButton, NgFor, NgIf, RouterLink, DatePipe],
 })
-export class HistoryPage {
-  constructor(private readonly offlineSync: OfflineSyncService) {}
+export class HistoryPage implements OnDestroy {
+  private readonly unsubscribe: () => void;
+
+  constructor(private readonly offlineSync: OfflineSyncService) {
+    this.unsubscribe = this.offlineSync.subscribeRemoteGames((games) => {
+      games.forEach((game) => this.offlineSync.cacheRemoteGame(game));
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.unsubscribe();
+  }
 
   get matches(): MatchArchiveSummary[] {
     return this.offlineSync.getMatchSummaries();

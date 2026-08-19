@@ -162,7 +162,6 @@ export interface PlayerSetStats {
   attackErrors: number;
   totalAttacks: number;
   aces: number;
-  hittingEfficiency: number | null;
   serveAttempts: number;
   servesIn: number;
   serveInPercentage: number | null;
@@ -170,9 +169,6 @@ export interface PlayerSetStats {
   digs: number;
   serviceErrors: number;
   receiveErrors: number;
-  sideOutOpportunities: number;
-  sideOutConversions: number;
-  sideOutPercentage: number | null;
   createdAt: string;
   updatedAt: string;
   writerDeviceId?: string;

@@ -1,9 +1,15 @@
 import { Injectable } from '@angular/core';
 import { GameEvent } from '../models/firestore.models';
-import { MatchScoreState, MatchStateService } from './match-state.service';
-import { MatchStatsService, SetStatsState, StatsAction, StatsState } from './match-stats.service';
+import { MatchStateService } from './match-state.service';
+import { MatchStatsService, StatsAction } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
 import { RosterPlayer, TeamRosterService } from './team-roster.service';
+import {
+  projectionFromFirestore,
+  scoreStateFromProjection,
+  setStatsStateFromProjection,
+  statsStateFromProjection,
+} from './match-v2.adapter';
 
 type PointSide = 'team' | 'opponent';
 
@@ -181,7 +187,6 @@ export class MatchEngineService {
     if (!this.matchState.startNextSet(servingTeam)) {
       return false;
     }
-    this.teamRoster.setLineup(lineup);
     this.currentSetStartingLineup = [...lineup];
     this.currentRallyId = this.createEventId('rally');
     const createdAt = new Date().toISOString();
@@ -411,9 +416,9 @@ export class MatchEngineService {
       return false;
     }
 
-    const courtPosition = this.teamRoster.lineup().indexOf(outPlayerId) + 1;
-    const didSubstitute = this.teamRoster.substitutePlayers(outPlayerId, inPlayerId);
-    if (!didSubstitute) {
+    const lineup = this.projectedLineup();
+    const courtPosition = (lineup?.indexOf(outPlayerId) ?? -1) + 1;
+    if (!lineup || courtPosition === 0 || lineup.includes(inPlayerId) || !this.teamRoster.getPlayerById(inPlayerId)) {
       return false;
     }
 
@@ -506,9 +511,6 @@ export class MatchEngineService {
       return false;
     }
 
-    for (let step = 0; step < rotationSteps; step += 1) {
-      this.teamRoster.rotateLineupClockwise();
-    }
     this.teamServeAttemptTrackedThisRally = false;
 
     const eventId = this.createEventId('evt');
@@ -533,7 +535,6 @@ export class MatchEngineService {
       ...this.gameEventStateFields(),
       teamRotation: nextState.teamRotation,
       servingTeam: nextState.servingTeam,
-      lineup: this.teamRoster.getLineupSnapshot(),
       previousTeamRotation: previousRotation,
       targetTeamRotation: normalizedTarget,
       targetRotation: normalizedTarget,
@@ -547,35 +548,25 @@ export class MatchEngineService {
   undoLastEvent(syncedEvents: GameEvent[] = this.offlineSync.getMatchEvents(this.offlineSync.getActiveMatchId())): EngineEvent | null {
     const last = this.undoStack.pop();
     if (!last) {
-      const latestEvent = syncedEvents.slice().reverse().find((event) => this.isUndoableSyncedEvent(event));
+      const latestEvent = this.offlineSync.undoLatestEvent(
+        syncedEvents.filter((event) => this.isUndoableSyncedEvent(event) || event.type === 'undo'),
+      );
       if (!latestEvent) {
         return null;
       }
 
-      const deleted = this.offlineSync.markEventDeleted(latestEvent);
-      const remainingEvents = syncedEvents.filter((event) => event.id !== deleted.id);
+      const remainingEvents = syncedEvents.filter((event) => event.id !== latestEvent.id);
       this.replayLocalStateFromEvents(remainingEvents);
-      this.replayLineupFromEvents(remainingEvents);
       this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), this.matchState.state().isMatchOver ? 'final' : 'live');
-      return this.toEngineEvent(deleted);
+      return this.toEngineEvent(latestEvent);
     }
 
     if (last.impactedScore) {
       this.matchState.undoLastPoint();
     }
-    if (last.rotatedClockwise) {
-      const steps = last.kind === 'manual-rotation' ? last.rotationSteps : 1;
-      for (let step = 0; step < steps; step += 1) {
-        this.teamRoster.rotateLineupCounterClockwise();
-      }
-    }
     if (last.impactedStats) {
       this.matchStats.undoLastAction();
     }
-    if (last.kind === 'substitution') {
-      this.teamRoster.substitutePlayers(last.inPlayerId, last.outPlayerId);
-    }
-
     this.teamServeAttemptTrackedThisRally = false;
     this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), this.matchState.state().isMatchOver ? 'final' : 'live');
 
@@ -590,8 +581,15 @@ export class MatchEngineService {
   }
 
   private getPlayerAtRotation(rotationPosition: number): RosterPlayer | null {
-    const playerId = this.teamRoster.lineup()[rotationPosition - 1] ?? null;
+    const playerId = this.projectedLineup()?.[rotationPosition - 1] ?? this.teamRoster.lineup()[rotationPosition - 1] ?? null;
     return this.teamRoster.getPlayerById(playerId);
+  }
+
+  private projectedLineup(): readonly string[] | null {
+    const matchId = this.offlineSync.getActiveMatchId();
+    const game = this.offlineSync.getGame(matchId);
+    if (!game) return null;
+    return projectionFromFirestore(game, this.offlineSync.getMatchEvents(matchId))?.lineup ?? null;
   }
 
   private applyScoreForAction(action: StatsAction): {
@@ -607,16 +605,11 @@ export class MatchEngineService {
 
     if (action === 'kill' || action === 'ace' || action === 'block' || action === 'opponent-error') {
       const result = this.matchState.recordTeamPoint();
-      let rotatedClockwise = false;
-      if (result.sideOut) {
-        this.teamRoster.rotateLineupClockwise();
-        rotatedClockwise = true;
-      }
       return {
         impactedScore: true,
         sideOutWon: result.sideOut,
         matchEnded: result.matchEnded,
-        rotatedClockwise,
+        rotatedClockwise: result.sideOut,
       };
     }
 
@@ -642,7 +635,6 @@ export class MatchEngineService {
           attackErrors: stats.attackErrors,
           totalAttacks: stats.totalAttacks,
           aces: stats.aces,
-          hittingEfficiency: this.matchStats.getHittingEfficiency(player.id),
           serveAttempts: stats.serveAttempts,
           servesIn: stats.servesIn,
           serveInPercentage: this.matchStats.getServeInPercentage(player.id),
@@ -650,9 +642,6 @@ export class MatchEngineService {
           digs: stats.digs,
           serviceErrors: stats.serviceErrors,
           receiveErrors: stats.receiveErrors,
-          sideOutOpportunities: stats.sideOutOpportunities,
-          sideOutConversions: stats.sideOutConversions,
-          sideOutPercentage: this.matchStats.getSideOutPercentage(player.id),
         };
       });
 
@@ -669,7 +658,6 @@ export class MatchEngineService {
         attackErrors: row.attackErrors,
         totalAttacks: row.totalAttacks,
         aces: row.aces,
-        hittingEfficiency: row.hittingEfficiency,
         serveAttempts: row.serveAttempts,
         servesIn: row.servesIn,
         serveInPercentage: row.serveInPercentage,
@@ -677,9 +665,6 @@ export class MatchEngineService {
         digs: row.digs,
         serviceErrors: row.serviceErrors,
         receiveErrors: row.receiveErrors,
-        sideOutOpportunities: row.sideOutOpportunities,
-        sideOutConversions: row.sideOutConversions,
-        sideOutPercentage: row.sideOutPercentage,
         createdAt: updatedAt,
         updatedAt,
       });
@@ -733,35 +718,6 @@ export class MatchEngineService {
     return trimmed || 'Opponent';
   }
 
-  private eventStateSnapshot(event: GameEvent): MatchScoreState | null {
-    if (
-      typeof event.teamPoints !== 'number' ||
-      typeof event.opponentPoints !== 'number' ||
-      typeof event.teamSets !== 'number' ||
-      typeof event.opponentSets !== 'number' ||
-      typeof event.currentSet !== 'number' ||
-      typeof event.teamTimeoutsRemaining !== 'number' ||
-      typeof event.opponentTimeoutsRemaining !== 'number' ||
-      typeof event.teamRotation !== 'number'
-    ) {
-      return null;
-    }
-
-    return {
-      teamPoints: event.teamPoints,
-      opponentPoints: event.opponentPoints,
-      teamSets: event.teamSets,
-      opponentSets: event.opponentSets,
-      currentSet: event.currentSet,
-      servingTeam: event.servingTeam ?? 'team',
-      isMatchOver: event.isMatchOver === true,
-      isSetBreak: event.isSetBreak === true,
-      teamTimeoutsRemaining: event.teamTimeoutsRemaining,
-      opponentTimeoutsRemaining: event.opponentTimeoutsRemaining,
-      teamRotation: event.teamRotation,
-    };
-  }
-
   private isStatsAction(action: string): action is StatsAction {
     return (
       action === 'kill' ||
@@ -776,162 +732,23 @@ export class MatchEngineService {
   }
 
   private isUndoableSyncedEvent(event: GameEvent): boolean {
-    return !event.isDeleted && event.type !== 'matchStarted';
+    return !event.isDeleted && event.type !== 'matchStarted' && event.type !== 'undo';
   }
 
   private replayLocalStateFromEvents(events: GameEvent[]): void {
-    const ordered = events.slice().filter((event) => !event.isDeleted).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    const stateSnapshots = ordered.map((event) => this.eventStateSnapshot(event)).filter((state): state is MatchScoreState => !!state);
-    const latestState = stateSnapshots[stateSnapshots.length - 1] ?? null;
-    if (latestState) {
-      this.matchState.hydrateState(latestState);
-    } else {
-      this.matchState.resetMatch();
-    }
-
-    const stats: StatsState = {};
-    const setStats: SetStatsState = {};
-    ordered.forEach((event) => {
-      if (event.type !== 'playerAction' || !event.playerId || !this.isStatsAction(event.action)) {
-        return;
-      }
-
-      const line = stats[event.playerId] ?? this.createEmptyStatLine();
-      if (event.wasReceiving) {
-        line.sideOutOpportunities += 1;
-      }
-      if (event.sideOutWon) {
-        line.sideOutConversions += 1;
-      }
-      if (event.action === 'kill') {
-        line.kills += 1;
-        line.totalAttacks += 1;
-      }
-      if (event.action === 'attack-error') {
-        line.attackErrors += 1;
-        line.totalAttacks += 1;
-      }
-      if (event.action === 'ace') {
-        line.aces += 1;
-        line.serveAttempts += 1;
-        line.servesIn += 1;
-      }
-      if (event.action === 'block') {
-        line.blocks += 1;
-      }
-      if (event.action === 'dig') {
-        line.digs += 1;
-      }
-      if (event.action === 'receive-error') {
-        line.receiveErrors += 1;
-      }
-      if (event.action === 'service-error') {
-        line.serviceErrors += 1;
-        line.serveAttempts += 1;
-      }
-      stats[event.playerId] = line;
-
-      if (event.inferredServeInServerPlayerId) {
-        const serveLine = stats[event.inferredServeInServerPlayerId] ?? this.createEmptyStatLine();
-        serveLine.serveAttempts += 1;
-        serveLine.servesIn += 1;
-        stats[event.inferredServeInServerPlayerId] = serveLine;
-      }
-
-      if (event.action === 'kill' || event.action === 'attack-error') {
-        const setNumber = event.actionSetNumber ?? event.currentSet ?? 1;
-        const current = setStats[event.playerId]?.[setNumber] ?? { kills: 0, attackErrors: 0, totalAttacks: 0 };
-        setStats[event.playerId] = {
-          ...(setStats[event.playerId] ?? {}),
-          [setNumber]: {
-            kills: current.kills + (event.action === 'kill' ? 1 : 0),
-            attackErrors: current.attackErrors + (event.action === 'attack-error' ? 1 : 0),
-            totalAttacks: current.totalAttacks + 1,
-          },
-        };
-      }
-    });
-    this.matchStats.replaceSnapshot(stats, setStats);
-  }
-
-  private replayLineupFromEvents(events: GameEvent[]): void {
-    const ordered = events.slice().filter((event) => !event.isDeleted).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    const seedEvent = ordered.find((event) => event.type === 'matchStarted' && this.isValidLineup(event.lineup));
-    const fallbackSeed = ordered
-      .slice()
-      .reverse()
-      .find((event) => event.type === 'manualRotation' && this.isValidLineup(event.lineup));
-    const seeded = seedEvent?.lineup ?? fallbackSeed?.lineup;
-    if (!seeded) {
-      return;
-    }
-
-    let lineup = this.normalizeLineup(seeded);
-    ordered.forEach((event) => {
-      if (event.type === 'matchStarted' && this.isValidLineup(event.lineup)) {
-        lineup = this.normalizeLineup(event.lineup);
-        return;
-      }
-
-      if (event.type === 'playerAction' && event.sideOutWon) {
-        lineup = this.rotateLineupClockwise(lineup);
-        return;
-      }
-
-      if (event.type === 'manualRotation') {
-        if (this.isValidLineup(event.lineup)) {
-          lineup = this.normalizeLineup(event.lineup);
-        } else {
-          lineup = this.rotateLineupClockwise(lineup);
-        }
-        return;
-      }
-
-      if (event.type === 'substitution' && event.outPlayerId && event.inPlayerId) {
-        const outIndex = lineup.findIndex((id) => id === event.outPlayerId);
-        if (outIndex >= 0 && !lineup.includes(event.inPlayerId)) {
-          lineup[outIndex] = event.inPlayerId;
-        }
-      }
-    });
-
-    this.teamRoster.setLineup(lineup);
+    const game = this.offlineSync.getGame(this.offlineSync.getActiveMatchId());
+    if (!game) return;
+    const projection = projectionFromFirestore(game, events);
+    if (!projection) return;
+    this.matchState.hydrateState(scoreStateFromProjection(projection));
+    this.matchStats.replaceSnapshot(
+      statsStateFromProjection(projection),
+      setStatsStateFromProjection(projection),
+    );
   }
 
   private isCompleteLineup(lineup: unknown): lineup is string[] {
     return Array.isArray(lineup) && lineup.length === 6 && lineup.every((id) => typeof id === 'string' && id.length > 0);
-  }
-
-  private isValidLineup(lineup: unknown): lineup is Array<string | null> {
-    if (!Array.isArray(lineup) || lineup.length !== 6) {
-      return false;
-    }
-    return lineup.every((id) => id === null || typeof id === 'string');
-  }
-
-  private normalizeLineup(lineup: Array<string | null>): Array<string | null> {
-    return lineup.map((id) => (typeof id === 'string' ? id : null));
-  }
-
-  private rotateLineupClockwise(lineup: Array<string | null>): Array<string | null> {
-    return lineup.map((_, index) => lineup[(index + 1) % 6] ?? null);
-  }
-
-  private createEmptyStatLine(): StatsState[string] {
-    return {
-      kills: 0,
-      attackErrors: 0,
-      totalAttacks: 0,
-      aces: 0,
-      serveAttempts: 0,
-      servesIn: 0,
-      blocks: 0,
-      digs: 0,
-      serviceErrors: 0,
-      receiveErrors: 0,
-      sideOutOpportunities: 0,
-      sideOutConversions: 0,
-    };
   }
 
   private toEngineEvent(event: GameEvent): EngineEvent {

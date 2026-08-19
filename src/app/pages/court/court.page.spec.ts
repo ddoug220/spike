@@ -4,6 +4,7 @@ import { CourtPage } from './court.page';
 import { FirebaseDbService } from '../../services/firebase-db.service';
 import { MatchStateService } from '../../services/match-state.service';
 import { TeamRosterService } from '../../services/team-roster.service';
+import { MatchEngineService } from '../../services/match-engine.service';
 
 const firebaseDbStub = {
   isConfigured: () => false,
@@ -26,6 +27,7 @@ describe('CourtPage', () => {
   let fixture: ComponentFixture<CourtPage>;
   let teamRoster: TeamRosterService;
   let matchState: MatchStateService;
+  let matchEngine: MatchEngineService;
 
   beforeEach(async () => {
     window.localStorage.clear();
@@ -37,6 +39,7 @@ describe('CourtPage', () => {
     component = fixture.componentInstance;
     teamRoster = TestBed.inject(TeamRosterService);
     matchState = TestBed.inject(MatchStateService);
+    matchEngine = TestBed.inject(MatchEngineService);
     fixture.detectChanges();
   });
 
@@ -54,14 +57,15 @@ describe('CourtPage', () => {
     }
     const players = teamRoster.players();
     players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    matchEngine.startMatch('team');
 
     component.recordOpponentPoint(); // Opponent now serving
     component.activePlayer = 1;
     component.recordAction('kill'); // Team wins while receiving -> side-out and rotate
 
-    const rotated = teamRoster.lineup();
-    expect(rotated[0]).toBe(players[1].id);
-    expect(rotated[5]).toBe(players[0].id);
+    expect(component.getPlayerForPosition(1)?.id).toBe(players[1].id);
+    expect(component.getPlayerForPosition(6)?.id).toBe(players[0].id);
+    expect(teamRoster.lineup()[0]).toBe(players[0].id);
   });
 
   it('starts without a selected player and clears selection after each rally', () => {
@@ -85,6 +89,7 @@ describe('CourtPage', () => {
   });
 
   it('renders the standard scoring actions and prominent undo control', () => {
+    component.recordOpponentPoint();
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
 
@@ -107,7 +112,8 @@ describe('CourtPage', () => {
 
     component.recordStandardOutcome('ace');
 
-    expect(component.getLastEventText()).toBe('Last: Player #2 - Ace');
+    expect(component.getLastEventText()).toContain('Last: Ace · P2');
+    expect(component.getLastEventText()).toContain('· R1');
   });
 
   it('tracks an opponent winner point separately from team-error actions', () => {
@@ -116,7 +122,7 @@ describe('CourtPage', () => {
     component.recordStandardOutcome('opponent-point');
 
     expect(matchState.state().opponentPoints).toBe(before + 1);
-    expect(component.getLastEventText()).toBe('Last: Opponent Winner');
+    expect(component.getLastEventText()).toContain('Last: Opponent Winner');
   });
 
   it('tracks a team point from opponent unforced error', () => {
@@ -125,7 +131,7 @@ describe('CourtPage', () => {
     component.recordStandardOutcome('opponent-error');
 
     expect(matchState.state().teamPoints).toBe(before + 1);
-    expect(component.getLastEventText()).toBe('Last: Opponent Unforced Error');
+    expect(component.getLastEventText()).toContain('Last: Opponent Unforced Error');
   });
 
   it('tracks service error as an opponent point and serving stat', () => {
@@ -165,7 +171,7 @@ describe('CourtPage', () => {
 
     expect(matchState.state().opponentPoints).toBe(before + 1);
     expect(component.liveStore.getPlayerStats(passer.id).receiveErrors).toBe(1);
-    expect(component.getLastEventText()).toBe('Last: Player #3 - Receive Error');
+    expect(component.getLastEventText()).toContain('Last: Receive Error · Player 3');
   });
 
   it('tracks dig as a stat tap without changing the score', () => {
@@ -186,7 +192,7 @@ describe('CourtPage', () => {
     expect(matchState.state().teamPoints).toBe(before.teamPoints);
     expect(matchState.state().opponentPoints).toBe(before.opponentPoints);
     expect(component.liveStore.getPlayerStats(defender.id).digs).toBe(1);
-    expect(component.getLastEventText()).toBe('Last: Player #4 - Dig');
+    expect(component.getLastEventText()).toContain('Last: Dig · Player 4');
   });
 
   it('allows manual rotation during live play', () => {
@@ -199,15 +205,17 @@ describe('CourtPage', () => {
     }
     const players = teamRoster.players();
     players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    matchEngine.startMatch('team');
     const initialRotation = matchState.state().teamRotation;
     const initialLineup = [...teamRoster.lineup()];
 
     component.manualRotate();
 
     expect(matchState.state().teamRotation).toBe(initialRotation >= 6 ? 1 : initialRotation + 1);
-    expect(teamRoster.lineup()[0]).toBe(initialLineup[1]);
-    expect(teamRoster.lineup()[5]).toBe(initialLineup[0]);
-    expect(component.getLastEventText()).toBe('Last: Manual Rotation');
+    expect(component.getPlayerForPosition(1)?.id).toBe(initialLineup[1] ?? undefined);
+    expect(component.getPlayerForPosition(6)?.id).toBe(initialLineup[0] ?? undefined);
+    expect(teamRoster.lineup()).toEqual(initialLineup);
+    expect(component.getLastEventText()).toContain('Last: Manual Rotation');
   });
 
   it('applies substitution immediately when a bench player is tapped in overlay mode', () => {
@@ -221,13 +229,15 @@ describe('CourtPage', () => {
     const players = teamRoster.players();
     players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
     const benchInPlayer = players[6];
+    matchEngine.startMatch('team');
 
     component.activePlayer = 1;
     component.toggleSubMode();
     component.handleBenchPlayerTap(benchInPlayer.id);
 
     expect(component.isSubOverlayOpen).toBeFalse();
-    expect(teamRoster.lineup()[0]).toBe(benchInPlayer.id);
+    expect(component.getPlayerForPosition(1)?.id).toBe(benchInPlayer.id);
+    expect(teamRoster.lineup()[0]).toBe(players[0].id);
     expect(component.substitutionStatus).toContain('Substituted:');
   });
 

@@ -21,6 +21,7 @@ class FakeFirebaseDbService {
   shouldSucceed = true;
   readonly failedEventIds = new Set<string>();
   readonly writes: Array<{ collection: FirestoreCollection; documentId: string; payload: FirestoreDocumentMap[FirestoreCollection] }> = [];
+  readonly documents = new Map<string, FirestoreDocumentMap[FirestoreCollection]>();
 
   isConfigured(): boolean {
     return true;
@@ -33,8 +34,19 @@ class FakeFirebaseDbService {
   ): Promise<{ ok: boolean; error?: string }> {
     if (this.shouldSucceed) {
       this.writes.push({ collection, documentId, payload });
+      this.documents.set(`${collection}/${documentId}`, payload);
     }
     return this.writeResult();
+  }
+
+  async readDocument<C extends FirestoreCollection>(
+    collection: C,
+    documentId: string,
+  ): Promise<{ ok: boolean; data: FirestoreDocumentMap[C] | null }> {
+    return {
+      ok: true,
+      data: (this.documents.get(`${collection}/${documentId}`) as FirestoreDocumentMap[C] | undefined) ?? null,
+    };
   }
 
   async writeEvent(payload: GameEvent): Promise<{ ok: boolean; error?: string }> {
@@ -78,7 +90,6 @@ describe('OfflineSyncService', () => {
     attackErrors: 0,
     totalAttacks: 0,
     aces: 0,
-    hittingEfficiency: null,
     serveAttempts: 0,
     servesIn: 0,
     serveInPercentage: null,
@@ -86,9 +97,6 @@ describe('OfflineSyncService', () => {
     digs: 0,
     serviceErrors: 0,
     receiveErrors: 0,
-    sideOutOpportunities: 0,
-    sideOutConversions: 0,
-    sideOutPercentage: null,
     createdAt: updatedAt,
     updatedAt,
   });
@@ -224,15 +232,16 @@ describe('OfflineSyncService', () => {
     expect(service.getPlayerSetStats('m-archive').length).toBe(1);
   });
 
-  it('optimistically hides undone events and queues the delete marker', async () => {
+  it('appends an undo event without changing the original event', async () => {
     service.queueMatchEvent(event('evt-delete', service.getActiveMatchId(), 'playerAction', '2026-02-10T10:00:00.000Z'));
     await waitForIdle();
 
-    const deleted = service.undoLastEvent('evt-delete');
+    const undone = service.undoLastEvent('evt-delete');
+    const events = service.getMatchEvents(service.getActiveMatchId());
 
-    expect(deleted?.isDeleted).toBeTrue();
-    expect(deleted?.deletedAt).toBeTruthy();
-    expect(service.getMatchEvents(service.getActiveMatchId())).toEqual([]);
+    expect(undone?.id).toBe('evt-delete');
+    expect(events[0].isDeleted).toBeFalse();
+    expect(events[1]).toEqual(jasmine.objectContaining({ type: 'undo', targetEventId: 'evt-delete', isDeleted: false }));
   });
 
   it('supports explicit retry after failure', async () => {
@@ -252,7 +261,7 @@ describe('OfflineSyncService', () => {
     expect(service.lastSuccessfulSyncAt()).not.toBeNull();
   });
 
-  it('takes over a live match with a new writer generation', () => {
+  it('takes over a live match with a server-confirmed writer generation', async () => {
     const now = '2026-02-10T10:00:00.000Z';
     const game: Game = {
       id: 'm-live', ownerId: 'owner-1', teamId: 'team-1', opponentName: 'Central High', status: 'live',
@@ -262,11 +271,60 @@ describe('OfflineSyncService', () => {
       writerDeviceId: 'other-device', writerGeneration: 3,
     };
     service.queueGame(game);
+    await waitForIdle();
+    firebaseDb.documents.set(`games/${game.id}`, { ...game, writerGeneration: 5 });
+    service.cacheRemoteEvents(game.id, [
+      { ...event('remote-event', game.id, 'matchStarted', now), sequence: 30, writerGeneration: 5, writerDeviceId: 'other-device' },
+    ]);
 
     expect(service.isCurrentScoringDevice(game.id)).toBeFalse();
-    expect(service.takeOverScoring(game.id)).toBeTrue();
-    expect(service.getGame(game.id)?.writerGeneration).toBe(4);
+    expect(await service.takeOverScoring(game.id)).toBeTrue();
+    expect(service.getGame(game.id)?.writerGeneration).toBe(6);
     expect(service.getGame(game.id)?.writerDeviceId).not.toBe('other-device');
     expect(service.isCurrentScoringDevice(game.id)).toBeTrue();
+    expect(service.getActiveMatchId()).toBe(game.id);
+
+    service.queueMatchEvent(event('new-writer-event', game.id, 'opponentPoint', now));
+    const nextEvent = service.getMatchEvents(game.id).find((entry) => entry.id === 'new-writer-event');
+    expect(nextEvent?.sequence).toBe(31);
+    expect(nextEvent?.writerGeneration).toBe(6);
+  });
+
+  it('quarantines pending events from an older writer generation as conflicts', async () => {
+    const now = '2026-02-10T10:00:00.000Z';
+    const game: Game = {
+      id: 'm-conflict', ownerId: 'owner-1', teamId: 'team-1', opponentName: 'Central High', status: 'live',
+      servingTeam: 'team', teamPoints: 0, opponentPoints: 0, teamSets: 0, opponentSets: 0, currentSet: 1,
+      isMatchOver: false, teamTimeoutsRemaining: 2, opponentTimeoutsRemaining: 2, teamRotation: 1,
+      startedAt: now, endedAt: null, createdAt: now, updatedAt: now,
+      writerGeneration: 1,
+    };
+    service.queueGame(game);
+    await waitForIdle();
+    firebaseDb.failedEventIds.add('stale-event');
+    service.queueMatchEvent({ ...event('stale-event', game.id, 'opponentPoint', now), writerGeneration: 1 });
+    await waitForIdle();
+
+    service.cacheRemoteGame({ ...game, writerDeviceId: 'replacement-device', writerGeneration: 2 });
+
+    expect(service.getWriterConflictCount(game.id)).toBe(1);
+    expect(service.pendingCount()).toBe(1);
+  });
+
+  it('keeps the current writer when Firestore rejects takeover', async () => {
+    const now = '2026-02-10T10:00:00.000Z';
+    service.queueGame({
+      id: 'm-rejected', ownerId: 'owner-1', teamId: 'team-1', opponentName: 'Central High', status: 'live',
+      servingTeam: 'team', teamPoints: 0, opponentPoints: 0, teamSets: 0, opponentSets: 0, currentSet: 1,
+      isMatchOver: false, teamTimeoutsRemaining: 2, opponentTimeoutsRemaining: 2, teamRotation: 1,
+      startedAt: now, endedAt: null, createdAt: now, updatedAt: now,
+      writerDeviceId: 'other-device', writerGeneration: 2,
+    });
+    await waitForIdle();
+    firebaseDb.shouldSucceed = false;
+
+    expect(await service.takeOverScoring('m-rejected')).toBeFalse();
+    expect(service.getGame('m-rejected')?.writerDeviceId).toBe('other-device');
+    expect(service.isCurrentScoringDevice('m-rejected')).toBeFalse();
   });
 });

@@ -182,32 +182,6 @@ export class FirebaseDbService {
     }
   }
 
-  async markEventDeleted(gameId: string, eventId: string, deletedAt: string): Promise<FirebaseResult<string>> {
-    if (!this.isConfigured()) {
-      return {
-        ok: false,
-        error: 'Firebase environment values are not configured.',
-      };
-    }
-
-    try {
-      await setDoc(
-        doc(this.gameEventsRef(gameId), eventId),
-        {
-          isDeleted: true,
-          deletedAt,
-        },
-        { merge: true },
-      );
-      return { ok: true, data: eventId };
-    } catch (error) {
-      return {
-        ok: false,
-        error: this.toErrorMessage(error, 'Firestore event delete marker write failed.'),
-      };
-    }
-  }
-
   async writePlayerSetStats(stats: PlayerSetStats): Promise<FirebaseResult<string>> {
     return this.writeDocument(FIRESTORE_COLLECTIONS.playerSetStats, stats.id, stats);
   }
@@ -265,6 +239,16 @@ export class FirebaseDbService {
 
     return onSnapshot(doc(this.collectionRef('games'), gameId), (snapshot) => {
       onData(snapshot.exists() ? snapshot.data() : null);
+    });
+  }
+
+  subscribeGames(ownerId: string, onData: (games: Game[]) => void): Unsubscribe {
+    if (!this.isConfigured()) {
+      onData([]);
+      return () => undefined;
+    }
+    return onSnapshot(query(this.collectionRef('games'), where('ownerId', '==', ownerId)), (snapshot) => {
+      onData(snapshot.docs.map((entry) => entry.data()));
     });
   }
 

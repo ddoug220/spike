@@ -4,6 +4,7 @@ import {
   type MatchSession,
   type RallyAction,
   type RallyOutcomeEvent,
+  type SetNumber,
   type TeamRotation,
   type TeamSide,
   rallyWinner,
@@ -12,7 +13,7 @@ import {
 export type MatchStatus = 'scheduled' | 'live' | 'set-break' | 'final' | 'ended-early';
 
 export interface SetResult {
-  setNumber: number;
+  setNumber: SetNumber;
   teamPoints: number;
   opponentPoints: number;
   winner: TeamSide;
@@ -21,7 +22,7 @@ export interface SetResult {
 export interface RallyRecord {
   eventId: string;
   rallyId: string;
-  setNumber: number;
+  setNumber: SetNumber;
   action: RallyAction;
   playerId?: string;
   winner: TeamSide;
@@ -33,13 +34,13 @@ export interface RallyRecord {
 export interface StatRecord {
   eventId: string;
   rallyId: string;
-  setNumber: number;
+  setNumber: SetNumber;
   action: 'dig';
   playerId: string;
 }
 
 export interface SubmittedSet {
-  setNumber: number;
+  setNumber: SetNumber;
   lineup: Lineup;
   servingTeam: TeamSide;
 }
@@ -47,7 +48,7 @@ export interface SubmittedSet {
 export interface MatchProjection {
   session: MatchSession;
   status: MatchStatus;
-  currentSet: number;
+  currentSet: SetNumber;
   teamPoints: number;
   opponentPoints: number;
   teamSets: number;

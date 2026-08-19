@@ -23,8 +23,6 @@ export interface PlayerStatLine {
   digs: number;
   serviceErrors: number;
   receiveErrors: number;
-  sideOutOpportunities: number;
-  sideOutConversions: number;
 }
 
 export type StatsState = Record<string, PlayerStatLine>;
@@ -49,24 +47,6 @@ export class MatchStatsService {
 
   getPlayerStats(playerId: string): PlayerStatLine {
     return this.statsSignal()[playerId] ?? this.createEmptyLine();
-  }
-
-  getHittingEfficiency(playerId: string): number | null {
-    const stats = this.getPlayerStats(playerId);
-    if (stats.totalAttacks === 0) {
-      return null;
-    }
-
-    return (stats.kills - stats.attackErrors) / stats.totalAttacks;
-  }
-
-  getSideOutPercentage(playerId: string): number | null {
-    const stats = this.getPlayerStats(playerId);
-    if (stats.sideOutOpportunities === 0) {
-      return null;
-    }
-
-    return stats.sideOutConversions / stats.sideOutOpportunities;
   }
 
   getServeInPercentage(playerId: string): number | null {
@@ -115,12 +95,6 @@ export class MatchStatsService {
 
       const line = { ...(nextState[playerId] ?? this.createEmptyLine()) };
 
-      if (context.wasReceiving) {
-        line.sideOutOpportunities += 1;
-      }
-      if (context.sideOutWon) {
-        line.sideOutConversions += 1;
-      }
 
       if (action === 'kill') {
         line.kills += 1;
@@ -214,8 +188,6 @@ export class MatchStatsService {
           digs: entry.digs,
           serviceErrors: entry.serviceErrors,
           receiveErrors: entry.receiveErrors ?? 0,
-          sideOutOpportunities: entry.sideOutOpportunities,
-          sideOutConversions: entry.sideOutConversions,
         };
         return;
       }
@@ -246,12 +218,6 @@ export class MatchStatsService {
         }
 
         const line = stats[event.playerId] ?? this.createEmptyLine();
-        if (event.wasReceiving) {
-          line.sideOutOpportunities += 1;
-        }
-        if (event.sideOutWon) {
-          line.sideOutConversions += 1;
-        }
         if (event.action === 'kill') {
           line.kills += 1;
           line.totalAttacks += 1;
@@ -336,8 +302,6 @@ export class MatchStatsService {
       digs: 0,
       serviceErrors: 0,
       receiveErrors: 0,
-      sideOutOpportunities: 0,
-      sideOutConversions: 0,
     };
   }
 

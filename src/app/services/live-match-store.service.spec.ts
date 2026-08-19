@@ -6,7 +6,6 @@ import { LiveMatchStoreService } from './live-match-store.service';
 import { MatchEngineService } from './match-engine.service';
 import { MatchStateService } from './match-state.service';
 import { MatchStatsService } from './match-stats.service';
-import { MatchV2StoreService } from './match-v2-store.service';
 import type { PlayerStatLine } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
 import { RotationService } from './rotation.service';
@@ -94,34 +93,60 @@ describe('LiveMatchStoreService', () => {
       matchStats,
       offlineSync,
       firebaseDb as unknown as FirebaseDbService,
-      new MatchV2StoreService(),
     );
     engine = new MatchEngineService(matchState, matchStats, teamRoster, offlineSync);
   });
 
-  it('hydrates command state from Firestore game snapshots before local commands run', () => {
+  it('hydrates command state from the Firestore event projection before local commands run', () => {
     const gameId = offlineSync.getActiveMatchId();
+    for (let index = 1; index <= 6; index += 1) {
+      teamRoster.addPlayer({ name: `Player ${index}`, jerseyNumber: index, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    const lineup = players.map((player) => player.id);
     store.syncActiveGame();
 
     firebaseDb.emitGame(
       game(gameId, {
+        schemaVersion: 2,
+        writerGeneration: 1,
+        matchSquad: players.map((player) => ({
+          id: player.id,
+          name: player.name,
+          jerseyNumber: player.jerseyNumber,
+          primaryPosition: player.primaryPosition,
+        })),
+        startingLineup: lineup,
         teamPoints: 14,
         opponentPoints: 12,
         servingTeam: 'opponent',
         teamRotation: 4,
       }),
     );
+    firebaseDb.emitEvents([
+      {
+        id: 'start', ownerId: 'owner-1', gameId, type: 'matchStarted', action: 'match-started',
+        eventKind: 'match-started', lineup, servingTeam: 'team', schemaVersion: 2, sequence: 1,
+        writerGeneration: 1, createdAt: '2026-02-10T10:00:00.000Z', isDeleted: false,
+      },
+      {
+        id: 'point', ownerId: 'owner-1', gameId, type: 'opponentPoint', action: 'opponent-point',
+        eventKind: 'rally-outcome', schemaVersion: 2, sequence: 2, writerGeneration: 1,
+        createdAt: '2026-02-10T10:01:00.000Z', isDeleted: false,
+      },
+    ]);
 
-    expect(store.gameState().teamPoints).toBe(14);
-    expect(matchState.state().teamPoints).toBe(14);
+    expect(store.gameState().opponentPoints).toBe(1);
+    expect(matchState.state().opponentPoints).toBe(1);
 
     engine.recordOpponentPoint();
 
-    expect(matchState.state().teamPoints).toBe(14);
-    expect(matchState.state().opponentPoints).toBe(13);
-    expect(offlineSync.getGame(gameId)?.teamPoints).toBe(14);
-    expect(offlineSync.getGame(gameId)?.opponentPoints).toBe(13);
-    expect(offlineSync.getGame(gameId)?.teamRotation).toBe(4);
+    expect(matchState.state().teamPoints).toBe(0);
+    expect(matchState.state().opponentPoints).toBe(2);
+    expect(offlineSync.getGame(gameId)?.teamPoints).toBe(0);
+    expect(offlineSync.getGame(gameId)?.opponentPoints).toBe(2);
+    expect(offlineSync.getGame(gameId)?.teamRotation).toBe(1);
   });
 
   it('uses the full synced stat line instead of mixing local stale fields', () => {
@@ -142,8 +167,6 @@ describe('LiveMatchStoreService', () => {
         digs: 3,
         serviceErrors: 1,
         receiveErrors: 2,
-        sideOutOpportunities: 6,
-        sideOutConversions: 4,
       }),
     ]);
 
@@ -158,11 +181,8 @@ describe('LiveMatchStoreService', () => {
       digs: 3,
       serviceErrors: 1,
       receiveErrors: 2,
-      sideOutOpportunities: 6,
-      sideOutConversions: 4,
     };
     expect(store.getPlayerStats('p1')).toEqual(expected);
-    expect(store.getSideOutPercentage('p1')).toBeCloseTo(2 / 3, 4);
     expect(store.getServeInPercentage('p1')).toBeCloseTo(0.8, 4);
   });
 });
@@ -202,7 +222,6 @@ const playerSetStats = (overrides: Partial<PlayerSetStats> = {}): PlayerSetStats
   attackErrors: 0,
   totalAttacks: 0,
   aces: 0,
-  hittingEfficiency: 0.375,
   serveAttempts: 0,
   servesIn: 0,
   serveInPercentage: 0.8,
@@ -210,9 +229,6 @@ const playerSetStats = (overrides: Partial<PlayerSetStats> = {}): PlayerSetStats
   digs: 0,
   serviceErrors: 0,
   receiveErrors: 0,
-  sideOutOpportunities: 0,
-  sideOutConversions: 0,
-  sideOutPercentage: 2 / 3,
   createdAt: '2026-02-10T10:00:00.000Z',
   updatedAt: '2026-02-10T10:01:00.000Z',
   ...overrides,

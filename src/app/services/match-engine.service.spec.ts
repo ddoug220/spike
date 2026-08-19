@@ -7,6 +7,7 @@ import { FirebaseDbService } from './firebase-db.service';
 import { TeamRosterService } from './team-roster.service';
 import type { AuthService } from './auth.service';
 import type { GameEvent } from '../models/firestore.models';
+import { projectionFromFirestore } from './match-v2.adapter';
 
 class FakeFirebaseDbService {
   isConfigured(): boolean {
@@ -69,12 +70,14 @@ describe('MatchEngineService', () => {
     const players = teamRoster.players();
     players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
 
+    service.startMatch('team');
     service.setServingTeam('opponent');
     service.recordPlayerAction(1, 'kill'); // side-out, rotates clockwise
-    expect(teamRoster.lineup()[0]).toBe(players[1].id);
+    expect(projectedLineup()[0]).toBe(players[1].id);
+    expect(teamRoster.lineup()[0]).toBe(players[0].id);
 
     service.undoLastEvent();
-    expect(teamRoster.lineup()[0]).toBe(players[0].id);
+    expect(projectedLineup()[0]).toBe(players[0].id);
   });
 
   it('undos substitutions through the same undo stack', () => {
@@ -83,13 +86,15 @@ describe('MatchEngineService', () => {
     }
     const players = teamRoster.players();
     players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    service.startMatch('team');
 
     const didSubstitute = service.recordSubstitution(players[0].id, players[6].id);
     expect(didSubstitute).toBeTrue();
-    expect(teamRoster.lineup()[0]).toBe(players[6].id);
+    expect(projectedLineup()[0]).toBe(players[6].id);
+    expect(teamRoster.lineup()[0]).toBe(players[0].id);
 
     service.undoLastEvent();
-    expect(teamRoster.lineup()[0]).toBe(players[0].id);
+    expect(projectedLineup()[0]).toBe(players[0].id);
   });
 
   it('records timeout calls and undoes them through the same undo stack', () => {
@@ -107,15 +112,17 @@ describe('MatchEngineService', () => {
     }
     const players = teamRoster.players();
     players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    service.startMatch('team');
 
     const didRotate = service.manualRotateTeam();
     expect(didRotate).toBeTrue();
     expect(matchState.state().teamRotation).toBe(2);
-    expect(teamRoster.lineup()[0]).toBe(players[1].id);
+    expect(projectedLineup()[0]).toBe(players[1].id);
+    expect(teamRoster.lineup()[0]).toBe(players[0].id);
 
     service.undoLastEvent();
     expect(matchState.state().teamRotation).toBe(1);
-    expect(teamRoster.lineup()[0]).toBe(players[0].id);
+    expect(projectedLineup()[0]).toBe(players[0].id);
   });
 
   it('blocks scoring events after match is ended', () => {
@@ -149,9 +156,16 @@ describe('MatchEngineService', () => {
     const restoredEngine = new MatchEngineService(restoredState, restoredStats, teamRoster, offlineSync);
     restoredEngine.undoLastEvent(offlineSync.getMatchEvents(matchId));
 
-    expect(offlineSync.getMatchEvents(matchId).some((event) => event.type === 'playerAction')).toBeFalse();
+    const storedEvents = offlineSync.getMatchEvents(matchId);
+    const playerActionId = storedEvents.find((event) => event.type === 'playerAction')?.id;
+    expect(storedEvents.some((event) => event.type === 'playerAction')).toBeTrue();
+    expect(storedEvents.some((event) => event.type === 'undo' && event.targetEventId === playerActionId)).toBeTrue();
     expect(restoredStats.getPlayerStats(players[0].id).kills).toBe(0);
     expect(restoredState.state().teamPoints).toBe(0);
+
+    const secondRestore = new MatchEngineService(new MatchStateService(), new MatchStatsService(), teamRoster, offlineSync);
+    expect(secondRestore.undoLastEvent(offlineSync.getMatchEvents(matchId))).toBeNull();
+    expect(offlineSync.getMatchEvents(matchId).filter((event) => event.type === 'undo').length).toBe(1);
   });
 
   it('replays lineup state when synced fallback undo removes a side-out event', () => {
@@ -165,12 +179,13 @@ describe('MatchEngineService', () => {
     service.setServingTeam('opponent');
 
     service.recordPlayerAction(1, 'kill');
-    expect(teamRoster.lineup()[0]).toBe(players[1].id);
+    expect(projectedLineup()[0]).toBe(players[1].id);
 
     const restoredEngine = new MatchEngineService(new MatchStateService(), new MatchStatsService(), teamRoster, offlineSync);
     restoredEngine.undoLastEvent(offlineSync.getMatchEvents(matchId));
 
     expect(teamRoster.lineup()).toEqual(initialLineup);
+    expect([...projectedLineup()]).toEqual(initialLineup.map((playerId) => playerId as string));
   });
 
   it('undoes a store-provided synced event when it is not already archived locally', () => {
@@ -227,7 +242,9 @@ describe('MatchEngineService', () => {
 
     expect(undone?.eventId).toBe('evt-kill');
     expect(offlineSync.pendingCount()).toBe(2);
-    expect(offlineSync.getMatchEvents(matchId)).toEqual([]);
+    expect(offlineSync.getMatchEvents(matchId)).toEqual([
+      jasmine.objectContaining({ type: 'undo', targetEventId: 'evt-kill' }),
+    ]);
     expect(restoredStats.getPlayerStats('p1').kills).toBe(0);
     expect(restoredState.state().teamPoints).toBe(0);
   });
@@ -254,9 +271,14 @@ describe('MatchEngineService', () => {
     service.recordPlayerAction(3, 'opponent-error');
 
     const selectedPlayerStats = matchStats.getPlayerStats(players[2].id);
-    expect(selectedPlayerStats.sideOutOpportunities).toBe(0);
-    expect(selectedPlayerStats.sideOutConversions).toBe(0);
     expect(selectedPlayerStats.attackErrors).toBe(0);
     expect(selectedPlayerStats.totalAttacks).toBe(0);
   });
+
+  function projectedLineup(): readonly string[] {
+    const matchId = offlineSync.getActiveMatchId();
+    const game = offlineSync.getGame(matchId);
+    if (!game) return [];
+    return projectionFromFirestore(game, offlineSync.getMatchEvents(matchId))?.lineup ?? [];
+  }
 });

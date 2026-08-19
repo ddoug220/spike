@@ -1,6 +1,7 @@
 export const MATCH_SCHEMA_VERSION = 2 as const;
 
 export type TeamSide = 'team' | 'opponent';
+export type SetNumber = 1 | 2 | 3 | 4 | 5;
 export type CourtPosition = 1 | 2 | 3 | 4 | 5 | 6;
 export type TeamRotation = 1 | 2 | 3 | 4 | 5 | 6;
 export type PlayerPosition = 'S' | 'OH' | 'MB' | 'OPP' | 'L' | 'DS';
@@ -30,6 +31,7 @@ interface MatchEventBase {
   sequence: number;
   writerGeneration: number;
   occurredAt: string;
+  setNumber?: SetNumber;
 }
 
 export interface MatchStartedEvent extends MatchEventBase {
@@ -40,7 +42,7 @@ export interface MatchStartedEvent extends MatchEventBase {
 
 export interface SetStartedEvent extends MatchEventBase {
   kind: 'set-started';
-  setNumber: 2 | 3 | 4 | 5;
+  setNumber: Exclude<SetNumber, 1>;
   lineup: Lineup;
   servingTeam: TeamSide;
 }

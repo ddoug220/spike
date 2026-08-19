@@ -4,15 +4,16 @@ import { Game, GameEvent, PlayerSetStats } from '../models/firestore.models';
 import { FirebaseDbService } from './firebase-db.service';
 import { MatchScoreState, MatchStateService } from './match-state.service';
 import { MatchStatsService, PlayerStatLine, StatsAction } from './match-stats.service';
-import { MatchV2StoreService } from './match-v2-store.service';
+import {
+  projectionFromFirestore,
+  scoreStateFromProjection,
+  setStatsStateFromProjection,
+  statsStateFromProjection,
+} from './match-v2.adapter';
 import { OfflineSyncService } from './offline-sync.service';
 
-export type SurfaceMode = 'live' | 'review';
-export type PlayerListFilter = 'all' | 'starters' | 'bench';
-export type AnalyticsTabId = 'efficiency' | 'rotation' | 'serve-receive' | 'errors' | 'sets';
-
 export type LiveLastEvent =
-  | { kind: 'player-action'; playerId: number; action: StatsAction; impactedScore: boolean; impactedStats: boolean }
+  | { kind: 'player-action'; playerId: number; playerName: string; action: StatsAction; impactedScore: boolean; impactedStats: boolean }
   | { kind: 'opponent-error-point'; impactedScore: boolean; impactedStats: boolean }
   | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean }
   | { kind: 'manual-rotation'; impactedScore: false; impactedStats: false }
@@ -24,11 +25,6 @@ export interface LiveMatchUiState {
   isSubOverlayOpen: boolean;
   substitutionOutPlayerId: string | null;
   substitutionStatus: string;
-  activeSurfaceMode: SurfaceMode;
-  playerListFilter: PlayerListFilter;
-  playerSearchQuery: string;
-  activeAnalyticsTab: AnalyticsTabId;
-  reviewLoadMs: number;
   isExitSheetOpen: boolean;
 }
 
@@ -56,11 +52,11 @@ export class LiveMatchStoreService implements OnDestroy {
   readonly events = computed(() => this.mergeEvents(this.offlineSync.getMatchEvents(this.activeGameId()), this.firestoreEventsSignal()));
   readonly projection = computed(() => {
     const game = this.game();
-    return game ? this.matchV2Store.projectionFor(game, this.events()) : null;
+    return game ? projectionFromFirestore(game, this.events()) : null;
   });
   readonly gameState = computed(() => {
     const projection = this.projection();
-    return projection ? this.matchV2Store.scoreStateFrom(projection) : this.toGameState(this.game()) ?? this.matchState.state();
+    return projection ? scoreStateFromProjection(projection) : this.toGameState(this.game()) ?? this.matchState.state();
   });
   readonly stats = computed(() => this.firestoreStatsSignal());
   readonly state = computed<LiveMatchState>(() => ({
@@ -76,7 +72,6 @@ export class LiveMatchStoreService implements OnDestroy {
     private readonly matchStats: MatchStatsService,
     private readonly offlineSync: OfflineSyncService,
     private readonly firebaseDb: FirebaseDbService,
-    private readonly matchV2Store: MatchV2StoreService,
   ) {}
 
   ngOnDestroy(): void {
@@ -94,22 +89,14 @@ export class LiveMatchStoreService implements OnDestroy {
     this.unsubscribers.push(
       this.firebaseDb.subscribeGame(gameId, (game) => {
         this.firestoreGameSignal.set(game);
-        const gameState = this.toGameState(game);
-        if (gameState) {
-          this.matchState.hydrateState(gameState);
-        }
+        this.hydrateMirrorsFromProjection();
       }),
       this.firebaseDb.subscribeEvents(gameId, (events) => {
         this.firestoreEventsSignal.set(events);
-        if (events.length > 0) {
-          this.matchStats.hydrateFromEvents(events);
-        }
+        this.hydrateMirrorsFromProjection();
       }),
       this.firebaseDb.subscribePlayerSetStats(gameId, (stats) => {
         this.firestoreStatsSignal.set(stats);
-        if (stats.length > 0) {
-          this.matchStats.hydrateFromPlayerSetStats(stats);
-        }
       }),
     );
   }
@@ -126,17 +113,16 @@ export class LiveMatchStoreService implements OnDestroy {
     return this.offlineSync.getActiveMatchId();
   }
 
+  getPlayerIdAtPosition(position: number): string | null {
+    return this.projection()?.lineup?.[position - 1] ?? null;
+  }
+
   getPlayerStats(playerId: string): PlayerStatLine {
     const projection = this.projection();
     if (projection) {
-      const projected = this.matchV2Store.statsStateFrom(projection)[playerId];
+      const projected = statsStateFromProjection(projection)[playerId];
       if (projected) {
-        const tracked = this.matchStats.getPlayerStats(playerId);
-        return {
-          ...projected,
-          sideOutOpportunities: tracked.sideOutOpportunities,
-          sideOutConversions: tracked.sideOutConversions,
-        };
+        return projected;
       }
     }
     const synced = this.stats().find((entry) => entry.playerId === playerId && entry.setNumber === null);
@@ -155,27 +141,28 @@ export class LiveMatchStoreService implements OnDestroy {
       digs: synced.digs,
       serviceErrors: synced.serviceErrors,
       receiveErrors: synced.receiveErrors ?? 0,
-      sideOutOpportunities: synced.sideOutOpportunities,
-      sideOutConversions: synced.sideOutConversions,
     };
   }
 
-  getHittingEfficiency(playerId: string): number | null {
-    const synced = this.stats().find((entry) => entry.playerId === playerId && entry.setNumber === null);
-    return synced ? synced.hittingEfficiency : this.matchStats.getHittingEfficiency(playerId);
-  }
-
-  getSideOutPercentage(playerId: string): number | null {
-    const synced = this.stats().find((entry) => entry.playerId === playerId && entry.setNumber === null);
-    return synced ? synced.sideOutPercentage : this.matchStats.getSideOutPercentage(playerId);
-  }
-
   getServeInPercentage(playerId: string): number | null {
+    const projection = this.projection();
+    if (projection) {
+      const stats = this.getPlayerStats(playerId);
+      return stats.serveAttempts === 0 ? null : stats.servesIn / stats.serveAttempts;
+    }
     const synced = this.stats().find((entry) => entry.playerId === playerId && entry.setNumber === null);
     return synced ? synced.serveInPercentage : this.matchStats.getServeInPercentage(playerId);
   }
 
   getPlayerSetStats(playerId: string, setNumber: number): { kills: number; attackErrors: number; totalAttacks: number } {
+    const projection = this.projection();
+    if (projection) {
+      return setStatsStateFromProjection(projection)[playerId]?.[setNumber] ?? {
+        kills: 0,
+        attackErrors: 0,
+        totalAttacks: 0,
+      };
+    }
     const synced = this.stats().find((entry) => entry.playerId === playerId && entry.setNumber === setNumber);
     if (!synced) {
       return this.matchStats.getPlayerSetStats(playerId, setNumber);
@@ -193,6 +180,16 @@ export class LiveMatchStoreService implements OnDestroy {
     this.firestoreGameSignal.set(null);
     this.firestoreEventsSignal.set([]);
     this.firestoreStatsSignal.set([]);
+  }
+
+  private hydrateMirrorsFromProjection(): void {
+    const projection = this.projection();
+    if (!projection) return;
+    this.matchState.hydrateState(scoreStateFromProjection(projection));
+    this.matchStats.replaceSnapshot(
+      statsStateFromProjection(projection),
+      setStatsStateFromProjection(projection),
+    );
   }
 
   private toGameState(game: Game | null): MatchScoreState | null {
@@ -240,11 +237,6 @@ export class LiveMatchStoreService implements OnDestroy {
       isSubOverlayOpen: false,
       substitutionOutPlayerId: null,
       substitutionStatus: '',
-      activeSurfaceMode: 'live',
-      playerListFilter: 'all',
-      playerSearchQuery: '',
-      activeAnalyticsTab: 'efficiency',
-      reviewLoadMs: 0,
       isExitSheetOpen: false,
     };
   }

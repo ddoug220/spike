@@ -30,6 +30,11 @@
       <button *ngIf="canTakeOver" class="resume-button" type="button" (click)="takeOver()">Take over scoring</button>
     </header>
 
+    <section *ngIf="writerConflictCount > 0" class="sync-conflict" role="alert">
+      <strong>Scoring sync conflict</strong>
+      <p>{{ writerConflictCount }} event{{ writerConflictCount === 1 ? '' : 's' }} from an older scoring device remain quarantined and were not added to this match.</p>
+    </section>
+
     <section class="rates-section" aria-labelledby="team-performance-title">
       <div class="section-heading">
         <div>

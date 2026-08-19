@@ -152,7 +152,7 @@ export class OfflineSyncService {
     this.enqueue('events', {
       ...this.withOwner(payload),
       schemaVersion: 2,
-      sequence: payload.sequence ?? (events[events.length - 1]?.sequence ?? events.length) + 1,
+      sequence: payload.sequence ?? Math.max(0, ...events.map((event) => event.sequence ?? 0)) + 1,
       writerDeviceId: payload.writerDeviceId ?? game?.writerDeviceId ?? this.getDeviceId(),
       writerGeneration: payload.writerGeneration ?? game?.writerGeneration ?? 1,
       isDeleted: payload.isDeleted,
@@ -174,49 +174,35 @@ export class OfflineSyncService {
   }
 
   undoLastEvent(eventId?: string): GameEvent | null {
-    const matchId = this.getActiveMatchId();
-    const event = this.archiveSignal()
-      .events.filter((entry) => entry.gameId === matchId && !entry.isDeleted)
+    return this.undoLatestEvent(this.getMatchEvents(this.getActiveMatchId()), eventId);
+  }
+
+  undoLatestEvent(events: readonly GameEvent[], eventId?: string): GameEvent | null {
+    const undoneIds = new Set(events.filter((entry) => entry.type === 'undo').map((entry) => entry.targetEventId));
+    const event = events
       .slice()
       .reverse()
-      .find((entry) => !eventId || entry.id === eventId);
+      .find((entry) => entry.type !== 'undo' && !undoneIds.has(entry.id) && (!eventId || entry.id === eventId));
 
     if (!event) {
       return null;
     }
 
-    const deletedEvent: GameEvent = {
-      ...event,
-      isDeleted: true,
-      deletedAt: new Date().toISOString(),
-    };
-
-    this.archiveSignal.update((state) => ({
-      ...state,
-      events: state.events.map((entry) => (entry.id === deletedEvent.id ? deletedEvent : entry)),
-    }));
-    this.persistArchive();
-    this.enqueue('events', this.withOwner(deletedEvent), false);
-    return deletedEvent;
+    return this.appendUndoFor(event);
   }
 
-  markEventDeleted(event: GameEvent): GameEvent {
-    const deletedEvent: GameEvent = {
-      ...event,
-      isDeleted: true,
-      deletedAt: new Date().toISOString(),
-    };
-
-    this.archiveSignal.update((state) => ({
-      ...state,
-      events: [
-        ...state.events.filter((entry) => entry.id !== deletedEvent.id),
-        deletedEvent,
-      ],
-    }));
-    this.persistArchive();
-    this.enqueue('events', this.withOwner(deletedEvent), false);
-    return deletedEvent;
+  private appendUndoFor(event: GameEvent): GameEvent {
+    this.logEvent({
+      id: this.createId('evt'),
+      gameId: event.gameId,
+      type: 'undo',
+      action: 'undo',
+      eventKind: 'undo',
+      targetEventId: event.id,
+      createdAt: new Date().toISOString(),
+      isDeleted: false,
+    });
+    return event;
   }
 
   async flushQueue(): Promise<void> {
@@ -297,21 +283,74 @@ export class OfflineSyncService {
     return !game?.writerDeviceId || game.writerDeviceId === this.getDeviceId();
   }
 
-  takeOverScoring(gameId: string): boolean {
+  cacheRemoteGame(game: Game): void {
+    this.archive('games', game);
+  }
+
+  cacheRemoteEvents(gameId: string, events: readonly GameEvent[]): void {
+    const byId = new Map(this.archiveSignal().events.map((event) => [event.id, event]));
+    events.filter((event) => event.gameId === gameId).forEach((event) => byId.set(event.id, event));
+    this.archiveSignal.update((state) => ({ ...state, events: [...byId.values()] }));
+    this.persistArchive();
+  }
+
+  subscribeRemoteGames(onData: (games: Game[]) => void): () => void {
+    const ownerId = this.auth.user()?.uid;
+    if (!ownerId) {
+      onData([]);
+      return () => undefined;
+    }
+    return this.firebaseDb.subscribeGames(ownerId, onData);
+  }
+
+  getWriterConflictCount(gameId: string): number {
+    const game = this.getGame(gameId);
+    if (!game) return 0;
+    return this.queueSignal().filter((item) => {
+      if (item.collection !== 'events' || item.payload.gameId !== gameId) return false;
+      return (item.payload.writerGeneration ?? 1) !== (game.writerGeneration ?? 1) ||
+        (!!game.writerDeviceId && item.payload.writerDeviceId !== game.writerDeviceId);
+    }).length;
+  }
+
+  async takeOverScoring(gameId: string): Promise<boolean> {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return false;
     }
-    const game = this.getGame(gameId);
+    const latestResult = await this.firebaseDb.readDocument('games', gameId);
+    const game = latestResult.ok ? latestResult.data : null;
     if (!game || game.status !== 'live') {
+      this.lastErrorSignal.set(latestResult.error ?? 'Could not load the latest match before takeover.');
       return false;
     }
-    this.queueGame({
+    if (game.writerDeviceId === this.getDeviceId()) {
+      this.archive('games', game);
+      this.setActiveMatchId(gameId);
+      return true;
+    }
+    const nextGame: Game = this.withOwner({
       ...game,
       writerDeviceId: this.getDeviceId(),
       writerGeneration: (game.writerGeneration ?? 1) + 1,
       updatedAt: new Date().toISOString(),
     });
+    const result = await this.firebaseDb.writeDocument('games', nextGame.id, nextGame);
+    if (!result.ok) {
+      this.lastErrorSignal.set(result.error ?? 'Scoring takeover failed.');
+      return false;
+    }
+    this.archive('games', nextGame);
+    this.setActiveMatchId(gameId);
+    this.lastErrorSignal.set(null);
+    this.lastSuccessfulSyncAtSignal.set(nextGame.updatedAt);
+    this.persistLastSuccess();
     return true;
+  }
+
+  private setActiveMatchId(matchId: string): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(this.ownerKey(OfflineSyncService.MATCH_ID_KEY), matchId);
+    }
   }
 
   retryNow(): Promise<void> {
@@ -372,7 +411,7 @@ export class OfflineSyncService {
       .events.filter((event) => event.gameId === matchId)
       .filter((event) => !event.isDeleted)
       .slice()
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0) || a.createdAt.localeCompare(b.createdAt));
   }
 
   getGame(matchId: string): Game | null {

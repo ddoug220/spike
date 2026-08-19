@@ -43,6 +43,20 @@ ion-content {
   background: var(--color-surface-1);
 }
 
+.sync-conflict {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-amber);
+  border-radius: var(--radius-sm);
+  background: var(--color-amber-dim);
+  color: var(--color-text-1);
+}
+
+.sync-conflict p {
+  margin: 4px 0 0;
+  color: var(--color-text-2);
+}
+
 .match-title {
   min-width: 0;
 }

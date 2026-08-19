@@ -1,6 +1,5 @@
-import { DatePipe, NgClass, NgFor, NgIf, TitleCasePipe } from '@angular/common';
+import { DatePipe, NgClass, NgFor, NgIf } from '@angular/common';
 import { Component, HostListener } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
   IonActionSheet,
@@ -13,14 +12,8 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward, star } from 'ionicons/icons';
-import { GameEvent as FirestoreGameEvent } from '../../models/firestore.models';
-import {
-  AnalyticsTabId,
-  LiveLastEvent,
-  LiveMatchStoreService,
-  PlayerListFilter,
-  SurfaceMode,
-} from '../../services/live-match-store.service';
+import { selectTeamSideOut } from '../../domain/match-v2';
+import { LiveLastEvent, LiveMatchStoreService } from '../../services/live-match-store.service';
 import { MatchEngineService } from '../../services/match-engine.service';
 import { MatchScoreState } from '../../services/match-state.service';
 import { StatsAction } from '../../services/match-stats.service';
@@ -45,18 +38,6 @@ interface PlayerPosition {
   label: string;
   top: string;
   left: string;
-}
-
-interface BoxScoreRow {
-  player: RosterPlayer;
-  kills: number;
-  attackErrors: number;
-  totalAttacks: number;
-  hittingEfficiency: number | null;
-  sideOutPercentage: number | null;
-  serveAttempts: number;
-  serveInPercentage: number | null;
-  receiveErrors: number;
 }
 
 interface ActionMeta {
@@ -85,37 +66,6 @@ interface LiveEventRow {
   label: string;
 }
 
-interface ReviewPlayerRow {
-  id: string;
-  name: string;
-  jerseyNumber: number;
-  primaryPosition: string;
-  kills: number;
-  attackErrors: number;
-  efficiency: number | null;
-  efficiencyText: string;
-  efficiencyRating: string;
-  sideOutConversions: number;
-  sideOutOpportunities: number;
-  isStarter: boolean;
-}
-
-interface ReviewBarDatum {
-  label: string;
-  detail: string;
-  value: number;
-  width: number;
-  displayValue: string;
-}
-
-interface SetBreakdownRow {
-  setNumber: number;
-  kills: number;
-  attackErrors: number;
-  totalAttacks: number;
-  efficiency: number | null;
-}
-
 @Component({
   selector: 'app-court',
   templateUrl: './court.page.html',
@@ -130,10 +80,8 @@ interface SetBreakdownRow {
     NgFor,
     NgClass,
     NgIf,
-    TitleCasePipe,
     DatePipe,
     IonIcon,
-    FormsModule,
     IonActionSheet,
   ],
 })
@@ -142,14 +90,6 @@ export class CourtPage {
   isMatchControlsOpen = false;
   nextSetLineup: Array<string | null> = [];
   nextSetServe: 'team' | 'opponent' = 'team';
-  public readonly analyticsTabs: Array<{ id: AnalyticsTabId; label: string }> = [
-    { id: 'efficiency', label: 'Efficiency' },
-    { id: 'rotation', label: 'Rotation Performance' },
-    { id: 'serve-receive', label: 'Serve Receive' },
-    { id: 'errors', label: 'Error Breakdown' },
-    { id: 'sets', label: 'Set Breakdown' },
-  ];
-
   public readonly actionMeta: Record<QuickAction, ActionMeta> = {
     kill: { label: 'Kill', icon: 'flash', accent: 'action-kill' },
     'attack-error': {
@@ -278,46 +218,6 @@ export class CourtPage {
     this.liveStore.setUi({ substitutionStatus });
   }
 
-  get activeSurfaceMode(): SurfaceMode {
-    return this.liveStore.ui().activeSurfaceMode;
-  }
-
-  set activeSurfaceMode(activeSurfaceMode: SurfaceMode) {
-    this.liveStore.setUi({ activeSurfaceMode });
-  }
-
-  get playerListFilter(): PlayerListFilter {
-    return this.liveStore.ui().playerListFilter;
-  }
-
-  set playerListFilter(playerListFilter: PlayerListFilter) {
-    this.liveStore.setUi({ playerListFilter });
-  }
-
-  get playerSearchQuery(): string {
-    return this.liveStore.ui().playerSearchQuery;
-  }
-
-  set playerSearchQuery(playerSearchQuery: string) {
-    this.liveStore.setUi({ playerSearchQuery });
-  }
-
-  get activeAnalyticsTab(): AnalyticsTabId {
-    return this.liveStore.ui().activeAnalyticsTab;
-  }
-
-  set activeAnalyticsTab(activeAnalyticsTab: AnalyticsTabId) {
-    this.liveStore.setUi({ activeAnalyticsTab });
-  }
-
-  get reviewLoadMs(): number {
-    return this.liveStore.ui().reviewLoadMs;
-  }
-
-  set reviewLoadMs(reviewLoadMs: number) {
-    this.liveStore.setUi({ reviewLoadMs });
-  }
-
   get isExitSheetOpen(): boolean {
     return this.liveStore.ui().isExitSheetOpen;
   }
@@ -429,7 +329,6 @@ export class CourtPage {
     this.substitutionStatus = `Substituted: ${inPlayer?.name ?? 'Player'} in for ${outPlayer?.name ?? 'player'}.`;
     this.isSubOverlayOpen = false;
     this.resetSubSelection();
-    this.refreshReviewLoadMetricIfVisible();
   }
 
   startNewMatch(): void {
@@ -445,12 +344,10 @@ export class CourtPage {
     this.substitutionStatus = '';
     this.isSubOverlayOpen = false;
     this.resetSubSelection();
-    this.refreshReviewLoadMetricIfVisible();
   }
 
   endMatch(): void {
     this.matchEngine.endMatch();
-    this.refreshReviewLoadMetricIfVisible();
   }
 
   recordAction(action: QuickAction): void {
@@ -463,6 +360,7 @@ export class CourtPage {
     }
 
     const selectedPosition = this.activePlayer ?? 1;
+    const selectedPlayer = this.getPlayerForPosition(selectedPosition);
     const event = this.matchEngine.recordPlayerAction(selectedPosition, action);
     if (action === 'opponent-error') {
       this.lastEvent = {
@@ -472,20 +370,19 @@ export class CourtPage {
       };
       this.activePlayer = null;
       this.prepareNextSetDraft();
-      this.refreshReviewLoadMetricIfVisible();
       return;
     }
 
     this.lastEvent = {
       kind: 'player-action',
       playerId: selectedPosition,
+      playerName: selectedPlayer?.name ?? `P${selectedPosition}`,
       action,
       impactedScore: event.impactedScore,
       impactedStats: event.impactedStats,
     };
     this.activePlayer = null;
     this.prepareNextSetDraft();
-    this.refreshReviewLoadMetricIfVisible();
   }
 
   recordOpponentPoint(): void {
@@ -501,7 +398,6 @@ export class CourtPage {
     };
     this.activePlayer = null;
     this.prepareNextSetDraft();
-    this.refreshReviewLoadMetricIfVisible();
   }
 
   undoLastAction(): void {
@@ -511,11 +407,10 @@ export class CourtPage {
 
     this.matchEngine.undoLastEvent(this.liveStore.events());
     this.lastEvent = undefined;
-    this.refreshReviewLoadMetricIfVisible();
   }
 
   getPlayerForPosition(position: number): RosterPlayer | null {
-    const playerId = this.teamRoster.lineup()[position - 1] ?? null;
+    const playerId = this.liveStore.getPlayerIdAtPosition(position) ?? this.teamRoster.lineup()[position - 1] ?? null;
     return this.teamRoster.getPlayerById(playerId);
   }
 
@@ -619,20 +514,13 @@ export class CourtPage {
       return 'No actions yet';
     }
 
-    if (this.lastEvent.kind === 'opponent-point') {
-      return 'Last: Opponent Winner';
-    }
-    if (this.lastEvent.kind === 'opponent-error-point') {
-      return 'Last: Opponent Unforced Error';
-    }
-    if (this.lastEvent.kind === 'manual-rotation') {
-      return 'Last: Manual Rotation';
-    }
-    if (this.lastEvent.kind === 'timeout') {
-      return `Last: ${this.lastEvent.team === 'team' ? 'Our' : 'Opponent'} Timeout`;
-    }
-
-    return `Last: Player #${this.lastEvent.playerId} - ${this.getActionLabel(this.lastEvent.action)}`;
+    let action: string;
+    if (this.lastEvent.kind === 'opponent-point') action = 'Opponent Winner';
+    else if (this.lastEvent.kind === 'opponent-error-point') action = 'Opponent Unforced Error';
+    else if (this.lastEvent.kind === 'manual-rotation') action = 'Manual Rotation';
+    else if (this.lastEvent.kind === 'timeout') action = `${this.lastEvent.team === 'team' ? 'Our' : 'Opponent'} Timeout`;
+    else action = `${this.getActionLabel(this.lastEvent.action)} · ${this.lastEvent.playerName}`;
+    return `Last: ${action} · ${this.gameState.teamPoints}–${this.gameState.opponentPoints} · R${this.gameState.teamRotation}`;
   }
 
   setServingTeam(team: 'team' | 'opponent'): void {
@@ -641,7 +529,6 @@ export class CourtPage {
     }
 
     this.matchEngine.setServingTeam(team);
-    this.refreshReviewLoadMetricIfVisible();
   }
 
   callTimeout(team: 'team' | 'opponent'): void {
@@ -660,7 +547,6 @@ export class CourtPage {
       impactedScore: false,
       impactedStats: false,
     };
-    this.refreshReviewLoadMetricIfVisible();
   }
 
   manualRotate(): void {
@@ -678,7 +564,6 @@ export class CourtPage {
       impactedScore: false,
       impactedStats: false,
     };
-    this.refreshReviewLoadMetricIfVisible();
   }
 
   openMatchControls(): void {
@@ -709,29 +594,6 @@ export class CourtPage {
 
   async openMatchReview(): Promise<void> {
     await this.router.navigate(['/review', this.offlineSync.getActiveMatchId()]);
-  }
-
-  setSurfaceMode(mode: SurfaceMode): void {
-    if (this.activeSurfaceMode === mode) {
-      return;
-    }
-
-    this.activeSurfaceMode = mode;
-    if (mode !== 'live') {
-      this.isSubOverlayOpen = false;
-      this.resetSubSelection();
-    }
-    if (mode === 'review') {
-      this.measureReviewSurfaceLoad();
-    }
-  }
-
-  setPlayerListFilter(filter: PlayerListFilter): void {
-    this.playerListFilter = filter;
-  }
-
-  setAnalyticsTab(tabId: AnalyticsTabId): void {
-    this.activeAnalyticsTab = tabId;
   }
 
   get standardOutcomeActions(): StandardOutcomeMeta[] {
@@ -808,11 +670,15 @@ export class CourtPage {
   }
 
   get onCourtPlayers(): RosterPlayer[] {
-    return this.teamRoster.getOnCourtPlayers();
+    const playerIds = this.liveStore.projection()?.lineup ?? [];
+    return playerIds
+      .map((playerId) => this.teamRoster.getPlayerById(playerId))
+      .filter((player): player is RosterPlayer => player !== null);
   }
 
   get benchPlayers(): RosterPlayer[] {
-    return this.teamRoster.getBenchPlayers();
+    const onCourt = new Set(this.liveStore.projection()?.lineup ?? []);
+    return this.teamRoster.players().filter((player) => !onCourt.has(player.id));
   }
 
   toggleSubMode(): void {
@@ -969,20 +835,10 @@ export class CourtPage {
   }
 
   get teamSideOutRate(): number | null {
-    const totals = this.teamRoster.players().reduce(
-      (acc, player) => {
-        const stats = this.liveStore.getPlayerStats(player.id);
-        return {
-          opportunities: acc.opportunities + stats.sideOutOpportunities,
-          conversions: acc.conversions + stats.sideOutConversions,
-        };
-      },
-      { opportunities: 0, conversions: 0 },
-    );
-    if (totals.opportunities === 0) {
-      return null;
-    }
-    return totals.conversions / totals.opportunities;
+    const projection = this.liveStore.projection();
+    if (!projection) return null;
+    const rate = selectTeamSideOut(projection);
+    return rate.total === 0 ? null : rate.won / rate.total;
   }
 
   get recentEvents(): LiveEventRow[] {
@@ -1073,248 +929,12 @@ export class CourtPage {
     this.substitutionOutPlayerId = null;
   }
 
-  get boxScoreRows(): BoxScoreRow[] {
-    return this.teamRoster
-      .players()
-      .slice()
-      .sort((a, b) => a.jerseyNumber - b.jerseyNumber)
-      .map((player) => {
-        const stats = this.liveStore.getPlayerStats(player.id);
-        return {
-          player,
-          kills: stats.kills,
-          attackErrors: stats.attackErrors,
-          totalAttacks: stats.totalAttacks,
-          hittingEfficiency: this.liveStore.getHittingEfficiency(player.id),
-          sideOutPercentage: this.liveStore.getSideOutPercentage(player.id),
-          serveAttempts: stats.serveAttempts,
-          serveInPercentage: this.liveStore.getServeInPercentage(player.id),
-          receiveErrors: stats.receiveErrors,
-        };
-      });
-  }
-
-  get reviewPlayers(): ReviewPlayerRow[] {
-    const starters = new Set(this.onCourtPlayers.map((player) => player.id));
-    return this.boxScoreRows.map((row) => {
-      const sideOutStats = this.liveStore.getPlayerStats(row.player.id);
-      return {
-        id: row.player.id,
-        name: row.player.name,
-        jerseyNumber: row.player.jerseyNumber,
-        primaryPosition: row.player.primaryPosition,
-        kills: row.kills,
-        attackErrors: row.attackErrors,
-        efficiency: row.hittingEfficiency,
-        efficiencyText: this.formatEfficiencyDecimal(row.hittingEfficiency),
-        efficiencyRating: this.getEfficiencyRating(row.hittingEfficiency),
-        sideOutConversions: sideOutStats.sideOutConversions,
-        sideOutOpportunities: sideOutStats.sideOutOpportunities,
-        isStarter: starters.has(row.player.id),
-      };
-    });
-  }
-
-  get filteredReviewPlayers(): ReviewPlayerRow[] {
-    const query = this.playerSearchQuery.trim().toLowerCase();
-    return this.reviewPlayers.filter((player) => {
-      if (this.playerListFilter === 'starters' && !player.isStarter) {
-        return false;
-      }
-      if (this.playerListFilter === 'bench' && player.isStarter) {
-        return false;
-      }
-      if (!query) {
-        return true;
-      }
-
-      return (
-        player.name.toLowerCase().includes(query) ||
-        `${player.jerseyNumber}`.includes(query) ||
-        player.primaryPosition.toLowerCase().includes(query)
-      );
-    });
-  }
-
-  get efficiencyChartBars(): ReviewBarDatum[] {
-    const source = this.reviewPlayers
-      .slice()
-      .sort((a, b) => (b.efficiency ?? Number.NEGATIVE_INFINITY) - (a.efficiency ?? Number.NEGATIVE_INFINITY));
-    return this.toBarData(
-      source.map((player) => ({
-        label: `#${player.jerseyNumber} ${player.name}`,
-        detail: `${player.kills}K ${player.attackErrors}E`,
-        value: player.efficiency === null ? 0 : Math.max(0, player.efficiency * 100),
-        displayValue: player.efficiencyText,
-      })),
-    );
-  }
-
-  get rotationPerformanceBars(): ReviewBarDatum[] {
-    const byRotation = new Map<number, { wins: number; errors: number }>();
-    for (let position = 1; position <= 6; position += 1) {
-      byRotation.set(position, { wins: 0, errors: 0 });
-    }
-
-    this.getActiveMatchEvents().forEach((event) => {
-      if (event.type !== 'playerAction') {
-        return;
-      }
-      const action = event.action;
-      const rotationPosition = event.rotationPosition ?? null;
-      if (!action || !rotationPosition || !byRotation.has(rotationPosition)) {
-        return;
-      }
-
-      const bucket = byRotation.get(rotationPosition);
-      if (!bucket) {
-        return;
-      }
-
-      if (action === 'kill' || action === 'ace' || action === 'block' || action === 'opponent-error') {
-        bucket.wins += 1;
-      }
-      if (action === 'attack-error' || action === 'service-error' || action === 'receive-error') {
-        bucket.errors += 1;
-      }
-    });
-
-    return this.toBarData(
-      Array.from(byRotation.entries()).map(([position, totals]) => {
-        const attempts = totals.wins + totals.errors;
-        const ratio = attempts === 0 ? 0 : (totals.wins / attempts) * 100;
-        return {
-          label: `Rotation P${position}`,
-          detail: `${totals.wins} won | ${totals.errors} errors`,
-          value: ratio,
-          displayValue: attempts === 0 ? '--' : `${ratio.toFixed(0)}%`,
-        };
-      }),
-    );
-  }
-
-  get serveReceiveBars(): ReviewBarDatum[] {
-    return this.toBarData(
-      this.reviewPlayers.map((player) => {
-        const value =
-          player.sideOutOpportunities === 0 ? 0 : (player.sideOutConversions / player.sideOutOpportunities) * 100;
-        return {
-          label: `#${player.jerseyNumber} ${player.name}`,
-          detail: `${player.sideOutConversions}/${player.sideOutOpportunities} side-outs`,
-          value,
-          displayValue: player.sideOutOpportunities === 0 ? '--' : `${value.toFixed(0)}%`,
-        };
-      }),
-    );
-  }
-
-  get errorBreakdownBars(): ReviewBarDatum[] {
-    const totals = this.teamRoster.players().reduce(
-      (acc, player) => {
-        const stats = this.liveStore.getPlayerStats(player.id);
-        return {
-          attackErrors: acc.attackErrors + stats.attackErrors,
-          serviceErrors: acc.serviceErrors + stats.serviceErrors,
-          receiveErrors: acc.receiveErrors + stats.receiveErrors,
-        };
-      },
-      {
-        attackErrors: 0,
-        serviceErrors: 0,
-        receiveErrors: 0,
-      },
-    );
-    const opponentPoints = this.getActiveMatchEvents().filter(
-      (event) => event.type === 'opponentPoint',
-    ).length;
-
-    return this.toBarData([
-      {
-        label: 'Attack Errors',
-        detail: 'Missed attack outcomes',
-        value: totals.attackErrors,
-        displayValue: `${totals.attackErrors}`,
-      },
-      {
-        label: 'Service Errors',
-        detail: 'Missed serves',
-        value: totals.serviceErrors,
-        displayValue: `${totals.serviceErrors}`,
-      },
-      {
-        label: 'Receive Errors',
-        detail: 'Opponent serve led directly to a point',
-        value: totals.receiveErrors,
-        displayValue: `${totals.receiveErrors}`,
-      },
-      {
-        label: 'Opponent Winner Events',
-        detail: 'Logged opponent winner points',
-        value: opponentPoints,
-        displayValue: `${opponentPoints}`,
-      },
-    ]);
-  }
-
-  get setBreakdownRows(): SetBreakdownRow[] {
-    const maxSet = Math.max(1, this.gameState.currentSet);
-    const players = this.teamRoster.players();
-    const rows: SetBreakdownRow[] = [];
-    for (let setNumber = 1; setNumber <= maxSet; setNumber += 1) {
-      const totals = players.reduce(
-        (acc, player) => {
-          const setStats = this.liveStore.getPlayerSetStats(player.id, setNumber);
-          return {
-            kills: acc.kills + setStats.kills,
-            attackErrors: acc.attackErrors + setStats.attackErrors,
-            totalAttacks: acc.totalAttacks + setStats.totalAttacks,
-          };
-        },
-        {
-          kills: 0,
-          attackErrors: 0,
-          totalAttacks: 0,
-        },
-      );
-
-      rows.push({
-        setNumber,
-        kills: totals.kills,
-        attackErrors: totals.attackErrors,
-        totalAttacks: totals.totalAttacks,
-        efficiency:
-          totals.totalAttacks === 0 ? null : (totals.kills - totals.attackErrors) / totals.totalAttacks,
-      });
-    }
-    return rows;
-  }
-
-  get setKillsLinePoints(): string {
-    return this.toLinePoints(this.setBreakdownRows.map((row) => row.kills));
-  }
-
-  get setErrorsLinePoints(): string {
-    return this.toLinePoints(this.setBreakdownRows.map((row) => row.attackErrors));
-  }
-
-  get setChartHasData(): boolean {
-    return this.setBreakdownRows.some((row) => row.kills > 0 || row.attackErrors > 0);
-  }
-
-  get reviewLoadTargetHit(): boolean {
-    return this.reviewLoadMs <= 500;
-  }
-
   formatRate(value: number | null): string {
     if (value === null) {
       return '--';
     }
 
     return `${(value * 100).toFixed(1)}%`;
-  }
-
-  formatEfficiencyValue(value: number | null): string {
-    return this.formatEfficiencyDecimal(value);
   }
 
   private getActionLabel(action: QuickAction): string {
@@ -1359,97 +979,4 @@ export class CourtPage {
     return 'Event';
   }
 
-  private formatEfficiencyDecimal(value: number | null): string {
-    if (value === null) {
-      return '.000';
-    }
-
-    const rounded = Math.round(value * 1000) / 1000;
-    const fixed = Math.abs(rounded).toFixed(3).replace(/^0/, '');
-    return rounded < 0 ? `-${fixed}` : fixed;
-  }
-
-  private getEfficiencyRating(value: number | null): string {
-    if (value === null) {
-      return 'No Attempts';
-    }
-    if (value >= 0.35) {
-      return 'Elite';
-    }
-    if (value >= 0.25) {
-      return 'Strong';
-    }
-    if (value >= 0.12) {
-      return 'Steady';
-    }
-    if (value >= 0) {
-      return 'Developing';
-    }
-    return 'Needs Reset';
-  }
-
-  private getActiveMatchEvents(): FirestoreGameEvent[] {
-    return this.liveStore.events();
-  }
-
-  private toBarData(
-    raw: Array<{
-      label: string;
-      detail: string;
-      value: number;
-      displayValue: string;
-    }>,
-  ): ReviewBarDatum[] {
-    const maxValue = raw.reduce((peak, item) => Math.max(peak, item.value), 0);
-    return raw.map((item) => ({
-      ...item,
-      width: maxValue === 0 ? 0 : (item.value / maxValue) * 100,
-    }));
-  }
-
-  private toLinePoints(values: number[]): string {
-    if (values.length === 0) {
-      return '';
-    }
-
-    const max = values.reduce((peak, value) => Math.max(peak, value), 1);
-    if (values.length === 1) {
-      const y = 100 - (values[0] / max) * 100;
-      return `0,${y} 100,${y}`;
-    }
-
-    return values
-      .map((value, index) => {
-        const x = (index / (values.length - 1)) * 100;
-        const y = 100 - (value / max) * 100;
-        return `${x},${y}`;
-      })
-      .join(' ');
-  }
-
-  private measureReviewSurfaceLoad(): void {
-    const start = this.nowMs();
-    void this.filteredReviewPlayers;
-    void this.efficiencyChartBars;
-    void this.rotationPerformanceBars;
-    void this.serveReceiveBars;
-    void this.errorBreakdownBars;
-    void this.setBreakdownRows;
-    this.reviewLoadMs = Math.round(this.nowMs() - start);
-  }
-
-  private refreshReviewLoadMetricIfVisible(): void {
-    if (this.activeSurfaceMode !== 'review') {
-      return;
-    }
-
-    this.measureReviewSurfaceLoad();
-  }
-
-  private nowMs(): number {
-    if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
-      return performance.now();
-    }
-    return Date.now();
-  }
 }

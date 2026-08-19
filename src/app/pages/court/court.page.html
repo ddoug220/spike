@@ -201,19 +201,6 @@
           <ion-button
             expand="block"
             fill="solid"
-            class="undo-btn"
-            (click)="undoLastAction()"
-            [disabled]="isMatchOver"
-            aria-label="Undo last action (Ctrl+Z)"
-            aria-keyshortcuts="Control+z"
-          >
-            <ion-icon name="arrow-undo" slot="start" aria-hidden="true"></ion-icon>
-            Undo
-          </ion-button>
-
-          <ion-button
-            expand="block"
-            fill="solid"
             class="sub-mode-btn"
             [ngClass]="{ active: isSubOverlayOpen }"
             (click)="toggleSubMode()"
@@ -237,7 +224,20 @@
         </div>
 
         <div class="last-action" [ngClass]="{ empty: !lastEvent }">
-          <span>{{ getLastEventText() | titlecase }}</span>
+          <span>{{ getLastEventText() }}</span>
+          <ion-button
+            *ngIf="lastEvent"
+            size="small"
+            fill="clear"
+            class="receipt-undo"
+            (click)="undoLastAction()"
+            [disabled]="isEndedEarly"
+            aria-label="Undo last action (Ctrl+Z)"
+            aria-keyshortcuts="Control+z"
+          >
+            <ion-icon name="arrow-undo" slot="start" aria-hidden="true"></ion-icon>
+            Undo
+          </ion-button>
         </div>
 
         <p class="sub-status" [ngClass]="{ empty: !substitutionStatus }">{{ substitutionStatus || 'No substitutions yet' }}</p>

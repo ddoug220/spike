@@ -98,6 +98,7 @@ describe('MatchEngineService', () => {
   });
 
   it('records timeout calls and undoes them through the same undo stack', () => {
+    startWithLineup();
     const didCallTimeout = service.recordTimeout('team');
     expect(didCallTimeout).toBeTrue();
     expect(matchState.state().teamTimeoutsRemaining).toBe(1);
@@ -126,8 +127,8 @@ describe('MatchEngineService', () => {
   });
 
   it('blocks scoring events after match is ended', () => {
-    service.startMatch('team');
-    service.endMatch();
+    startWithLineup();
+    service.endMatchEarly();
     const before = matchState.state();
 
     const event = service.recordPlayerAction(1, 'kill');
@@ -188,50 +189,40 @@ describe('MatchEngineService', () => {
     expect([...projectedLineup()]).toEqual(initialLineup.map((playerId) => playerId as string));
   });
 
-  it('undoes a store-provided synced event when it is not already archived locally', () => {
-    const matchId = offlineSync.startNewMatch();
+  it('undoes the latest applied domain event when later synced records are ignored', () => {
+    startWithLineup();
+    const matchId = offlineSync.getActiveMatchId();
+    const startEvent = offlineSync.getMatchEvents(matchId).find((event) => event.type === 'matchStarted')!;
+    const playerId = teamRoster.lineup()[0]!;
     const syncedEvents: GameEvent[] = [
-      {
-        id: 'evt-start',
-        ownerId: 'owner-1',
-        gameId: matchId,
-        type: 'matchStarted',
-        action: 'match-started',
-        servingTeam: 'team',
-        teamPoints: 0,
-        opponentPoints: 0,
-        teamSets: 0,
-        opponentSets: 0,
-        currentSet: 1,
-        isMatchOver: false,
-        teamTimeoutsRemaining: 2,
-        opponentTimeoutsRemaining: 2,
-        teamRotation: 1,
-        createdAt: '2026-02-10T10:00:00.000Z',
-        isDeleted: false,
-      },
+      startEvent,
       {
         id: 'evt-kill',
         ownerId: 'owner-1',
         gameId: matchId,
         type: 'playerAction',
         action: 'kill',
-        playerId: 'p1',
-        servingTeam: 'team',
-        teamPoints: 1,
-        opponentPoints: 0,
-        teamSets: 0,
-        opponentSets: 0,
-        currentSet: 1,
-        isMatchOver: false,
-        teamTimeoutsRemaining: 2,
-        opponentTimeoutsRemaining: 2,
-        teamRotation: 1,
-        wasReceiving: false,
-        sideOutWon: false,
-        actionSetNumber: 1,
+        playerId,
+        eventKind: 'rally-outcome',
+        schemaVersion: 2,
+        sequence: 2,
+        writerGeneration: 1,
+        setNumber: 1,
+        rallyId: 'rally-1',
+        servingTeamBefore: 'team',
+        teamRotationBefore: 1,
         createdAt: '2026-02-10T10:01:00.000Z',
         isDeleted: false,
+      },
+      {
+        id: 'evt-end', ownerId: 'owner-1', gameId: matchId, type: 'matchEnded', action: 'match-ended',
+        schemaVersion: 2, sequence: 3, writerGeneration: 1, setNumber: 1,
+        createdAt: '2026-02-10T10:02:00.000Z', isDeleted: false,
+      },
+      {
+        id: 'evt-malformed', ownerId: 'owner-1', gameId: matchId, type: 'playerAction', action: 'kill',
+        eventKind: 'rally-outcome', schemaVersion: 2, sequence: 4, writerGeneration: 1, setNumber: 1,
+        createdAt: '2026-02-10T10:03:00.000Z', isDeleted: false,
       },
     ];
 
@@ -241,11 +232,10 @@ describe('MatchEngineService', () => {
     const undone = restoredEngine.undoLastEvent(syncedEvents);
 
     expect(undone?.eventId).toBe('evt-kill');
-    expect(offlineSync.pendingCount()).toBe(2);
-    expect(offlineSync.getMatchEvents(matchId)).toEqual([
+    expect(offlineSync.getMatchEvents(matchId)).toContain(
       jasmine.objectContaining({ type: 'undo', targetEventId: 'evt-kill' }),
-    ]);
-    expect(restoredStats.getPlayerStats('p1').kills).toBe(0);
+    );
+    expect(restoredStats.getPlayerStats(playerId).kills).toBe(0);
     expect(restoredState.state().teamPoints).toBe(0);
   });
 
@@ -275,10 +265,85 @@ describe('MatchEngineService', () => {
     expect(selectedPlayerStats.totalAttacks).toBe(0);
   });
 
+  it('rebuilds one rally and its Undo from persisted ordered events after refresh', () => {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({ name: `P${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    const matchId = service.startMatch('team');
+
+    service.recordPlayerAction(4, 'dig');
+    const refreshedSync = new OfflineSyncService(
+      new FakeFirebaseDbService() as unknown as FirebaseDbService,
+      new FakeAuthService() as unknown as AuthService,
+    );
+    const refreshedState = new MatchStateService();
+    const refreshedStats = new MatchStatsService();
+    const refreshedEngine = new MatchEngineService(refreshedState, refreshedStats, teamRoster, refreshedSync);
+    refreshedEngine.recordPlayerAction(3, 'kill');
+
+    const events = refreshedSync.getMatchEvents(matchId);
+    const dig = events.find((event) => event.action === 'dig')!;
+    const outcome = events.find((event) => event.action === 'kill')!;
+    const afterRally = projectionFromFirestore(refreshedSync.getGame(matchId)!, events)!;
+    expect(outcome).toEqual(jasmine.objectContaining({
+      schemaVersion: 2,
+      sequence: 3,
+      ownerId: 'owner-1',
+      writerGeneration: 1,
+      setNumber: 1,
+      rallyId: dig.rallyId,
+      courtPosition: 3,
+      servingTeamBefore: 'team',
+      teamRotationBefore: 1,
+    }));
+    expect(outcome.rotationPosition).toBeUndefined();
+    expect(afterRally.teamPoints).toBe(1);
+    expect(afterRally.servingTeam).toBe('team');
+    expect([...(afterRally.lineup ?? [])]).toEqual(players.map((player) => player.id));
+    expect(afterRally.observations.length).toBe(1);
+    expect(afterRally.rallies.length).toBe(1);
+    expect(refreshedStats.getPlayerStats(players[3].id).digs).toBe(1);
+    expect(refreshedStats.getPlayerStats(players[0].id).serveAttempts).toBe(1);
+
+    const secondRefreshSync = new OfflineSyncService(
+      new FakeFirebaseDbService() as unknown as FirebaseDbService,
+      new FakeAuthService() as unknown as AuthService,
+    );
+    const secondRefreshState = new MatchStateService();
+    const secondRefreshStats = new MatchStatsService();
+    const secondRefreshEngine = new MatchEngineService(
+      secondRefreshState,
+      secondRefreshStats,
+      teamRoster,
+      secondRefreshSync,
+    );
+    secondRefreshEngine.undoLastEvent(secondRefreshSync.getMatchEvents(matchId));
+
+    const replayed = projectionFromFirestore(
+      secondRefreshSync.getGame(matchId)!,
+      secondRefreshSync.getMatchEvents(matchId),
+    )!;
+    expect(replayed.teamPoints).toBe(0);
+    expect(replayed.observations.length).toBe(1);
+    expect(replayed.rallies.length).toBe(0);
+    expect(secondRefreshStats.getPlayerStats(players[3].id).digs).toBe(1);
+    expect(secondRefreshStats.getPlayerStats(players[0].id).serveAttempts).toBe(0);
+  });
+
   function projectedLineup(): readonly string[] {
     const matchId = offlineSync.getActiveMatchId();
     const game = offlineSync.getGame(matchId);
     if (!game) return [];
     return projectionFromFirestore(game, offlineSync.getMatchEvents(matchId))?.lineup ?? [];
+  }
+
+  function startWithLineup(): void {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({ name: `Starter ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    service.startMatch('team');
   }
 });

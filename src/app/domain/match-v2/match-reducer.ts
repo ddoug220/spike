@@ -62,6 +62,7 @@ export interface MatchProjection {
   completedSets: readonly SetResult[];
   rallies: readonly RallyRecord[];
   observations: readonly StatRecord[];
+  openRallyId: string | null;
   appliedEventIds: readonly string[];
   tombstonedEventIds: ReadonlySet<string>;
 }
@@ -70,7 +71,11 @@ const TIMEOUTS_PER_SET = 2;
 
 export function reduceMatch(session: MatchSession, history: readonly MatchEvent[]): MatchProjection {
   const events = [...history]
-    .filter((event) => event.matchId === session.id && event.schemaVersion === session.schemaVersion)
+    .filter((event) =>
+      event.matchId === session.id &&
+      event.ownerId === session.ownerId &&
+      event.schemaVersion === session.schemaVersion,
+    )
     .sort((left, right) => left.sequence - right.sequence || left.id.localeCompare(right.id));
   const tombstones = new Set(events.filter((event) => event.kind === 'undo').map((event) => event.targetEventId));
 
@@ -100,12 +105,15 @@ function initialProjection(session: MatchSession, tombstones: ReadonlySet<string
     completedSets: [],
     rallies: [],
     observations: [],
+    openRallyId: null,
     appliedEventIds: [],
     tombstonedEventIds: tombstones,
   };
 }
 
 function applyEvent(state: MatchProjection, event: Exclude<MatchEvent, { kind: 'undo' }>): MatchProjection {
+  if (event.kind !== 'set-started' && event.setNumber !== state.currentSet) return state;
+
   switch (event.kind) {
     case 'match-started':
       if (state.status !== 'scheduled') return state;
@@ -137,6 +145,7 @@ function applyEvent(state: MatchProjection, event: Exclude<MatchEvent, { kind: '
     case 'stat-observation':
       if (state.status !== 'live') return state;
       return applied(state, event.id, {
+        openRallyId: event.rallyId,
         observations: [
           ...state.observations,
           {
@@ -182,6 +191,10 @@ function applyEvent(state: MatchProjection, event: Exclude<MatchEvent, { kind: '
 
 function applyRally(state: MatchProjection, event: RallyOutcomeEvent): MatchProjection {
   if (state.status !== 'live' || !state.lineup) return state;
+  if (
+    (event.servingTeamBefore && event.servingTeamBefore !== state.servingTeam) ||
+    (event.teamRotationBefore && event.teamRotationBefore !== state.teamRotation)
+  ) return state;
 
   const winner = rallyWinner(event.action);
   const rally: RallyRecord = {
@@ -207,6 +220,7 @@ function applyRally(state: MatchProjection, event: RallyOutcomeEvent): MatchProj
     servingTeam: winner,
     teamRotation: nextRotation,
     lineup: nextLineup,
+    openRallyId: null,
     rallies: [...state.rallies, rally],
   });
 

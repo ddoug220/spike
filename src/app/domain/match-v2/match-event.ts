@@ -28,10 +28,11 @@ interface MatchEventBase {
   schemaVersion: typeof MATCH_SCHEMA_VERSION;
   id: string;
   matchId: string;
+  ownerId: string;
   sequence: number;
   writerGeneration: number;
   occurredAt: string;
-  setNumber?: SetNumber;
+  setNumber: SetNumber;
 }
 
 export interface MatchStartedEvent extends MatchEventBase {
@@ -60,6 +61,8 @@ export type RallyAction = PlayerRallyAction | TeamRallyAction;
 interface RallyOutcomeBase extends MatchEventBase {
   kind: 'rally-outcome';
   rallyId: string;
+  servingTeamBefore: TeamSide;
+  teamRotationBefore: TeamRotation;
 }
 
 export type RallyOutcomeEvent =

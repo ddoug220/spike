@@ -66,13 +66,14 @@ describe('Beta readiness smoke flow', () => {
     for (let i = 1; i <= 7; i += 1) {
       teamRoster.addPlayer({ name: `Player ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
     }
+    teamRoster.players().forEach((player) => teamRoster.setMatchSquadPlayer(player.id, true));
     teamRoster.players().slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
 
     const matchId = matchEngine.startMatch('team', { opponentName: 'Central High' });
     matchEngine.recordPlayerAction(1, 'kill');
     matchEngine.recordSubstitution(teamRoster.players()[0].id, teamRoster.players()[6].id);
     matchEngine.undoLastEvent();
-    matchEngine.endMatch();
+    matchEngine.endMatchEarly();
     await waitForIdle(offlineSync);
 
     const collections = new Set(firebaseDb.writes.map((write) => write.collection));
@@ -82,7 +83,7 @@ describe('Beta readiness smoke flow', () => {
     expect(collections.has('games')).toBeTrue();
     expect(collections.has('playerSetStats')).toBeTrue();
     expect(firebaseDb.events.some((event) => event.type === 'matchStarted')).toBeTrue();
-    expect(firebaseDb.events.some((event) => event.type === 'matchEnded')).toBeTrue();
+    expect(firebaseDb.events.some((event) => event.type === 'matchEndedEarly')).toBeTrue();
     expect(firebaseDb.writes.every((write) => write.payload.ownerId === 'owner-beta-smoke')).toBeTrue();
     expect(firebaseDb.events.every((event) => event.ownerId === 'owner-beta-smoke')).toBeTrue();
     expect(offlineSync.getGame(matchId)?.opponentName).toBe('Central High');

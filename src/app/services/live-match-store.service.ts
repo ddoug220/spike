@@ -89,10 +89,12 @@ export class LiveMatchStoreService implements OnDestroy {
     this.unsubscribers.push(
       this.firebaseDb.subscribeGame(gameId, (game) => {
         this.firestoreGameSignal.set(game);
+        if (game) this.offlineSync.cacheRemoteGame(game);
         this.hydrateMirrorsFromProjection();
       }),
       this.firebaseDb.subscribeEvents(gameId, (events) => {
         this.firestoreEventsSignal.set(events);
+        this.offlineSync.cacheRemoteEvents(gameId, events);
         this.hydrateMirrorsFromProjection();
       }),
       this.firebaseDb.subscribePlayerSetStats(gameId, (stats) => {
@@ -120,10 +122,7 @@ export class LiveMatchStoreService implements OnDestroy {
   getPlayerStats(playerId: string): PlayerStatLine {
     const projection = this.projection();
     if (projection) {
-      const projected = statsStateFromProjection(projection)[playerId];
-      if (projected) {
-        return projected;
-      }
+      return statsStateFromProjection(projection)[playerId] ?? this.emptyStats();
     }
     const synced = this.stats().find((entry) => entry.playerId === playerId && entry.setNumber === null);
     if (!synced) {
@@ -218,7 +217,7 @@ export class LiveMatchStoreService implements OnDestroy {
     localEvents.forEach((event) => byId.set(event.id, event));
     return Array.from(byId.values())
       .filter((event) => !event.isDeleted)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0) || a.id.localeCompare(b.id));
   }
 
   private latestGame(localGame: Game | null, firestoreGame: Game | null): Game | null {
@@ -238,6 +237,21 @@ export class LiveMatchStoreService implements OnDestroy {
       substitutionOutPlayerId: null,
       substitutionStatus: '',
       isExitSheetOpen: false,
+    };
+  }
+
+  private emptyStats(): PlayerStatLine {
+    return {
+      kills: 0,
+      attackErrors: 0,
+      totalAttacks: 0,
+      aces: 0,
+      serveAttempts: 0,
+      servesIn: 0,
+      blocks: 0,
+      digs: 0,
+      serviceErrors: 0,
+      receiveErrors: 0,
     };
   }
 }

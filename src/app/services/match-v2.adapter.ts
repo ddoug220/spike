@@ -125,6 +125,7 @@ function toDomainEvent(
     schemaVersion: MATCH_SCHEMA_VERSION,
     id: event.id,
     matchId: event.gameId,
+    ownerId: event.ownerId,
     sequence: event.sequence ?? fallbackSequence,
     writerGeneration: event.writerGeneration ?? game.writerGeneration ?? 1,
     occurredAt: event.createdAt,
@@ -149,9 +150,24 @@ function toDomainEvent(
       if (!action) return null;
       if (needsPlayer(action)) {
         if (!event.playerId) return null;
-        return { ...base, kind, rallyId: event.rallyId ?? event.id, action, playerId: event.playerId };
+        return {
+          ...base,
+          kind,
+          rallyId: event.rallyId ?? event.id,
+          action,
+          playerId: event.playerId,
+          servingTeamBefore: event.servingTeamBefore!,
+          teamRotationBefore: readTeamRotation(event.teamRotationBefore)!,
+        };
       }
-      return { ...base, kind, rallyId: event.rallyId ?? event.id, action };
+      return {
+        ...base,
+        kind,
+        rallyId: event.rallyId ?? event.id,
+        action,
+        servingTeamBefore: event.servingTeamBefore!,
+        teamRotationBefore: readTeamRotation(event.teamRotationBefore)!,
+      };
     }
     case 'stat-observation':
       if (event.action !== 'dig' || !event.playerId) return null;

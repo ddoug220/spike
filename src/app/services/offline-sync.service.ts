@@ -9,6 +9,7 @@ import {
 } from '../models/firestore.models';
 import { AuthService } from './auth.service';
 import { FirebaseDbService } from './firebase-db.service';
+import { projectionFromFirestore } from './match-v2.adapter';
 
 type QueuedCollection = 'teams' | 'players' | 'games' | 'roster' | 'events' | 'playerSetStats';
 type OwnerPayload<T extends { ownerId: string }> = Omit<T, 'ownerId'> | T;
@@ -179,8 +180,8 @@ export class OfflineSyncService {
 
   undoLatestEvent(events: readonly GameEvent[], eventId?: string): GameEvent | null {
     const undoneIds = new Set(events.filter((entry) => entry.type === 'undo').map((entry) => entry.targetEventId));
-    const event = events
-      .slice()
+    const event = [...events]
+      .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0) || a.id.localeCompare(b.id))
       .reverse()
       .find((entry) => entry.type !== 'undo' && !undoneIds.has(entry.id) && (!eventId || entry.id === eventId));
 
@@ -388,19 +389,23 @@ export class OfflineSyncService {
           .slice()
           .reverse()
           .find((event) => event.type === 'matchEnded');
+        const projection = latestGame ? projectionFromFirestore(latestGame, state.events) : null;
+        const isFinal = projection
+          ? projection.status === 'final' || projection.status === 'ended-early'
+          : latestGame?.isMatchOver ?? !!finalEvent;
         return {
           matchId,
           opponentName: latestGame?.opponentName?.trim() || 'Opponent',
           startedAt: latestGame?.startedAt ?? firstEvent?.createdAt ?? '',
           lastUpdatedAt: latestGame?.updatedAt ?? latestStats?.updatedAt ?? latestEvent?.createdAt ?? '',
           totalEvents: state.events.length,
-          isFinal: latestGame?.isMatchOver ?? !!finalEvent,
-          teamPoints: latestGame?.teamPoints ?? finalEvent?.teamPoints ?? latestEvent?.teamPoints ?? 0,
-          opponentPoints: latestGame?.opponentPoints ?? finalEvent?.opponentPoints ?? latestEvent?.opponentPoints ?? 0,
-          teamSets: latestGame?.teamSets ?? finalEvent?.teamSets ?? latestEvent?.teamSets ?? 0,
-          opponentSets: latestGame?.opponentSets ?? finalEvent?.opponentSets ?? latestEvent?.opponentSets ?? 0,
-          finalTeamSets: latestGame?.isMatchOver ? latestGame.teamSets : finalEvent?.teamSets ?? null,
-          finalOpponentSets: latestGame?.isMatchOver ? latestGame.opponentSets : finalEvent?.opponentSets ?? null,
+          isFinal,
+          teamPoints: projection?.teamPoints ?? latestGame?.teamPoints ?? finalEvent?.teamPoints ?? latestEvent?.teamPoints ?? 0,
+          opponentPoints: projection?.opponentPoints ?? latestGame?.opponentPoints ?? finalEvent?.opponentPoints ?? latestEvent?.opponentPoints ?? 0,
+          teamSets: projection?.teamSets ?? latestGame?.teamSets ?? finalEvent?.teamSets ?? latestEvent?.teamSets ?? 0,
+          opponentSets: projection?.opponentSets ?? latestGame?.opponentSets ?? finalEvent?.opponentSets ?? latestEvent?.opponentSets ?? 0,
+          finalTeamSets: isFinal ? projection?.teamSets ?? latestGame?.teamSets ?? finalEvent?.teamSets ?? null : null,
+          finalOpponentSets: isFinal ? projection?.opponentSets ?? latestGame?.opponentSets ?? finalEvent?.opponentSets ?? null : null,
         };
       })
       .sort((a, b) => b.lastUpdatedAt.localeCompare(a.lastUpdatedAt));

@@ -1,10 +1,12 @@
 import { Injectable } from '@angular/core';
+import type { MatchProjection } from '../domain/match-v2';
 import { GameEvent } from '../models/firestore.models';
 import { MatchStateService } from './match-state.service';
 import { MatchStatsService, StatsAction } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
 import { RosterPlayer, TeamRosterService } from './team-roster.service';
 import {
+  eventsFromFirestore,
   projectionFromFirestore,
   scoreStateFromProjection,
   setStatsStateFromProjection,
@@ -71,13 +73,10 @@ type EngineEvent =
   providedIn: 'root',
 })
 export class MatchEngineService {
-  private teamServeAttemptTrackedThisRally = false;
   private boxScoreQueuedForMatchId: string | null = null;
   private matchEndedEventQueuedForMatchId: string | null = null;
   private matchStartedAtByMatchId = new Map<string, string>();
   private opponentNameByMatchId = new Map<string, string>();
-  private undoStack: EngineEvent[] = [];
-  private currentRallyId = this.createEventId('rally');
   private currentSetStartingLineup: Array<string | null> = [null, null, null, null, null, null];
 
   constructor(
@@ -94,29 +93,27 @@ export class MatchEngineService {
     this.matchState.resetMatch();
     this.matchState.setServingTeam(initialServe);
     this.matchStats.resetMatch();
-    this.undoStack = [];
-    this.currentRallyId = this.createEventId('rally');
     this.currentSetStartingLineup = this.teamRoster.getLineupSnapshot();
-    this.teamServeAttemptTrackedThisRally = false;
     this.boxScoreQueuedForMatchId = null;
     this.matchEndedEventQueuedForMatchId = null;
     this.matchStartedAtByMatchId.set(matchId, createdAt);
     this.opponentNameByMatchId.set(matchId, opponentName);
 
     this.teamRoster.syncRosterToFirebase(this.offlineSync);
-    this.queueGameSnapshot(matchId, 'live', createdAt);
+    this.queueMatchBootstrap(matchId, initialServe, createdAt);
     this.offlineSync.logEvent({
       id: this.createEventId('evt'),
       gameId: matchId,
       type: 'matchStarted',
       action: 'match-started',
       eventKind: 'match-started',
-      ...this.gameEventStateFields(),
+      setNumber: 1,
       servingTeam: initialServe,
       lineup: this.teamRoster.getLineupSnapshot(),
       createdAt,
       isDeleted: false,
     });
+    this.replayAndProject(matchId, createdAt);
 
     return matchId;
   }
@@ -127,17 +124,18 @@ export class MatchEngineService {
       return;
     }
 
-    this.matchState.endMatch();
+    const projection = this.currentProjection();
+    if (!projection || projection.status !== 'final') return;
     const createdAt = new Date().toISOString();
-    this.queueGameSnapshot(matchId, 'final', createdAt);
+    this.queueGameSnapshot(matchId, projection, createdAt);
     this.offlineSync.logEvent({
       id: this.createEventId('evt'),
       gameId: matchId,
       type: 'matchEnded',
       action: 'match-ended',
-      ...this.gameEventStateFields(),
-      teamSets: this.matchState.state().teamSets,
-      opponentSets: this.matchState.state().opponentSets,
+      setNumber: projection.currentSet,
+      teamSets: projection.teamSets,
+      opponentSets: projection.opponentSets,
       createdAt,
       isDeleted: false,
     });
@@ -147,22 +145,22 @@ export class MatchEngineService {
 
   endMatchEarly(): void {
     const matchId = this.offlineSync.getActiveMatchId();
-    if (this.matchState.state().isMatchOver) {
+    const projection = this.currentProjection();
+    if (!projection || (projection.status !== 'live' && projection.status !== 'set-break')) {
       return;
     }
-    this.matchState.endMatch();
     const createdAt = new Date().toISOString();
-    this.queueGameSnapshot(matchId, 'ended-early', createdAt);
     this.offlineSync.logEvent({
       id: this.createEventId('evt'),
       gameId: matchId,
       type: 'matchEndedEarly',
       action: 'match-ended-early',
       eventKind: 'match-ended-early',
-      ...this.gameEventStateFields(),
+      setNumber: projection.currentSet,
       createdAt,
       isDeleted: false,
     });
+    this.replayAndProject(matchId, createdAt);
     this.queuePlayerStats(matchId);
   }
 
@@ -184,11 +182,11 @@ export class MatchEngineService {
     if (assigned.length !== 6 || new Set(assigned).size !== 6 || assigned.some((id) => !this.teamRoster.getPlayerById(id))) {
       return false;
     }
-    if (!this.matchState.startNextSet(servingTeam)) {
+    const projection = this.currentProjection();
+    if (!projection || projection.status !== 'set-break' || projection.currentSet >= 5) {
       return false;
     }
     this.currentSetStartingLineup = [...lineup];
-    this.currentRallyId = this.createEventId('rally');
     const createdAt = new Date().toISOString();
     const matchId = this.offlineSync.getActiveMatchId();
     this.offlineSync.logEvent({
@@ -197,56 +195,49 @@ export class MatchEngineService {
       type: 'setStarted',
       action: 'set-started',
       eventKind: 'set-started',
-      ...this.gameEventStateFields(),
       lineup,
       servingTeam,
-      actionSetNumber: this.matchState.state().currentSet,
+      setNumber: projection.currentSet + 1,
+      actionSetNumber: projection.currentSet + 1,
       createdAt,
       isDeleted: false,
     });
-    this.queueGameSnapshot(matchId, 'live', createdAt);
+    this.replayAndProject(matchId, createdAt);
     return true;
   }
 
   setServingTeam(team: PointSide): void {
-    if (this.matchState.state().isMatchOver) {
+    const projection = this.currentProjection();
+    if (!projection || projection.status !== 'live') {
       return;
     }
 
-    if (team === this.matchState.state().servingTeam) {
+    if (team === projection.servingTeam) {
       return;
     }
     const eventId = this.createEventId('evt');
-    this.matchState.setServingTeam(team, true);
-    this.teamServeAttemptTrackedThisRally = false;
-    this.undoStack.push({
-      kind: 'serve-correction',
-      eventId,
-      impactedScore: true,
-      impactedStats: false,
-      rotatedClockwise: false,
-    });
-    this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), 'live');
     this.offlineSync.logEvent({
       id: eventId,
       gameId: this.offlineSync.getActiveMatchId(),
       type: 'serveTeamSet',
       action: 'serve-team-set',
       eventKind: 'serve-corrected',
-      ...this.gameEventStateFields(),
+      setNumber: projection.currentSet,
       servingTeam: team,
       createdAt: new Date().toISOString(),
       isDeleted: false,
     });
+    this.replayAndProject(this.offlineSync.getActiveMatchId());
   }
 
-  recordPlayerAction(rotationPosition: number, action: StatsAction): EngineEvent {
-    if (this.matchState.state().isMatchOver) {
+  recordPlayerAction(courtPosition: number, action: StatsAction): EngineEvent {
+    const projection = this.currentProjection();
+    if (!projection || projection.status !== 'live') {
       return {
         kind: 'player-action',
         eventId: this.createEventId('evt'),
         action,
-        playerId: this.getPlayerAtRotation(rotationPosition)?.id ?? null,
+        playerId: this.getPlayerAtCourtPosition(courtPosition)?.id ?? null,
         impactedScore: false,
         impactedStats: false,
         rotatedClockwise: false,
@@ -254,64 +245,26 @@ export class MatchEngineService {
     }
 
     const matchId = this.offlineSync.getActiveMatchId();
-    const servingTeamBefore = this.matchState.state().servingTeam;
-    const teamRotationBefore = this.matchState.state().teamRotation;
-    const rallyId = this.currentRallyId;
-    const currentSetBefore = this.matchState.state().currentSet;
+    const servingTeamBefore = projection.servingTeam;
+    const teamRotationBefore = projection.teamRotation;
+    const rallyId = projection.openRallyId ?? this.createEventId('rally');
+    const currentSetBefore = projection.currentSet;
     const wasReceiving = servingTeamBefore === 'opponent';
     const isTeamPointFromOpponentError = action === 'opponent-error';
-    const selectedPlayer = isTeamPointFromOpponentError ? null : this.getPlayerAtRotation(rotationPosition);
-    const serverPlayer = this.getPlayerAtRotation(1);
-
-    let inferredServeInServerPlayerId: string | undefined;
-    if (
-      servingTeamBefore === 'team' &&
-      !this.teamServeAttemptTrackedThisRally &&
-      action !== 'ace' &&
-      action !== 'service-error'
-    ) {
-      inferredServeInServerPlayerId = serverPlayer?.id ?? undefined;
-      if (inferredServeInServerPlayerId) {
-        this.teamServeAttemptTrackedThisRally = true;
-      }
-    } else if (
-      servingTeamBefore === 'team' &&
-      !this.teamServeAttemptTrackedThisRally &&
-      (action === 'ace' || action === 'service-error')
-    ) {
-      this.teamServeAttemptTrackedThisRally = true;
-    }
-
-    const scoreResult = this.applyScoreForAction(action);
-    let impactedStats = false;
-    if (selectedPlayer) {
-      this.matchStats.recordPlayerAction(selectedPlayer.id, action, {
-        wasReceiving,
-        sideOutWon: scoreResult.sideOutWon,
-        inferredServeInServerPlayerId,
-        currentSet: currentSetBefore,
-      });
-      impactedStats = true;
-    } else if (inferredServeInServerPlayerId) {
-      this.matchStats.recordInferredServeIn(inferredServeInServerPlayerId);
-      impactedStats = true;
-    }
-
-    if (scoreResult.impactedScore) {
-      this.teamServeAttemptTrackedThisRally = false;
-    }
-    this.queueGameSnapshot(matchId, this.matchState.state().isMatchOver ? 'final' : 'live');
+    const selectedPlayer = isTeamPointFromOpponentError ? null : this.getPlayerAtCourtPosition(courtPosition);
+    const impactedScore = action !== 'dig';
+    const sideOutWon = impactedScore && servingTeamBefore === 'opponent' &&
+      (action === 'kill' || action === 'ace' || action === 'block' || action === 'opponent-error');
 
     const event: EngineEvent = {
       kind: 'player-action',
       eventId: this.createEventId('evt'),
       action,
       playerId: selectedPlayer?.id ?? null,
-      impactedScore: scoreResult.impactedScore,
-      impactedStats,
-      rotatedClockwise: scoreResult.rotatedClockwise,
+      impactedScore,
+      impactedStats: selectedPlayer !== null,
+      rotatedClockwise: sideOutWon,
     };
-    this.undoStack.push(event);
 
     this.offlineSync.logEvent({
       id: event.eventId,
@@ -319,36 +272,30 @@ export class MatchEngineService {
       type: 'playerAction',
       action,
       eventKind: action === 'dig' ? 'stat-observation' : 'rally-outcome',
-      ...this.gameEventStateFields(),
-      rotationPosition,
+      courtPosition,
       playerId: selectedPlayer?.id ?? null,
       wasReceiving,
-      sideOutWon: scoreResult.sideOutWon,
-      inferredServeInServerPlayerId,
+      sideOutWon,
       actionSetNumber: currentSetBefore,
+      setNumber: currentSetBefore,
       rallyId,
       servingTeamBefore,
       teamRotationBefore,
-      teamPoints: this.matchState.state().teamPoints,
-      opponentPoints: this.matchState.state().opponentPoints,
-      teamSets: this.matchState.state().teamSets,
-      opponentSets: this.matchState.state().opponentSets,
       createdAt: new Date().toISOString(),
       isDeleted: false,
     });
 
-    if (scoreResult.matchEnded) {
+    const next = this.replayAndProject(matchId);
+    if (next?.status === 'final') {
       this.queuePlayerStats(matchId);
-    }
-    if (scoreResult.impactedScore) {
-      this.currentRallyId = this.createEventId('rally');
     }
 
     return event;
   }
 
   recordOpponentPoint(): EngineEvent {
-    if (this.matchState.state().isMatchOver) {
+    const projection = this.currentProjection();
+    if (!projection || projection.status !== 'live') {
       return {
         kind: 'opponent-point',
         eventId: this.createEventId('evt'),
@@ -359,60 +306,42 @@ export class MatchEngineService {
     }
 
     const matchId = this.offlineSync.getActiveMatchId();
-    const servingTeamBefore = this.matchState.state().servingTeam;
-    const teamRotationBefore = this.matchState.state().teamRotation;
-    const rallyId = this.currentRallyId;
-    let impactedStats = false;
-    if (servingTeamBefore === 'team' && !this.teamServeAttemptTrackedThisRally) {
-      const serverPlayerId = this.getPlayerAtRotation(1)?.id;
-      if (serverPlayerId) {
-        this.matchStats.recordInferredServeIn(serverPlayerId);
-        impactedStats = true;
-        this.teamServeAttemptTrackedThisRally = true;
-      }
-    }
-
-    const result = this.matchState.recordOpponentPoint();
-    this.teamServeAttemptTrackedThisRally = false;
-    this.queueGameSnapshot(matchId, this.matchState.state().isMatchOver ? 'final' : 'live');
+    const servingTeamBefore = projection.servingTeam;
+    const teamRotationBefore = projection.teamRotation;
+    const rallyId = projection.openRallyId ?? this.createEventId('rally');
 
     const event: EngineEvent = {
       kind: 'opponent-point',
       eventId: this.createEventId('evt'),
       impactedScore: true,
-      impactedStats,
+      impactedStats: servingTeamBefore === 'team',
       rotatedClockwise: false,
     };
-    this.undoStack.push(event);
-
     this.offlineSync.logEvent({
       id: event.eventId,
       gameId: matchId,
       type: 'opponentPoint',
       action: 'opponent-point',
       eventKind: 'rally-outcome',
-      ...this.gameEventStateFields(),
+      setNumber: projection.currentSet,
       rallyId,
       servingTeamBefore,
       teamRotationBefore,
-      teamPoints: this.matchState.state().teamPoints,
-      opponentPoints: this.matchState.state().opponentPoints,
-      teamSets: this.matchState.state().teamSets,
-      opponentSets: this.matchState.state().opponentSets,
       createdAt: new Date().toISOString(),
       isDeleted: false,
     });
 
-    if (result.matchEnded) {
+    const next = this.replayAndProject(matchId);
+    if (next?.status === 'final') {
       this.queuePlayerStats(matchId);
     }
-    this.currentRallyId = this.createEventId('rally');
 
     return event;
   }
 
   recordSubstitution(outPlayerId: string, inPlayerId: string): boolean {
-    if (this.matchState.state().isMatchOver) {
+    const projection = this.currentProjection();
+    if (!projection || projection.status !== 'live') {
       return false;
     }
 
@@ -432,31 +361,31 @@ export class MatchEngineService {
       impactedStats: false,
       rotatedClockwise: false,
     };
-    this.undoStack.push(event);
-
     this.offlineSync.logEvent({
       id: eventId,
       gameId: this.offlineSync.getActiveMatchId(),
       type: 'substitution',
       action: 'substitution',
       eventKind: 'substitution',
-      ...this.gameEventStateFields(),
+      setNumber: projection.currentSet,
       outPlayerId,
       inPlayerId,
       courtPosition,
       createdAt: new Date().toISOString(),
       isDeleted: false,
     });
+    this.replayAndProject(this.offlineSync.getActiveMatchId());
     return true;
   }
 
   recordTimeout(team: PointSide): boolean {
-    if (this.matchState.state().isMatchOver) {
+    const projection = this.currentProjection();
+    if (!projection || projection.status !== 'live') {
       return false;
     }
 
-    const didCallTimeout = this.matchState.callTimeout(team);
-    if (!didCallTimeout) {
+    const remaining = team === 'team' ? projection.teamTimeoutsRemaining : projection.opponentTimeoutsRemaining;
+    if (remaining === 0) {
       return false;
     }
 
@@ -469,50 +398,39 @@ export class MatchEngineService {
       impactedStats: false,
       rotatedClockwise: false,
     };
-    this.undoStack.push(event);
-
-    const nextState = this.matchState.state();
-    this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), 'live');
     this.offlineSync.logEvent({
       id: eventId,
       gameId: this.offlineSync.getActiveMatchId(),
       type: 'timeoutCalled',
       action: 'timeout-called',
       eventKind: 'timeout-called',
-      ...this.gameEventStateFields(),
+      setNumber: projection.currentSet,
       timeoutTeam: team,
-      teamTimeoutsRemaining: nextState.teamTimeoutsRemaining,
-      opponentTimeoutsRemaining: nextState.opponentTimeoutsRemaining,
       createdAt: new Date().toISOString(),
       isDeleted: false,
     });
+    this.replayAndProject(this.offlineSync.getActiveMatchId());
 
     return true;
   }
 
   manualRotateTeam(): boolean {
-    const nextRotation = (this.matchState.state().teamRotation % 6) + 1;
+    const nextRotation = ((this.currentProjection()?.teamRotation ?? 1) % 6) + 1;
     return this.manualRotateTeamTo(nextRotation);
   }
 
   manualRotateTeamTo(targetRotation: number): boolean {
-    if (this.matchState.state().isMatchOver) {
+    const projection = this.currentProjection();
+    if (!projection || projection.status !== 'live') {
       return false;
     }
 
-    const previousRotation = this.matchState.state().teamRotation;
+    const previousRotation = projection.teamRotation;
     const normalizedTarget = ((Math.trunc(targetRotation) - 1) % 6 + 6) % 6 + 1;
     const rotationSteps = (normalizedTarget - previousRotation + 6) % 6;
     if (rotationSteps === 0) {
       return false;
     }
-    const didRotate = this.matchState.setTeamRotation(normalizedTarget);
-    if (!didRotate) {
-      return false;
-    }
-
-    this.teamServeAttemptTrackedThisRally = false;
-
     const eventId = this.createEventId('evt');
     const event: EngineEvent = {
       kind: 'manual-rotation',
@@ -522,66 +440,47 @@ export class MatchEngineService {
       rotatedClockwise: true,
       rotationSteps,
     };
-    this.undoStack.push(event);
-
-    const nextState = this.matchState.state();
-    this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), 'live');
     this.offlineSync.logEvent({
       id: eventId,
       gameId: this.offlineSync.getActiveMatchId(),
       type: 'manualRotation',
       action: 'manual-rotation',
       eventKind: 'rotation-corrected',
-      ...this.gameEventStateFields(),
-      teamRotation: nextState.teamRotation,
-      servingTeam: nextState.servingTeam,
+      setNumber: projection.currentSet,
+      teamRotation: normalizedTarget,
+      servingTeam: projection.servingTeam,
       previousTeamRotation: previousRotation,
       targetTeamRotation: normalizedTarget,
       targetRotation: normalizedTarget,
       createdAt: new Date().toISOString(),
       isDeleted: false,
     });
+    this.replayAndProject(this.offlineSync.getActiveMatchId());
 
     return true;
   }
 
   undoLastEvent(syncedEvents: GameEvent[] = this.offlineSync.getMatchEvents(this.offlineSync.getActiveMatchId())): EngineEvent | null {
-    const last = this.undoStack.pop();
-    if (!last) {
-      const latestEvent = this.offlineSync.undoLatestEvent(
-        syncedEvents.filter((event) => this.isUndoableSyncedEvent(event) || event.type === 'undo'),
-      );
-      if (!latestEvent) {
-        return null;
-      }
+    const matchId = this.offlineSync.getActiveMatchId();
+    const latestEvent = this.latestUndoableEvent(matchId, syncedEvents);
+    if (!latestEvent) return null;
+    this.offlineSync.undoLatestEvent([latestEvent], latestEvent.id);
+    const localUndo = this.offlineSync.getMatchEvents(matchId).find(
+      (event) => event.type === 'undo' && event.targetEventId === latestEvent.id,
+    );
+    const replayEvents = this.mergeEvents(syncedEvents, localUndo ? [localUndo] : []);
+    const projection = this.replayAndProject(matchId, undefined, replayEvents);
 
-      const remainingEvents = syncedEvents.filter((event) => event.id !== latestEvent.id);
-      this.replayLocalStateFromEvents(remainingEvents);
-      this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), this.matchState.state().isMatchOver ? 'final' : 'live');
-      return this.toEngineEvent(latestEvent);
-    }
-
-    if (last.impactedScore) {
-      this.matchState.undoLastPoint();
-    }
-    if (last.impactedStats) {
-      this.matchStats.undoLastAction();
-    }
-    this.teamServeAttemptTrackedThisRally = false;
-    this.queueGameSnapshot(this.offlineSync.getActiveMatchId(), this.matchState.state().isMatchOver ? 'final' : 'live');
-
-    this.offlineSync.undoLastEvent(last.eventId);
-
-    if (!this.matchState.state().isMatchOver) {
+    if (projection && projection.status !== 'final') {
       this.boxScoreQueuedForMatchId = null;
       this.matchEndedEventQueuedForMatchId = null;
     }
 
-    return last;
+    return this.toEngineEvent(latestEvent);
   }
 
-  private getPlayerAtRotation(rotationPosition: number): RosterPlayer | null {
-    const playerId = this.projectedLineup()?.[rotationPosition - 1] ?? this.teamRoster.lineup()[rotationPosition - 1] ?? null;
+  private getPlayerAtCourtPosition(courtPosition: number): RosterPlayer | null {
+    const playerId = this.projectedLineup()?.[courtPosition - 1] ?? this.teamRoster.lineup()[courtPosition - 1] ?? null;
     return this.teamRoster.getPlayerById(playerId);
   }
 
@@ -592,41 +491,19 @@ export class MatchEngineService {
     return projectionFromFirestore(game, this.offlineSync.getMatchEvents(matchId))?.lineup ?? null;
   }
 
-  private applyScoreForAction(action: StatsAction): {
-    impactedScore: boolean;
-    sideOutWon: boolean;
-    matchEnded: boolean;
-    rotatedClockwise: boolean;
-  } {
-    if (action === 'service-error' || action === 'attack-error' || action === 'receive-error') {
-      const result = this.matchState.recordOpponentPoint();
-      return { impactedScore: true, sideOutWon: false, matchEnded: result.matchEnded, rotatedClockwise: false };
-    }
-
-    if (action === 'kill' || action === 'ace' || action === 'block' || action === 'opponent-error') {
-      const result = this.matchState.recordTeamPoint();
-      return {
-        impactedScore: true,
-        sideOutWon: result.sideOut,
-        matchEnded: result.matchEnded,
-        rotatedClockwise: result.sideOut,
-      };
-    }
-
-    return { impactedScore: false, sideOutWon: false, matchEnded: false, rotatedClockwise: false };
-  }
-
   private queuePlayerStats(matchId: string): void {
     if (this.boxScoreQueuedForMatchId === matchId) {
       return;
     }
 
-    const rows = this.teamRoster
-      .players()
+    const projection = this.currentProjection();
+    if (!projection) return;
+    const projectedStats = statsStateFromProjection(projection);
+    const rows = projection.session.squad
       .slice()
       .sort((a, b) => a.jerseyNumber - b.jerseyNumber)
       .map((player) => {
-        const stats = this.matchStats.getPlayerStats(player.id);
+        const stats = projectedStats[player.id];
         return {
           playerId: player.id,
           jerseyNumber: player.jerseyNumber,
@@ -637,7 +514,7 @@ export class MatchEngineService {
           aces: stats.aces,
           serveAttempts: stats.serveAttempts,
           servesIn: stats.servesIn,
-          serveInPercentage: this.matchStats.getServeInPercentage(player.id),
+          serveInPercentage: stats.serveAttempts === 0 ? null : stats.servesIn / stats.serveAttempts,
           blocks: stats.blocks,
           digs: stats.digs,
           serviceErrors: stats.serviceErrors,
@@ -672,19 +549,41 @@ export class MatchEngineService {
     this.boxScoreQueuedForMatchId = matchId;
   }
 
-  private queueGameSnapshot(matchId: string, status: 'live' | 'final' | 'ended-early', timestamp = new Date().toISOString()): void {
-    const state = this.matchState.state();
-    const existingGame = this.offlineSync.getGame(matchId);
-    const startedAt = this.matchStartedAtByMatchId.get(matchId) ?? existingGame?.startedAt ?? timestamp;
-    const opponentName =
-      this.opponentNameByMatchId.get(matchId) ??
-      this.normalizeOpponentName(existingGame?.opponentName);
-    this.matchStartedAtByMatchId.set(matchId, startedAt);
-    this.opponentNameByMatchId.set(matchId, opponentName);
+  private queueMatchBootstrap(matchId: string, servingTeam: PointSide, timestamp: string): void {
     this.offlineSync.queueGame({
+      ...this.gameFields(matchId, timestamp),
       id: matchId,
-      teamId: this.teamRoster.team().id,
-      opponentName,
+      status: 'live',
+      servingTeam,
+      teamPoints: 0,
+      opponentPoints: 0,
+      teamSets: 0,
+      opponentSets: 0,
+      currentSet: 1,
+      isMatchOver: false,
+      isSetBreak: false,
+      teamTimeoutsRemaining: 2,
+      opponentTimeoutsRemaining: 2,
+      teamRotation: 1,
+      endedAt: null,
+      updatedAt: timestamp,
+    });
+  }
+
+  private queueGameSnapshot(
+    matchId: string,
+    projection: MatchProjection,
+    timestamp = new Date().toISOString(),
+  ): void {
+    const state = scoreStateFromProjection(projection);
+    const status = projection.status === 'final'
+      ? 'final'
+      : projection.status === 'ended-early'
+        ? 'ended-early'
+        : 'live';
+    this.offlineSync.queueGame({
+      ...this.gameFields(matchId, timestamp),
+      id: matchId,
       status,
       servingTeam: state.servingTeam,
       teamPoints: state.teamPoints,
@@ -697,6 +596,22 @@ export class MatchEngineService {
       teamTimeoutsRemaining: state.teamTimeoutsRemaining,
       opponentTimeoutsRemaining: state.opponentTimeoutsRemaining,
       teamRotation: state.teamRotation,
+      endedAt: status === 'live' ? null : timestamp,
+      updatedAt: timestamp,
+    });
+  }
+
+  private gameFields(matchId: string, timestamp: string) {
+    const existingGame = this.offlineSync.getGame(matchId);
+    const startedAt = this.matchStartedAtByMatchId.get(matchId) ?? existingGame?.startedAt ?? timestamp;
+    const opponentName =
+      this.opponentNameByMatchId.get(matchId) ??
+      this.normalizeOpponentName(existingGame?.opponentName);
+    this.matchStartedAtByMatchId.set(matchId, startedAt);
+    this.opponentNameByMatchId.set(matchId, opponentName);
+    return {
+      teamId: this.teamRoster.team().id,
+      opponentName,
       matchSquad: this.teamRoster.getMatchSquadPlayers().map((player) => ({
         id: player.id,
         name: player.name,
@@ -707,10 +622,8 @@ export class MatchEngineService {
         ? [...this.currentSetStartingLineup]
         : [...(existingGame?.startingLineup ?? this.teamRoster.matchDefaults().startingLineup)],
       startedAt,
-      endedAt: status === 'live' ? null : timestamp,
       createdAt: startedAt,
-      updatedAt: timestamp,
-    });
+    };
   }
 
   private normalizeOpponentName(value: string | undefined): string {
@@ -731,19 +644,50 @@ export class MatchEngineService {
     );
   }
 
-  private isUndoableSyncedEvent(event: GameEvent): boolean {
-    return !event.isDeleted && event.type !== 'matchStarted' && event.type !== 'undo';
-  }
-
-  private replayLocalStateFromEvents(events: GameEvent[]): void {
-    const game = this.offlineSync.getGame(this.offlineSync.getActiveMatchId());
-    if (!game) return;
+  private replayAndProject(
+    matchId: string,
+    timestamp = new Date().toISOString(),
+    events = this.offlineSync.getMatchEvents(matchId),
+  ): MatchProjection | null {
+    const game = this.offlineSync.getGame(matchId);
+    if (!game) return null;
     const projection = projectionFromFirestore(game, events);
-    if (!projection) return;
+    if (!projection) return null;
     this.matchState.hydrateState(scoreStateFromProjection(projection));
     this.matchStats.replaceSnapshot(
       statsStateFromProjection(projection),
       setStatsStateFromProjection(projection),
+    );
+    this.queueGameSnapshot(matchId, projection, timestamp);
+    return projection;
+  }
+
+  private currentProjection(): MatchProjection | null {
+    const matchId = this.offlineSync.getActiveMatchId();
+    const game = this.offlineSync.getGame(matchId);
+    return game ? projectionFromFirestore(game, this.offlineSync.getMatchEvents(matchId)) : null;
+  }
+
+  private latestUndoableEvent(matchId: string, events: readonly GameEvent[]): GameEvent | null {
+    const game = this.offlineSync.getGame(matchId);
+    if (!game) return null;
+    const projection = projectionFromFirestore(game, events);
+    if (!projection) return null;
+    const domainEvents = new Map(eventsFromFirestore(game, events).map((event) => [event.id, event]));
+    const targetId = [...projection.appliedEventIds]
+      .reverse()
+      .find((eventId) => {
+        const event = domainEvents.get(eventId);
+        return !!event && event.kind !== 'match-started';
+      });
+    return targetId ? events.find((event) => event.id === targetId) ?? null : null;
+  }
+
+  private mergeEvents(left: readonly GameEvent[], right: readonly GameEvent[]): GameEvent[] {
+    const byId = new Map<string, GameEvent>();
+    [...left, ...right].forEach((event) => byId.set(event.id, event));
+    return [...byId.values()].sort(
+      (a, b) => (a.sequence ?? 0) - (b.sequence ?? 0) || a.createdAt.localeCompare(b.createdAt),
     );
   }
 
@@ -812,36 +756,6 @@ export class MatchEngineService {
       impactedScore: true,
       impactedStats: event.type === 'playerAction',
       rotatedClockwise: false,
-    };
-  }
-
-  private gameEventStateFields(): Pick<
-    GameEvent,
-    | 'servingTeam'
-    | 'teamPoints'
-    | 'opponentPoints'
-    | 'teamSets'
-    | 'opponentSets'
-    | 'currentSet'
-    | 'isMatchOver'
-    | 'isSetBreak'
-    | 'teamTimeoutsRemaining'
-    | 'opponentTimeoutsRemaining'
-    | 'teamRotation'
-  > {
-    const state = this.matchState.state();
-    return {
-      servingTeam: state.servingTeam,
-      teamPoints: state.teamPoints,
-      opponentPoints: state.opponentPoints,
-      teamSets: state.teamSets,
-      opponentSets: state.opponentSets,
-      currentSet: state.currentSet,
-      isMatchOver: state.isMatchOver,
-      isSetBreak: state.isSetBreak,
-      teamTimeoutsRemaining: state.teamTimeoutsRemaining,
-      opponentTimeoutsRemaining: state.opponentTimeoutsRemaining,
-      teamRotation: state.teamRotation,
     };
   }
 

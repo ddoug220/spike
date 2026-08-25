@@ -117,6 +117,7 @@ describe('CourtPage', () => {
   });
 
   it('tracks an opponent winner point separately from team-error actions', () => {
+    startMatchWithLineup();
     const before = matchState.state().opponentPoints;
 
     component.recordStandardOutcome('opponent-point');
@@ -126,6 +127,7 @@ describe('CourtPage', () => {
   });
 
   it('tracks a team point from opponent unforced error', () => {
+    startMatchWithLineup();
     const before = matchState.state().teamPoints;
 
     component.recordStandardOutcome('opponent-error');
@@ -144,6 +146,7 @@ describe('CourtPage', () => {
     }
     const server = teamRoster.players()[0];
     teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    matchEngine.startMatch('team');
     component.activePlayer = 1;
     const before = matchState.state().opponentPoints;
 
@@ -164,6 +167,7 @@ describe('CourtPage', () => {
     }
     const passer = teamRoster.players()[2];
     teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    matchEngine.startMatch('team');
     component.activePlayer = 3;
     const before = matchState.state().opponentPoints;
 
@@ -184,6 +188,7 @@ describe('CourtPage', () => {
     }
     const defender = teamRoster.players()[3];
     teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    matchEngine.startMatch('team');
     component.activePlayer = 4;
     const before = matchState.state();
 
@@ -249,4 +254,12 @@ describe('CourtPage', () => {
     expect(actions).toContain('new-match');
     expect(actions).not.toContain('end-home');
   });
+
+  function startMatchWithLineup(): void {
+    for (let i = 1; i <= 6; i += 1) {
+      teamRoster.addPlayer({ name: `Starter ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    matchEngine.startMatch('team');
+  }
 });

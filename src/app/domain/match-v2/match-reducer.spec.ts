@@ -4,6 +4,7 @@ import {
   type MatchEvent,
   type MatchSession,
   type RallyAction,
+  type SetNumber,
   type TeamSide,
 } from './match-event';
 import { reduceMatch } from './match-reducer';
@@ -37,12 +38,38 @@ describe('match v2 reducer', () => {
     expect(ordered.opponentPoints).toBe(1);
   });
 
+  it('ignores events outside the session owner and schema', () => {
+    const state = reduceMatch(session, [
+      start(1),
+      { ...rally(2, 'kill', 'p3'), ownerId: 'other-owner' },
+      { ...rally(3, 'kill', 'p3'), schemaVersion: 1 } as unknown as MatchEvent,
+    ]);
+
+    expect(state.teamPoints).toBe(0);
+    expect(state.rallies).toEqual([]);
+  });
+
+  it('ignores events whose stored set or pre-rally context conflicts with replay state', () => {
+    const state = reduceMatch(session, [
+      start(1),
+      { ...dig(2, 'p4'), setNumber: 2 },
+      { ...rally(3, 'kill', 'p3'), setNumber: 2 },
+      rally(4, 'kill', 'p3', 'opponent', 1),
+      rally(5, 'kill', 'p3', 'team', 2),
+    ]);
+
+    expect(state.teamPoints).toBe(0);
+    expect(state.observations).toEqual([]);
+    expect(state.rallies).toEqual([]);
+    expect(state.appliedEventIds).toEqual(['event-1']);
+  });
+
   it('uses the pre-rally serve and Team Rotation for side-out and rotation rates', () => {
     const state = reduceMatch(session, [
       start(1, 'opponent'),
-      rally(2, 'opponent-error'),
-      rally(3, 'opponent-winner'),
-      rally(4, 'opponent-winner'),
+      rally(2, 'opponent-error', undefined, 'opponent', 1),
+      rally(3, 'opponent-winner', undefined, 'team', 2),
+      rally(4, 'opponent-winner', undefined, 'opponent', 2),
     ]);
 
     expect(selectTeamSideOut(state)).toEqual({ won: 1, total: 2, percentage: 50 });
@@ -53,6 +80,7 @@ describe('match v2 reducer', () => {
   });
 
   it('records a Dig without changing score and infers serve attempts from P1', () => {
+    const duringRally = reduceMatch(session, [start(1), dig(2, 'p4')]);
     const state = reduceMatch(session, [
       start(1),
       dig(2, 'p4'),
@@ -61,6 +89,8 @@ describe('match v2 reducer', () => {
     ]);
     const stats = selectPlayerCountStats(state);
 
+    expect(duringRally.openRallyId).toBe('rally-2');
+    expect(state.openRallyId).toBeNull();
     expect(state.teamPoints).toBe(1);
     expect(state.opponentPoints).toBe(1);
     expect(stats.find((player) => player.playerId === 'p4')?.digs).toBe(1);
@@ -110,7 +140,7 @@ describe('match v2 reducer', () => {
     let sequence = 2;
     for (let setNumber = 1; setNumber <= 4; setNumber += 1) {
       const winner: TeamSide = setNumber % 2 === 1 ? 'team' : 'opponent';
-      fifthSetEvents.push(...winSet(sequence, winner));
+      fifthSetEvents.push(...winSet(sequence, winner, setNumber as SetNumber));
       sequence += 25;
       fifthSetEvents.push({
         ...eventBase(sequence++),
@@ -120,7 +150,9 @@ describe('match v2 reducer', () => {
         servingTeam: 'team',
       });
     }
-    for (let point = 0; point < 15; point += 1) fifthSetEvents.push(rally(sequence++, 'opponent-error'));
+    for (let point = 0; point < 15; point += 1) {
+      fifthSetEvents.push(rally(sequence++, 'opponent-error', undefined, undefined, undefined, 5));
+    }
 
     const fifthSet = reduceMatch(session, fifthSetEvents);
     expect(fifthSet.status).toBe('final');
@@ -141,7 +173,7 @@ describe('match v2 reducer', () => {
           servingTeam: 'team',
         });
       }
-      events.push(...winSet(sequence, 'team'));
+      events.push(...winSet(sequence, 'team', setNumber as SetNumber));
       sequence += 25;
     }
     const finalRally = events[events.length - 1];
@@ -210,8 +242,23 @@ describe('match v2 reducer', () => {
     return { ...eventBase(sequence), kind: 'match-started', lineup, servingTeam };
   }
 
-  function rally(sequence: number, action: RallyAction, playerId?: string): MatchEvent {
-    const shared = { ...eventBase(sequence), kind: 'rally-outcome' as const, rallyId: `rally-${sequence}`, action };
+  function rally(
+    sequence: number,
+    action: RallyAction,
+    playerId?: string,
+    servingTeamBefore?: TeamSide,
+    teamRotationBefore?: 1 | 2 | 3 | 4 | 5 | 6,
+    setNumber: SetNumber = 1,
+  ): MatchEvent {
+    const shared = {
+      ...eventBase(sequence),
+      kind: 'rally-outcome' as const,
+      rallyId: `rally-${sequence}`,
+      action,
+      servingTeamBefore: servingTeamBefore!,
+      teamRotationBefore: teamRotationBefore!,
+      setNumber,
+    };
     return playerId ? ({ ...shared, playerId } as MatchEvent) : (shared as MatchEvent);
   }
 
@@ -219,9 +266,16 @@ describe('match v2 reducer', () => {
     return { ...eventBase(sequence), kind: 'stat-observation', rallyId: `rally-${sequence}`, action: 'dig', playerId };
   }
 
-  function winSet(firstSequence: number, winner: TeamSide): MatchEvent[] {
+  function winSet(firstSequence: number, winner: TeamSide, setNumber: SetNumber = 1): MatchEvent[] {
     return Array.from({ length: 25 }, (_, index) =>
-      rally(firstSequence + index, winner === 'team' ? 'opponent-error' : 'opponent-winner'),
+      rally(
+        firstSequence + index,
+        winner === 'team' ? 'opponent-error' : 'opponent-winner',
+        undefined,
+        undefined,
+        undefined,
+        setNumber,
+      ),
     );
   }
 
@@ -230,8 +284,10 @@ describe('match v2 reducer', () => {
       schemaVersion: MATCH_SCHEMA_VERSION,
       id: `event-${sequence}`,
       matchId: session.id,
+      ownerId: session.ownerId,
       sequence,
       writerGeneration: 1,
+      setNumber: 1,
       occurredAt: `2026-08-18T18:${String(sequence).padStart(2, '0')}:00.000Z`,
     } as const;
   }

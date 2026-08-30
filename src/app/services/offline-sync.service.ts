@@ -10,6 +10,7 @@ import {
 import { AuthService } from './auth.service';
 import { FirebaseDbService } from './firebase-db.service';
 import { projectionFromFirestore } from './match-v2.adapter';
+import { purgeLegacyMatchCaches } from './legacy-match-cache';
 
 type QueuedCollection = 'teams' | 'players' | 'games' | 'roster' | 'events' | 'playerSetStats';
 type OwnerPayload<T extends { ownerId: string }> = Omit<T, 'ownerId'> | T;
@@ -65,10 +66,10 @@ export interface MatchArchiveSummary {
   providedIn: 'root',
 })
 export class OfflineSyncService {
-  private static readonly MATCH_ID_KEY = 'spike-active-match-id-v1';
-  private static readonly QUEUE_KEY = 'spike-sync-queue-v1';
-  private static readonly LAST_SUCCESS_KEY = 'spike-sync-last-success-v1';
-  private static readonly ARCHIVE_KEY = 'spike-sync-archive-v1';
+  private static readonly MATCH_ID_KEY = 'spike-active-match-id-v2';
+  private static readonly QUEUE_KEY = 'spike-sync-queue-v2';
+  private static readonly LAST_SUCCESS_KEY = 'spike-sync-last-success-v2';
+  private static readonly ARCHIVE_KEY = 'spike-sync-archive-v2';
   private static readonly DEVICE_ID_KEY = 'spike-scoring-device-v2';
 
   private readonly queueSignal = signal<SyncQueueItem[]>([]);
@@ -90,6 +91,7 @@ export class OfflineSyncService {
     private readonly firebaseDb: FirebaseDbService,
     private readonly auth: AuthService,
   ) {
+    purgeLegacyMatchCaches();
     this.restoreQueue();
     this.restoreLastSuccess();
     this.restoreArchive();

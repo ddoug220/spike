@@ -1,5 +1,6 @@
 import { Injectable, Optional, computed, signal } from '@angular/core';
 import { AuthService } from './auth.service';
+import { purgeLegacyMatchCaches } from './legacy-match-cache';
 
 export interface MatchScoreState {
   teamPoints: number;
@@ -26,7 +27,7 @@ export interface PointResult {
   providedIn: 'root',
 })
 export class MatchStateService {
-  private static readonly STORAGE_KEY = 'spike-match-state-v1';
+  private static readonly STORAGE_KEY = 'spike-match-state-v2';
   private readonly setsToWin = 3;
   private readonly standardSetPoints = 25;
   private readonly decidingSetPoints = 15;
@@ -38,6 +39,7 @@ export class MatchStateService {
   readonly state = computed(() => this.stateSignal());
 
   constructor(@Optional() private readonly auth?: AuthService) {
+    purgeLegacyMatchCaches();
     this.restore();
   }
 

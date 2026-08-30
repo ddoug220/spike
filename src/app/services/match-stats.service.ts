@@ -1,6 +1,7 @@
 import { Injectable, Optional, signal } from '@angular/core';
 import { GameEvent, PlayerSetStats } from '../models/firestore.models';
 import { AuthService } from './auth.service';
+import { purgeLegacyMatchCaches } from './legacy-match-cache';
 
 export type StatsAction =
   | 'kill'
@@ -36,12 +37,13 @@ interface StatsSnapshot {
   providedIn: 'root',
 })
 export class MatchStatsService {
-  private static readonly STORAGE_KEY = 'spike-match-stats-v1';
+  private static readonly STORAGE_KEY = 'spike-match-stats-v2';
   private readonly historySignal = signal<StatsSnapshot[]>([]);
   private readonly statsSignal = signal<StatsState>({});
   private readonly setStatsSignal = signal<SetStatsState>({});
 
   constructor(@Optional() private readonly auth?: AuthService) {
+    purgeLegacyMatchCaches();
     this.restore();
   }
 

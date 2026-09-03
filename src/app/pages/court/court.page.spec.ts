@@ -114,7 +114,7 @@ describe('CourtPage', () => {
 
     component.recordStandardOutcome('ace');
 
-    expect(component.getLastEventText()).toContain('Last: Ace · P2');
+    expect(component.getLastEventText()).toContain('Last: Ace · Starter 2');
     expect(component.getLastEventText()).toContain('· R1');
   });
 
@@ -241,7 +241,7 @@ describe('CourtPage', () => {
     expect(component.getPlayerForPosition(1)?.id).toBe(initialLineup[1] ?? undefined);
     expect(component.getPlayerForPosition(6)?.id).toBe(initialLineup[0] ?? undefined);
     expect(teamRoster.lineup()).toEqual(initialLineup);
-    expect(component.getLastEventText()).toContain('Last: Manual Rotation');
+    expect(component.getLastEventText()).toContain('Last: Rotation corrected · R2');
   });
 
   it('applies substitution immediately when a bench player is tapped in overlay mode', () => {

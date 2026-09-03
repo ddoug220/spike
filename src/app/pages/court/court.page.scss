@@ -1,9 +1,20 @@
 // ─── Court Page — "Authority" Command Surface ───
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
 
 // ─── Content ───
 ion-content {
+  min-width: 0;
   --background: var(--color-bg);
   color: var(--color-text-1);
+}
+
+ion-content::part(scroll) {
+  overflow-x: hidden;
 }
 
 // ─── App bar ───
@@ -1026,10 +1037,14 @@ select:focus-visible {
   .tablet-layout {
     grid-template-columns: 1fr;
     padding: 10px;
+    min-width: 0;
   }
 
   .court-section,
-  .action-section { min-height: auto; }
+  .action-section {
+    min-width: 0;
+    min-height: auto;
+  }
 
   .court-wrap { width: 100%; max-width: 100%; }
 
@@ -1069,9 +1084,32 @@ select:focus-visible {
 }
 
 @media (max-width: 680px) {
+  .scoreboard-banner,
+  .score-layout,
+  .next-set-setup,
+  .tablet-layout {
+    max-width: 100%;
+  }
+
   .score-layout {
     grid-template-columns: minmax(0, 1fr) minmax(76px, auto) minmax(0, 1fr);
     padding: 10px 10px 12px;
+  }
+
+  .next-set-setup {
+    width: calc(100% - 16px);
+    margin: 12px auto;
+    padding: 14px;
+  }
+
+  .next-set-heading,
+  .next-set-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .next-set-grid {
+    grid-template-columns: 1fr;
   }
 
 }

@@ -98,6 +98,8 @@ describe('PreMatchPage', () => {
     expect(text).toContain('Starting Six');
     expect(text).not.toContain('Add Player');
     expect(text).not.toContain('Team Name');
+    expect(fixture.nativeElement.querySelector('ion-content + ion-footer.start-footer')).not.toBeNull();
+    expect(component.opponentName).toBe('');
   });
 
   function addSixPlayers(): void {

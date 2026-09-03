@@ -31,7 +31,7 @@ type StandardOutcomeAction =
   | 'opponent-point'
   | 'receive-error';
 type StatOnlyAction = 'dig';
-type ExitAction = 'home' | 'lineup' | 'history' | 'end-home' | 'new-match';
+type ExitAction = 'home' | 'history' | 'end-home' | 'setup-next';
 
 interface PlayerPosition {
   id: number;
@@ -235,39 +235,34 @@ export class CourtPage {
   }
 
   get exitSheetButtons(): Array<{ text: string; role?: 'cancel' | 'destructive'; data?: { action: ExitAction } }> {
-    const buttons: Array<{ text: string; role?: 'cancel' | 'destructive'; data?: { action: ExitAction } }> = [
+    if (this.isMatchOver) {
+      return [
+        { text: 'Go Home', data: { action: 'home' } },
+        { text: 'Set Up Next Match', data: { action: 'setup-next' } },
+        { text: 'Match History', data: { action: 'history' } },
+        { text: 'Cancel', role: 'cancel' },
+      ];
+    }
+
+    return [
       {
         text: 'Go Home',
         data: { action: 'home' },
-      },
-      {
-        text: 'Lineup Selection',
-        data: { action: 'lineup' },
       },
       {
         text: 'Match History',
         data: { action: 'history' },
       },
       {
-        text: 'Start New Match',
+        text: 'End Match + Go Home',
         role: 'destructive',
-        data: { action: 'new-match' },
+        data: { action: 'end-home' },
       },
       {
         text: 'Cancel',
         role: 'cancel',
       },
     ];
-
-    if (!this.isMatchOver) {
-      buttons.splice(4, 0, {
-        text: 'End Match + Go Home',
-        role: 'destructive',
-        data: { action: 'end-home' },
-      });
-    }
-
-    return buttons;
   }
 
   openExitSheet(): void {
@@ -327,20 +322,6 @@ export class CourtPage {
     const inPlayer = this.liveStore.getMatchPlayerById(playerId);
     const outPlayer = this.liveStore.getMatchPlayerById(outId);
     this.substitutionStatus = `Substituted: ${inPlayer?.name ?? 'Player'} in for ${outPlayer?.name ?? 'player'}.`;
-    this.isSubOverlayOpen = false;
-    this.resetSubSelection();
-  }
-
-  startNewMatch(): void {
-    const confirmed =
-      typeof window === 'undefined' ? true : window.confirm('Start a new match? Current in-progress stats will reset.');
-    if (!confirmed) {
-      return;
-    }
-
-    this.matchEngine.startMatch(this.gameState.servingTeam);
-    this.liveStore.syncActiveGame();
-    this.substitutionStatus = '';
     this.isSubOverlayOpen = false;
     this.resetSubSelection();
   }
@@ -703,7 +684,7 @@ export class CourtPage {
 
   get liveCourtSubtitle(): string {
     if (this.isMatchOver) {
-      return 'Match is final. Review stats or start a new match from Exit.';
+      return 'Match is final. Review stats or set up the next match from Exit.';
     }
 
     return 'Tap a player on the court, then tap the outcome of the rally.';
@@ -845,12 +826,7 @@ export class CourtPage {
       return;
     }
 
-    if (action === 'new-match') {
-      this.startNewMatch();
-      return;
-    }
-
-    if (action === 'lineup') {
+    if (action === 'setup-next') {
       await this.router.navigate(['/pre-match']);
       return;
     }

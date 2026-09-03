@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { CourtPage } from './court.page';
 import { FirebaseDbService } from '../../services/firebase-db.service';
 import { MatchStateService } from '../../services/match-state.service';
@@ -28,6 +28,7 @@ describe('CourtPage', () => {
   let teamRoster: TeamRosterService;
   let matchState: MatchStateService;
   let matchEngine: MatchEngineService;
+  let router: Router;
 
   beforeEach(async () => {
     window.localStorage.clear();
@@ -40,6 +41,7 @@ describe('CourtPage', () => {
     teamRoster = TestBed.inject(TeamRosterService);
     matchState = TestBed.inject(MatchStateService);
     matchEngine = TestBed.inject(MatchEngineService);
+    router = TestBed.inject(Router);
     fixture.detectChanges();
   });
 
@@ -297,13 +299,30 @@ describe('CourtPage', () => {
     expect(options).not.toContain('#90 Roster rename');
   });
 
-  it('keeps Start New Match available in exit actions after the match is final', () => {
+  it('offers only safe exit actions during a live match', () => {
+    startMatchWithLineup();
+
+    expect(component.exitSheetButtons.map((button) => button.text)).toEqual([
+      'Go Home', 'Match History', 'End Match + Go Home', 'Cancel',
+    ]);
+  });
+
+  it('routes a finished match through Match Setup and removes direct new-match actions', async () => {
     matchState.endMatch();
     fixture.detectChanges();
+    spyOn(router, 'navigate').and.resolveTo(true);
 
     const actions = component.exitSheetButtons.map((button) => button.data?.action);
-    expect(actions).toContain('new-match');
+    expect(component.exitSheetButtons.map((button) => button.text)).toEqual([
+      'Go Home', 'Set Up Next Match', 'Match History', 'Cancel',
+    ]);
+    expect(actions).toContain('setup-next');
+    expect(component.exitSheetButtons.some((button) => button.text === 'Start New Match')).toBeFalse();
     expect(actions).not.toContain('end-home');
+
+    component.handleExitSheetDismiss(new CustomEvent('dismiss', { detail: { data: { action: 'setup-next' } } }));
+    await fixture.whenStable();
+    expect(router.navigate).toHaveBeenCalledWith(['/pre-match']);
   });
 
   function startMatchWithLineup(): void {

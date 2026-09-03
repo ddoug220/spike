@@ -45,8 +45,7 @@ export class HomePage {
 
   get hasReviewableMatch(): boolean {
     return this.activeGame?.status === 'final' ||
-      this.activeGame?.status === 'ended-early' ||
-      this.matchState.state().isMatchOver;
+      this.activeGame?.status === 'ended-early';
   }
 
   get playerCount(): number { return this.teamRoster.players().length; }
@@ -55,7 +54,7 @@ export class HomePage {
 
   get nextTitle(): string {
     if (this.hasLiveMatch) return this.matchState.state().isSetBreak ? 'Set up the next set' : 'Resume the live match';
-    if (this.hasReviewableMatch) return this.activeGame?.status === 'ended-early' ? 'Review the ended match' : 'Review the final match';
+    if (this.hasReviewableMatch) return 'Set up the next match';
     if (this.playerCount < 6) return 'Build your team';
     return 'Set up the next match';
   }
@@ -79,16 +78,20 @@ export class HomePage {
 
   get nextActionLabel(): string {
     if (this.hasLiveMatch) return this.matchState.state().isSetBreak ? 'Continue Match' : 'Resume Match';
-    if (this.hasReviewableMatch) return 'Review Match';
+    if (this.hasReviewableMatch) return 'Set Up Next Match';
     if (this.playerCount < 6) return 'Manage Team';
     return 'Set Up Match';
   }
 
   get nextActionRoute(): string[] {
     if (this.hasLiveMatch) return ['/court'];
-    if (this.hasReviewableMatch) return ['/review', this.activeMatchId];
+    if (this.hasReviewableMatch) return ['/pre-match'];
     if (this.playerCount < 6) return ['/team'];
     return ['/pre-match'];
+  }
+
+  get reviewLastMatchRoute(): string[] {
+    return ['/review', this.activeMatchId];
   }
 
   get syncText(): string {

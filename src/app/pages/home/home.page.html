@@ -16,6 +16,7 @@
         <h1 id="next-title">{{ nextTitle }}</h1>
         <p>{{ nextDetail }}</p>
         <ion-button size="large" [routerLink]="nextActionRoute">{{ nextActionLabel }}</ion-button>
+        <ion-button *ngIf="hasReviewableMatch" fill="clear" [routerLink]="reviewLastMatchRoute">Review Last Match</ion-button>
       </div>
 
       <div class="lineup-preview" aria-label="Saved starting lineup preview">

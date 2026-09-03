@@ -81,11 +81,13 @@ export class OfflineSyncService {
     events: [],
     playerSetStats: [],
   });
+  private readonly localRevisionSignal = signal(0);
 
   readonly pendingCount = computed(() => this.queueSignal().length);
   readonly isSyncing = computed(() => this.syncingSignal());
   readonly lastError = computed(() => this.lastErrorSignal());
   readonly lastSuccessfulSyncAt = computed(() => this.lastSuccessfulSyncAtSignal());
+  readonly localRevision = this.localRevisionSignal.asReadonly();
 
   constructor(
     private readonly firebaseDb: FirebaseDbService,
@@ -581,6 +583,7 @@ export class OfflineSyncService {
         playerSetStats: [...state.playerSetStats, payload as PlayerSetStats],
       }));
     }
+    this.localRevisionSignal.update((revision) => revision + 1);
     this.persistArchive();
   }
 

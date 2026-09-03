@@ -11,6 +11,7 @@ import { ReviewPage } from './pages/review/review.page';
 import { TeamPage } from './pages/team/team.page';
 import { AuthService } from './services/auth.service';
 import { FirebaseDbService } from './services/firebase-db.service';
+import { MatchEngineService } from './services/match-engine.service';
 import { OfflineSyncService } from './services/offline-sync.service';
 
 const firebaseDbStub = {
@@ -136,14 +137,24 @@ describe('First-run mobile smoke flow', () => {
     expect(harness.routeNativeElement?.textContent).toContain('Live Court');
     expect(harness.routeNativeElement?.textContent).toContain('Score the Point');
 
-    const court = harness.routeDebugElement?.componentInstance as CourtPage;
+    let court = harness.routeDebugElement?.componentInstance as CourtPage;
+    const savedStarter = court.getPlayerForPosition(1)!;
+    court.teamRoster.removePlayer(savedStarter.id);
+    await harness.navigateByUrl('/home');
+    await harness.navigateByUrl('/court', CourtPage);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(router.url).toBe('/court');
+    court = harness.routeDebugElement?.componentInstance as CourtPage;
+    expect(court.getPlayerForPosition(1)).toEqual(savedStarter);
+
     for (let set = 1; set <= 3; set += 1) {
       for (let point = 0; point < 25; point += 1) {
         court.activePlayer = 1;
         court.recordStandardOutcome('kill');
       }
       if (set < 3) {
-        court.nextSetLineup = court.teamRoster.matchDefaults().startingLineup;
+        court.nextSetLineup = TestBed.inject(MatchEngineService).getNextSetDefaultLineup();
         court.startNextSet();
       }
     }

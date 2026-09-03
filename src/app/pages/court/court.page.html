@@ -59,7 +59,7 @@
         <span>P{{ position }}</span>
         <select [value]="nextSetLineup[position - 1] || ''" (change)="setNextSetPlayer(position, $any($event.target).value)">
           <option value="">Choose player</option>
-          <option *ngFor="let player of teamRoster.getMatchSquadPlayers()" [value]="player.id">#{{ player.jerseyNumber }} {{ player.name }}</option>
+          <option *ngFor="let player of liveStore.matchSquad()" [value]="player.id">#{{ player.jerseyNumber }} {{ player.name }}</option>
         </select>
       </label>
     </div>

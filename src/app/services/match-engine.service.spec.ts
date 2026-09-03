@@ -63,6 +63,62 @@ describe('MatchEngineService', () => {
     expect(offlineSync.getGame(matchId)?.teamId).toBe(teamRoster.team().id);
   });
 
+  it('preserves the match squad and starting lineup after reusable roster and defaults change', () => {
+    for (let i = 1; i <= 8; i += 1) {
+      teamRoster.addPlayer({ name: `Original ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    const matchId = service.startMatch('team');
+    const originalGame = offlineSync.getGame(matchId)!;
+
+    teamRoster.updatePlayer(players[0].id, { name: 'Renamed later', jerseyNumber: 99, primaryPosition: 'S' });
+    teamRoster.removePlayer(players[6].id);
+    teamRoster.setMatchSquadPlayer(players[7].id, false);
+    teamRoster.unassignPosition(1);
+    service.recordOpponentPoint();
+
+    const updatedGame = offlineSync.getGame(matchId)!;
+    expect(updatedGame.matchSquad).toEqual(originalGame.matchSquad);
+    expect(updatedGame.startingLineup).toEqual(originalGame.startingLineup);
+  });
+
+  it('uses snapshot identity for actions after a reusable roster player is renamed and removed', () => {
+    startWithLineup();
+    const matchId = offlineSync.getActiveMatchId();
+    const snapshotPlayer = offlineSync.getGame(matchId)!.matchSquad![0];
+
+    teamRoster.updatePlayer(snapshotPlayer.id, { name: 'Changed name', jerseyNumber: 77, primaryPosition: 'S' });
+    teamRoster.removePlayer(snapshotPlayer.id);
+    service.recordPlayerAction(1, 'kill');
+
+    expect(offlineSync.getMatchEvents(matchId)).toContain(
+      jasmine.objectContaining({ type: 'playerAction', playerId: snapshotPlayer.id, action: 'kill' }),
+    );
+    expect(offlineSync.getGame(matchId)?.matchSquad?.[0]).toEqual(snapshotPlayer);
+  });
+
+  it('rejects substitutions and next-set lineups containing players outside the saved match squad', () => {
+    for (let i = 1; i <= 8; i += 1) {
+      teamRoster.addPlayer({ name: `Player ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    players.slice(0, 7).forEach((player) => teamRoster.setMatchSquadPlayer(player.id, true));
+    teamRoster.setMatchSquadPlayer(players[7].id, false);
+    const matchId = service.startMatch('team');
+
+    expect(service.recordSubstitution(players[0].id, players[7].id)).toBeFalse();
+    expect(offlineSync.getMatchEvents(matchId).some((event) => event.type === 'substitution')).toBeFalse();
+
+    for (let point = 0; point < 25; point += 1) {
+      service.recordPlayerAction(1, 'kill');
+    }
+    expect(matchState.state().isSetBreak).toBeTrue();
+    expect(service.startNextSet([players[7].id, ...players.slice(1, 6).map((player) => player.id)], 'team')).toBeFalse();
+    expect(offlineSync.getMatchEvents(matchId).some((event) => event.type === 'setStarted')).toBeFalse();
+  });
+
   it('undoes lineup rotation when undoing a side-out scoring action', () => {
     for (let i = 1; i <= 6; i += 1) {
       teamRoster.addPlayer({ name: `P${i}`, jerseyNumber: i, primaryPosition: 'OH' });

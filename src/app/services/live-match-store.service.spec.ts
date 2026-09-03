@@ -149,6 +149,24 @@ describe('LiveMatchStoreService', () => {
     expect(offlineSync.getGame(gameId)?.teamRotation).toBe(1);
   });
 
+  it('exposes players from the saved match snapshot after the reusable roster changes', () => {
+    for (let index = 1; index <= 7; index += 1) {
+      teamRoster.addPlayer({ name: `Original ${index}`, jerseyNumber: index, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    const matchId = engine.startMatch('team');
+    store.syncActiveGame();
+    const savedPlayer = offlineSync.getGame(matchId)!.matchSquad![0];
+
+    teamRoster.updatePlayer(savedPlayer.id, { name: 'Reusable roster name', jerseyNumber: 88, primaryPosition: 'S' });
+    teamRoster.removePlayer(savedPlayer.id);
+
+    expect(store.matchSquad()).toContain(jasmine.objectContaining(savedPlayer));
+    expect(store.getMatchPlayerById(savedPlayer.id)).toEqual(savedPlayer);
+    expect(store.getMatchPlayerById('not-in-match')).toBeNull();
+  });
+
   it('uses the full synced stat line instead of mixing local stale fields', () => {
     matchStats.recordPlayerAction('p1', 'service-error', { wasReceiving: true, sideOutWon: false, currentSet: 1 });
     matchStats.recordPlayerAction('p1', 'dig', { wasReceiving: true, sideOutWon: false, currentSet: 1 });

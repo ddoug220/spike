@@ -3,9 +3,8 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import { CanActivateFn, Router, Routes } from '@angular/router';
 import { filter, map, take } from 'rxjs';
 import { AuthService } from './services/auth.service';
-import { MatchStateService } from './services/match-state.service';
 import { OfflineSyncService } from './services/offline-sync.service';
-import { TeamRosterService } from './services/team-roster.service';
+import { projectionFromFirestore } from './services/match-v2.adapter';
 
 const canActivateAuth: CanActivateFn = () => {
   const auth = inject(AuthService);
@@ -19,26 +18,17 @@ const canActivateAuth: CanActivateFn = () => {
 };
 
 const canActivateCourt: CanActivateFn = () => {
-  const teamRoster = inject(TeamRosterService);
-  const matchState = inject(MatchStateService);
   const offlineSync = inject(OfflineSyncService);
   const router = inject(Router);
-  const lineup = teamRoster.lineup();
-  const assigned = lineup.filter((playerId): playerId is string => !!playerId);
-  const hasValidLineup =
-    assigned.length === 6 &&
-    new Set(assigned).size === 6 &&
-    assigned.every((playerId) => !!teamRoster.getPlayerById(playerId));
-
-  if (!hasValidLineup) {
-    return router.createUrlTree(['/pre-match']);
-  }
-
   const activeMatchId = offlineSync.getActiveMatchId();
-  const hasStartedMatch =
-    offlineSync.getMatchEvents(activeMatchId).some((event) => event.type === 'matchStarted') ||
-    !!offlineSync.getGame(activeMatchId);
-  const hasActiveMatch = hasStartedMatch && !matchState.state().isMatchOver;
+  const game = offlineSync.getGame(activeMatchId);
+  const projection = game
+    ? projectionFromFirestore(game, offlineSync.getMatchEvents(activeMatchId))
+    : null;
+  const lineup = projection?.lineup ?? [];
+  const squadIds = new Set(projection?.session.squad.map((player) => player.id) ?? []);
+  const hasValidLineup = lineup.length === 6 && new Set(lineup).size === 6 && lineup.every((id) => squadIds.has(id));
+  const hasActiveMatch = hasValidLineup && (projection?.status === 'live' || projection?.status === 'set-break');
 
   if (!hasActiveMatch) {
     return router.createUrlTree(['/pre-match']);

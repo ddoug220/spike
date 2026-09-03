@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
-import type { MatchProjection } from '../domain/match-v2';
+import type { MatchPlayer, MatchProjection } from '../domain/match-v2';
 import { GameEvent } from '../models/firestore.models';
 import { MatchStateService } from './match-state.service';
 import { MatchStatsService, StatsAction } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
-import { RosterPlayer, TeamRosterService } from './team-roster.service';
+import { TeamRosterService } from './team-roster.service';
 import {
   eventsFromFirestore,
   projectionFromFirestore,
@@ -179,11 +179,12 @@ export class MatchEngineService {
 
   startNextSet(lineup: Array<string | null>, servingTeam: PointSide): boolean {
     const assigned = lineup.filter((playerId): playerId is string => typeof playerId === 'string');
-    if (assigned.length !== 6 || new Set(assigned).size !== 6 || assigned.some((id) => !this.teamRoster.getPlayerById(id))) {
-      return false;
-    }
     const projection = this.currentProjection();
     if (!projection || projection.status !== 'set-break' || projection.currentSet >= 5) {
+      return false;
+    }
+    const squadIds = new Set(projection.session.squad.map((player) => player.id));
+    if (assigned.length !== 6 || new Set(assigned).size !== 6 || assigned.some((id) => !squadIds.has(id))) {
       return false;
     }
     this.currentSetStartingLineup = [...lineup];
@@ -347,7 +348,19 @@ export class MatchEngineService {
 
     const lineup = this.projectedLineup();
     const courtPosition = (lineup?.indexOf(outPlayerId) ?? -1) + 1;
-    if (!lineup || courtPosition === 0 || lineup.includes(inPlayerId) || !this.teamRoster.getPlayerById(inPlayerId)) {
+    const squadIds = new Set(projection.session.squad.map((player) => player.id));
+    const resultingLineup = lineup?.map((playerId) => playerId === outPlayerId ? inPlayerId : playerId);
+    if (
+      !lineup ||
+      lineup.length !== 6 ||
+      new Set(lineup).size !== 6 ||
+      courtPosition === 0 ||
+      !squadIds.has(outPlayerId) ||
+      !squadIds.has(inPlayerId) ||
+      lineup.includes(inPlayerId) ||
+      !resultingLineup ||
+      new Set(resultingLineup).size !== 6
+    ) {
       return false;
     }
 
@@ -479,9 +492,10 @@ export class MatchEngineService {
     return this.toEngineEvent(latestEvent);
   }
 
-  private getPlayerAtCourtPosition(courtPosition: number): RosterPlayer | null {
+  private getPlayerAtCourtPosition(courtPosition: number): MatchPlayer | null {
     const playerId = this.projectedLineup()?.[courtPosition - 1] ?? this.teamRoster.lineup()[courtPosition - 1] ?? null;
-    return this.teamRoster.getPlayerById(playerId);
+    const projection = this.currentProjection();
+    return projection?.session.squad.find((player) => player.id === playerId) ?? null;
   }
 
   private projectedLineup(): readonly string[] | null {
@@ -603,6 +617,8 @@ export class MatchEngineService {
 
   private gameFields(matchId: string, timestamp: string) {
     const existingGame = this.offlineSync.getGame(matchId);
+    const configuredSquad = this.teamRoster.getMatchSquadPlayers();
+    const initialSquad = configuredSquad.length > 0 ? configuredSquad : this.teamRoster.players();
     const startedAt = this.matchStartedAtByMatchId.get(matchId) ?? existingGame?.startedAt ?? timestamp;
     const opponentName =
       this.opponentNameByMatchId.get(matchId) ??
@@ -612,15 +628,18 @@ export class MatchEngineService {
     return {
       teamId: this.teamRoster.team().id,
       opponentName,
-      matchSquad: this.teamRoster.getMatchSquadPlayers().map((player) => ({
-        id: player.id,
-        name: player.name,
-        jerseyNumber: player.jerseyNumber,
-        primaryPosition: player.primaryPosition,
-      })),
-      startingLineup: this.isCompleteLineup(this.currentSetStartingLineup)
-        ? [...this.currentSetStartingLineup]
-        : [...(existingGame?.startingLineup ?? this.teamRoster.matchDefaults().startingLineup)],
+      matchSquad: existingGame?.matchSquad?.map((player) => ({ ...player })) ??
+        initialSquad.map((player) => ({
+          id: player.id,
+          name: player.name,
+          jerseyNumber: player.jerseyNumber,
+          primaryPosition: player.primaryPosition,
+        })),
+      startingLineup: [...(existingGame?.startingLineup ?? (
+        this.isCompleteLineup(this.currentSetStartingLineup)
+          ? this.currentSetStartingLineup
+          : this.teamRoster.matchDefaults().startingLineup
+      ))],
       startedAt,
       createdAt: startedAt,
     };

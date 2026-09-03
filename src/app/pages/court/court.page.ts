@@ -12,13 +12,13 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward, star } from 'ionicons/icons';
-import { selectTeamSideOut } from '../../domain/match-v2';
+import { MatchPlayer, selectTeamSideOut } from '../../domain/match-v2';
 import { LiveLastEvent, LiveMatchStoreService } from '../../services/live-match-store.service';
 import { MatchEngineService } from '../../services/match-engine.service';
 import { MatchScoreState } from '../../services/match-state.service';
 import { StatsAction } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
-import { RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
+import { TeamRosterService } from '../../services/team-roster.service';
 
 type QuickAction = StatsAction;
 type StandardOutcomeAction =
@@ -324,8 +324,8 @@ export class CourtPage {
       return;
     }
 
-    const inPlayer = this.teamRoster.getPlayerById(playerId);
-    const outPlayer = this.teamRoster.getPlayerById(outId);
+    const inPlayer = this.liveStore.getMatchPlayerById(playerId);
+    const outPlayer = this.liveStore.getMatchPlayerById(outId);
     this.substitutionStatus = `Substituted: ${inPlayer?.name ?? 'Player'} in for ${outPlayer?.name ?? 'player'}.`;
     this.isSubOverlayOpen = false;
     this.resetSubSelection();
@@ -409,9 +409,9 @@ export class CourtPage {
     this.lastEvent = undefined;
   }
 
-  getPlayerForPosition(position: number): RosterPlayer | null {
+  getPlayerForPosition(position: number): MatchPlayer | null {
     const playerId = this.liveStore.getPlayerIdAtPosition(position) ?? this.teamRoster.lineup()[position - 1] ?? null;
-    return this.teamRoster.getPlayerById(playerId);
+    return this.liveStore.getMatchPlayerById(playerId);
   }
 
   isFrontRow(position: number | null): boolean {
@@ -669,16 +669,16 @@ export class CourtPage {
     this.recordAction(action);
   }
 
-  get onCourtPlayers(): RosterPlayer[] {
+  get onCourtPlayers(): MatchPlayer[] {
     const playerIds = this.liveStore.projection()?.lineup ?? [];
     return playerIds
-      .map((playerId) => this.teamRoster.getPlayerById(playerId))
-      .filter((player): player is RosterPlayer => player !== null);
+      .map((playerId) => this.liveStore.getMatchPlayerById(playerId))
+      .filter((player): player is MatchPlayer => player !== null);
   }
 
-  get benchPlayers(): RosterPlayer[] {
+  get benchPlayers(): MatchPlayer[] {
     const onCourt = new Set(this.liveStore.projection()?.lineup ?? []);
-    return this.teamRoster.players().filter((player) => !onCourt.has(player.id));
+    return this.liveStore.matchSquad().filter((player) => !onCourt.has(player.id));
   }
 
   toggleSubMode(): void {
@@ -707,8 +707,8 @@ export class CourtPage {
     return !!player && player.id === this.substitutionOutPlayerId;
   }
 
-  get selectedOutPlayer(): RosterPlayer | null {
-    return this.teamRoster.getPlayerById(this.substitutionOutPlayerId);
+  get selectedOutPlayer(): MatchPlayer | null {
+    return this.liveStore.getMatchPlayerById(this.substitutionOutPlayerId);
   }
 
   get isMatchOver(): boolean {

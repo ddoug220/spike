@@ -1,5 +1,6 @@
 import { Injectable, OnDestroy, computed, signal } from '@angular/core';
 import { Unsubscribe } from 'firebase/firestore';
+import type { MatchPlayer } from '../domain/match-v2';
 import { Game, GameEvent, PlayerSetStats } from '../models/firestore.models';
 import { FirebaseDbService } from './firebase-db.service';
 import { MatchScoreState, MatchStateService } from './match-state.service';
@@ -48,12 +49,19 @@ export class LiveMatchStoreService implements OnDestroy {
   private subscribedGameId: string | null = null;
 
   readonly ui = computed(() => this.uiSignal());
-  readonly game = computed(() => this.latestGame(this.offlineSync.getGame(this.activeGameId()), this.firestoreGameSignal()));
-  readonly events = computed(() => this.mergeEvents(this.offlineSync.getMatchEvents(this.activeGameId()), this.firestoreEventsSignal()));
+  readonly game = computed(() => {
+    this.offlineSync.localRevision();
+    return this.latestGame(this.offlineSync.getGame(this.activeGameId()), this.firestoreGameSignal());
+  });
+  readonly events = computed(() => {
+    this.offlineSync.localRevision();
+    return this.mergeEvents(this.offlineSync.getMatchEvents(this.activeGameId()), this.firestoreEventsSignal());
+  });
   readonly projection = computed(() => {
     const game = this.game();
     return game ? projectionFromFirestore(game, this.events()) : null;
   });
+  readonly matchSquad = computed<readonly MatchPlayer[]>(() => this.projection()?.session.squad ?? []);
   readonly gameState = computed(() => {
     const projection = this.projection();
     return projection ? scoreStateFromProjection(projection) : this.toGameState(this.game()) ?? this.matchState.state();
@@ -117,6 +125,11 @@ export class LiveMatchStoreService implements OnDestroy {
 
   getPlayerIdAtPosition(position: number): string | null {
     return this.projection()?.lineup?.[position - 1] ?? null;
+  }
+
+  getMatchPlayerById(playerId: string | null): MatchPlayer | null {
+    if (!playerId) return null;
+    return this.matchSquad().find((player) => player.id === playerId) ?? null;
   }
 
   getPlayerStats(playerId: string): PlayerStatLine {

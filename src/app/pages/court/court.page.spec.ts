@@ -246,6 +246,36 @@ describe('CourtPage', () => {
     expect(component.substitutionStatus).toContain('Substituted:');
   });
 
+  it('uses only saved match players for court identity, substitution bench, and next-set choices', () => {
+    for (let i = 1; i <= 8; i += 1) {
+      teamRoster.addPlayer({ name: `Snapshot ${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    players.slice(0, 7).forEach((player) => teamRoster.setMatchSquadPlayer(player.id, true));
+    teamRoster.setMatchSquadPlayer(players[7].id, false);
+    matchEngine.startMatch('team');
+    component.liveStore.syncActiveGame();
+
+    teamRoster.updatePlayer(players[0].id, { name: 'Roster rename', jerseyNumber: 90, primaryPosition: 'S' });
+    teamRoster.removePlayer(players[0].id);
+
+    expect(component.getPlayerForPosition(1)?.name).toBe('Snapshot 1');
+    expect(component.benchPlayers.map((player) => player.id)).toEqual([players[6].id]);
+
+    for (let point = 0; point < 25; point += 1) {
+      matchEngine.recordPlayerAction(1, 'kill');
+    }
+    component.nextSetLineup = matchEngine.getNextSetDefaultLineup();
+    fixture.detectChanges();
+    const options = Array.from(fixture.nativeElement.querySelectorAll('.next-set-grid option'))
+      .map((option) => (option as HTMLOptionElement).textContent?.trim());
+    expect(options).toContain('#1 Snapshot 1');
+    expect(options).toContain('#7 Snapshot 7');
+    expect(options).not.toContain('#8 Snapshot 8');
+    expect(options).not.toContain('#90 Roster rename');
+  });
+
   it('keeps Start New Match available in exit actions after the match is final', () => {
     matchState.endMatch();
     fixture.detectChanges();

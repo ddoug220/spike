@@ -1,7 +1,7 @@
 import { NgClass } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   IonBackButton,
   IonButton,
@@ -16,6 +16,7 @@ import {
 import { addIcons } from 'ionicons';
 import { arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play } from 'ionicons/icons';
 import { MatchEngineService } from '../../services/match-engine.service';
+import { OfflineSyncService } from '../../services/offline-sync.service';
 import { RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
 
 interface CourtSlot {
@@ -63,13 +64,31 @@ export class PreMatchPage {
   firstServeTeam: FirstServeTeam = 'team';
   selectedPlayerId: string | null = null;
   private draggedPlayerId: string | null = null;
+  private preparedNextMatchId: string | null = null;
 
   constructor(
     public readonly teamRoster: TeamRosterService,
     private readonly matchEngine: MatchEngineService,
+    private readonly offlineSync: OfflineSyncService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
   ) {
     addIcons({ arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play });
+  }
+
+  ionViewWillEnter(): void {
+    const finishedMatchId = this.route.snapshot.queryParamMap.get('nextMatch');
+    if (!finishedMatchId || finishedMatchId === this.preparedNextMatchId) return;
+
+    this.preparedNextMatchId = finishedMatchId;
+    this.opponentName = '';
+    const finishedGame = this.offlineSync.getGame(finishedMatchId);
+    if (finishedGame?.matchSquad && finishedGame.startingLineup) {
+      this.teamRoster.reuseMatchDefaults(
+        finishedGame.matchSquad.map((player) => player.id),
+        finishedGame.startingLineup,
+      );
+    }
   }
 
   get players(): RosterPlayer[] {

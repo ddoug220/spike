@@ -827,7 +827,7 @@ export class CourtPage {
     }
 
     if (action === 'setup-next') {
-      await this.router.navigate(['/pre-match']);
+      await this.router.navigate(['/pre-match'], { queryParams: { nextMatch: this.offlineSync.getActiveMatchId() } });
       return;
     }
 

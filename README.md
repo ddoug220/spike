@@ -16,6 +16,12 @@ Spike is an Ionic/Angular volleyball match tracker. It helps a coach or stat kee
    npm start
    ```
 
+   To run the end-to-end tests, install Chromium once:
+
+   ```bash
+   npx playwright install chromium
+   ```
+
 3. Open the local Angular URL printed by the dev server, usually `http://localhost:4200`.
 
 4. Sign in or create an account. Spike saves match data on the device first and syncs to Firebase when cloud access is available.

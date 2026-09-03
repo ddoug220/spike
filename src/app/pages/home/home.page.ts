@@ -90,6 +90,10 @@ export class HomePage {
     return ['/pre-match'];
   }
 
+  get nextActionQueryParams(): Record<string, string> | null {
+    return this.hasReviewableMatch ? { nextMatch: this.activeMatchId } : null;
+  }
+
   get reviewLastMatchRoute(): string[] {
     return ['/review', this.activeMatchId];
   }

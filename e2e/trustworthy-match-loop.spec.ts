@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Locator, Page, test } from '@playwright/test';
 
 const players = Array.from({ length: 7 }, (_, index) => ({
   name: `Player ${index + 1}`,
@@ -52,6 +52,21 @@ async function expectTabletScoringLoopToFit(page: Page): Promise<void> {
   }
 }
 
+async function expectReachableByScrolling(page: Page, locator: Locator): Promise<number> {
+  await locator.scrollIntoViewIfNeeded();
+  const bounds = await locator.boundingBox();
+  const content = page.locator('ion-content').last();
+  const viewport = await content.evaluate(async (element) => {
+    const scrollElement = await (element as HTMLIonContentElement).getScrollElement();
+    const bounds = scrollElement.getBoundingClientRect();
+    return { top: bounds.top, bottom: bounds.bottom, scrollTop: scrollElement.scrollTop };
+  });
+  expect(bounds).not.toBeNull();
+  expect(bounds!.y).toBeGreaterThanOrEqual(viewport.top - 1);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.bottom + 1);
+  return viewport.scrollTop;
+}
+
 test('tablet setup and scoring loop fit, undo repeatedly, and honor the Match Squad', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await setUpMatch(page);
@@ -96,13 +111,42 @@ test('phone setup, scoring, and recovery work through normal vertical scrolling 
 
   await page.getByRole('button', { name: 'Start Match' }).click();
   await expect(page).toHaveURL(/\/court$/);
+
+  await page.locator('.player-chip[data-position="1"]').click();
+  const pointOutcomes = [
+    'Kill - awards point',
+    'Attack Error - awards point',
+    'Block - awards point',
+    'Ace - awards point',
+    'Service Error - awards point',
+    'Opponent Error - awards point',
+    'Opponent Winner - awards point',
+    'Receive Error - awards point',
+  ];
+  const reachedScrollPositions: number[] = [];
+  for (const name of pointOutcomes) {
+    reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name })));
+  }
+  reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Dig - stat only, no point' })));
+  reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Open substitution panel (S)' })));
+  await page.getByRole('button', { name: 'Open substitution panel (S)' }).click();
+  await expect(page.getByRole('region', { name: 'Substitution panel' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close substitution panel', exact: true }).click();
+
+  reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Match Controls' })));
+  await page.getByRole('button', { name: 'Match Controls' }).click();
+  await expect(page.getByRole('dialog', { name: 'Match Controls' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close match controls' }).click();
+
   await scoreKill(page);
+  reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Undo last action (Ctrl+Z)' })));
   await page.getByRole('button', { name: 'Undo last action (Ctrl+Z)' }).click();
   await expect(page.locator('.last-action')).toContainText('No actions yet');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  const scrollTop = await page.locator('ion-content').last().evaluate(async (element) => {
+  const contentOverflow = await page.locator('ion-content').last().evaluate(async (element) => {
     const scrollElement = await (element as HTMLIonContentElement).getScrollElement();
-    return scrollElement.scrollTop;
+    return scrollElement.scrollWidth <= scrollElement.clientWidth + 1;
   });
-  expect(scrollTop).toBeGreaterThan(0);
+  expect(contentOverflow).toBe(true);
+  expect(Math.max(...reachedScrollPositions)).toBeGreaterThan(0);
 });

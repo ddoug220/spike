@@ -15,7 +15,7 @@
         <span class="team-name">{{ teamRoster.team().name }}</span>
         <h1 id="next-title">{{ nextTitle }}</h1>
         <p>{{ nextDetail }}</p>
-        <ion-button size="large" [routerLink]="nextActionRoute">{{ nextActionLabel }}</ion-button>
+        <ion-button size="large" [routerLink]="nextActionRoute" [queryParams]="nextActionQueryParams">{{ nextActionLabel }}</ion-button>
         <ion-button *ngIf="hasReviewableMatch" fill="clear" [routerLink]="reviewLastMatchRoute">Review Last Match</ion-button>
       </div>
 

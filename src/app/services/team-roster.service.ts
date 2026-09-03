@@ -303,6 +303,20 @@ export class TeamRosterService {
     this.setCurrentMatchDefaults({ ...defaults, startingLineup });
   }
 
+  reuseMatchDefaults(squadPlayerIds: string[], startingLineup: Array<string | null>): void {
+    const currentPlayerIds = new Set(this.playersSignal().map((player) => player.id));
+    const availableSquadIds = [...new Set(squadPlayerIds)].filter((id) => currentPlayerIds.has(id));
+    const availableSquad = new Set(availableSquadIds);
+    const reusableLineup = startingLineup.length === 6
+      ? startingLineup.map((id) => (id && availableSquad.has(id) ? id : null))
+      : [null, null, null, null, null, null];
+
+    this.setCurrentMatchDefaults({
+      squadPlayerIds: availableSquadIds,
+      startingLineup: reusableLineup,
+    });
+  }
+
   activateMatchLineup(): boolean {
     const startingLineup = this.matchDefaults().startingLineup;
     const assigned = startingLineup.filter((id): id is string => !!id);

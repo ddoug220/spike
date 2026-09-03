@@ -322,7 +322,10 @@ describe('CourtPage', () => {
 
     component.handleExitSheetDismiss(new CustomEvent('dismiss', { detail: { data: { action: 'setup-next' } } }));
     await fixture.whenStable();
-    expect(router.navigate).toHaveBeenCalledWith(['/pre-match']);
+    expect(router.navigate).toHaveBeenCalledWith(
+      ['/pre-match'],
+      { queryParams: { nextMatch: component.offlineSync.getActiveMatchId() } },
+    );
   });
 
   function startMatchWithLineup(): void {

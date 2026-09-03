@@ -67,8 +67,9 @@ describe('HomePage', () => {
 
       expect(component.nextActionLabel).toBe('Set Up Next Match');
       expect(component.nextActionRoute).toEqual(['/pre-match']);
+      expect(component.nextActionQueryParams).toEqual({ nextMatch: offlineSync.getActiveMatchId() });
       expect(component.reviewLastMatchRoute).toEqual(['/review', offlineSync.getActiveMatchId()]);
-      expect(routeLinks()).toContain('/pre-match');
+      expect(routeLinks()).toContain(`/pre-match?nextMatch=${offlineSync.getActiveMatchId()}`);
       expect(routeLinks()).toContain(`/review/${offlineSync.getActiveMatchId()}`);
       expect(fixture.nativeElement.textContent).toContain('Review Last Match');
     });

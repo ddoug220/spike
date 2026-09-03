@@ -6,11 +6,13 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:e2e": "ng serve --configuration=e2e --host=127.0.0.1 --port=4201",
     "build": "ng build",
     "cutover:beta-match": "node scripts/beta-match-cutover.mjs",
     "test:cutover": "node --test scripts/beta-match-cutover-plan.test.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:e2e": "playwright test",
     "lint": "ng lint"
   },
   "private": true,
@@ -41,6 +43,7 @@
     "@angular/compiler-cli": "^20.0.0",
     "@angular/language-service": "^20.0.0",
     "@ionic/angular-toolkit": "^12.0.0",
+    "@playwright/test": "^1.62.1",
     "@types/jasmine": "~5.1.0",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",

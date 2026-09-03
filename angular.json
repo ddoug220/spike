@@ -67,6 +67,19 @@
               "sourceMap": true,
               "namedChunks": true
             },
+            "e2e": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "tsConfig": "tsconfig.e2e.app.json",
+              "fileReplacements": [
+                {
+                  "replace": "src/main.ts",
+                  "with": "src/main.e2e.ts"
+                }
+              ]
+            },
             "ci": {
               "progress": false
             }
@@ -81,6 +94,9 @@
             },
             "development": {
               "buildTarget": "app:build:development"
+            },
+            "e2e": {
+              "buildTarget": "app:build:e2e"
             },
             "ci": {
               "progress": false

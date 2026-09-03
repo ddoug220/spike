@@ -9,7 +9,7 @@ The saved players who belong to a team and can be considered for future matches.
 _Avoid_: Player pool, match roster
 
 **Match Squad**:
-The Team Roster players marked available for one match. The Starting Lineup and bench both come from this group.
+The Team Roster players marked available for one match. This group becomes fixed when the match starts, and the Starting Lineup and bench both come from it.
 _Avoid_: Active roster, available roster
 
 **Match Setup**:

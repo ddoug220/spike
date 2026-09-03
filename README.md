@@ -2,12 +2,12 @@
 
 Spike is an Ionic/Angular volleyball match tracker. It helps a coach or stat keeper save a team roster, set a starting six, track a live match from a court view, and review completed matches later.
 
-## Quick Start
+## Quick start
 
 1. Install dependencies:
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. Start the local app:
@@ -20,7 +20,7 @@ Spike is an Ionic/Angular volleyball match tracker. It helps a coach or stat kee
 
 4. Sign in or create an account. Spike saves match data on the device first and syncs to Firebase when cloud access is available.
 
-## How To Use Spike
+## Use Spike
 
 Think of the app as three steps:
 
@@ -36,25 +36,28 @@ Think of the app as three steps:
 
    Enter the opponent name, choose who serves first, then press **Start Match**. On the Live Court, tap a player to select them before recording player-specific actions.
 
-## Live Court Basics
+## Live Court basics
 
 - **Point outcome** buttons change the score and record the volleyball event.
 - **Stat tap - score stays the same** buttons record a player stat without changing the score.
 - **Undo** removes the most recent tracked action.
 - **Substitute** opens the bench panel. Pick the player coming out, then tap the bench player going in.
-- **Exit** leaves the court or starts a new match after a final.
+- **Exit** leaves the court. After a finished match, use **Set Up Next Match** to confirm the next opponent and match details.
 
-## Cloud Save
+Live Court prioritizes a 1024 × 768 landscape tablet. The court and scoring controls remain visible together without page scrolling at that size. On narrower portrait screens, Live Court uses one vertical column that you can scroll without horizontal overflow.
+
+## Cloud save
 
 Spike writes locally first, then queues cloud sync. The Home and Team & Lineup screens show whether changes are synced, waiting, or need a retry. If Firebase is unavailable, you can keep using the app and retry sync later.
 
-## Useful Commands
+## Useful commands
 
 ```bash
 npm start
 npm run build
 npm test
 npm run lint
+npm run test:e2e
 ```
 
 For a fast TypeScript check without launching the browser test runner:
@@ -63,7 +66,9 @@ For a fast TypeScript check without launching the browser test runner:
 ./node_modules/.bin/tsc -p tsconfig.spec.json --noEmit
 ```
 
-## Project Shape
+The end-to-end command starts an isolated app configuration with deterministic local authentication and no network access. It verifies the Match Setup and Live Court workflows in Chromium.
+
+## Project structure
 
 - `src/app/pages/home` - next-step dashboard and match status
 - `src/app/pages/pre-match` - team, roster, lineup, opponent, and first serve setup

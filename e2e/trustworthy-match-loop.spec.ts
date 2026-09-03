@@ -28,6 +28,30 @@ async function scoreKill(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Kill - awards point' }).click();
 }
 
+async function expectTabletScoringLoopToFit(page: Page): Promise<void> {
+  const content = page.locator('ion-content').last();
+  const viewport = await content.evaluate(async (element) => {
+    const scrollElement = await (element as HTMLIonContentElement).getScrollElement();
+    const bounds = scrollElement.getBoundingClientRect();
+    return {
+      clientHeight: scrollElement.clientHeight,
+      scrollHeight: scrollElement.scrollHeight,
+      top: bounds.top,
+      bottom: bounds.bottom,
+    };
+  });
+
+  const selectors = ['.court-section', '.court-context-row', '.action-section', '.receipt-undo'];
+  const regions = await Promise.all(selectors.map((selector) => page.locator(selector).boundingBox()));
+  expect(viewport.scrollHeight, JSON.stringify({ viewport, regions })).toBeLessThanOrEqual(viewport.clientHeight + 1);
+  for (const [index, selector] of selectors.entries()) {
+    const bounds = regions[index];
+    expect(bounds, `${selector} should be visible in the Live Court viewport`).not.toBeNull();
+    expect(bounds!.y).toBeGreaterThanOrEqual(viewport.top - 1);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.bottom + 1);
+  }
+}
+
 test('tablet setup and scoring loop fit, undo repeatedly, and honor the Match Squad', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await setUpMatch(page);
@@ -43,9 +67,9 @@ test('tablet setup and scoring loop fit, undo repeatedly, and honor the Match Sq
   expect(courtBox).not.toBeNull();
   expect(actionsBox).not.toBeNull();
   expect(actionsBox!.x).toBeGreaterThan(courtBox!.x);
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
 
   await scoreKill(page);
+  await expectTabletScoringLoopToFit(page);
   await page.locator('.player-chip[data-position="2"]').click();
   await page.getByRole('button', { name: 'Dig - stat only, no point' }).click();
   await page.getByRole('button', { name: 'Undo last action (Ctrl+Z)' }).click();

@@ -64,7 +64,6 @@ export class PreMatchPage {
   firstServeTeam: FirstServeTeam = 'team';
   selectedPlayerId: string | null = null;
   private draggedPlayerId: string | null = null;
-  private preparedNextMatchId: string | null = null;
 
   constructor(
     public readonly teamRoster: TeamRosterService,
@@ -78,9 +77,8 @@ export class PreMatchPage {
 
   ionViewWillEnter(): void {
     const finishedMatchId = this.route.snapshot.queryParamMap.get('nextMatch');
-    if (!finishedMatchId || finishedMatchId === this.preparedNextMatchId) return;
+    if (!finishedMatchId) return;
 
-    this.preparedNextMatchId = finishedMatchId;
     this.opponentName = '';
     const finishedGame = this.offlineSync.getGame(finishedMatchId);
     if (finishedGame?.matchSquad && finishedGame.startingLineup) {
@@ -89,6 +87,12 @@ export class PreMatchPage {
         finishedGame.startingLineup,
       );
     }
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { nextMatch: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   get players(): RosterPlayer[] {

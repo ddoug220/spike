@@ -123,6 +123,10 @@ describe('PreMatchPage', () => {
       matchSquad: players.map(({ id, name, jerseyNumber, primaryPosition }) => ({ id, name, jerseyNumber, primaryPosition })),
       startingLineup: savedLineup,
     } as ReturnType<OfflineSyncService['getGame']>);
+    spyOn(router, 'navigate').and.callFake(() => {
+      finishedMatchId = null;
+      return Promise.resolve(true);
+    });
 
     component.ionViewWillEnter();
 
@@ -130,10 +134,20 @@ describe('PreMatchPage', () => {
     expect(component.canStartMatch).toBeFalse();
     expect(teamRoster.matchDefaults().squadPlayerIds).toEqual(savedSquad);
     expect(teamRoster.matchDefaults().startingLineup).toEqual(savedLineup);
+    expect(router.navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: { nextMatch: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
 
     component.opponentName = 'Next Opponent';
     component.ionViewWillEnter();
     expect(component.opponentName).toBe('Next Opponent');
+
+    finishedMatchId = 'finished-game-1';
+    component.ionViewWillEnter();
+    expect(component.opponentName).toBe('');
   });
 
   it('shows only match-specific setup controls', () => {

@@ -11,7 +11,7 @@
       <strong>{{ isEndedEarly ? 'Match ended early. No final result.' : 'Match final.' }}</strong>
       <div class="match-over-actions">
         <ion-button size="small" (click)="openMatchReview()">Review Match</ion-button>
-        <ion-button *ngIf="!isEndedEarly" size="small" fill="outline" (click)="undoLastAction()">Undo Final Rally</ion-button>
+        <ion-button *ngIf="canUndo" size="small" fill="outline" (click)="undoLastAction()">Undo Final Rally</ion-button>
       </div>
     </div>
     <div class="score-layout">
@@ -226,12 +226,11 @@
         <div class="last-action" [ngClass]="{ empty: !lastEvent }">
           <span>{{ getLastEventText() }}</span>
           <ion-button
-            *ngIf="lastEvent"
+            *ngIf="canUndo"
             size="small"
             fill="clear"
             class="receipt-undo"
             (click)="undoLastAction()"
-            [disabled]="isEndedEarly"
             aria-label="Undo last action (Ctrl+Z)"
             aria-keyshortcuts="Control+z"
           >

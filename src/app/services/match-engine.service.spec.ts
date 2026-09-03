@@ -48,6 +48,51 @@ describe('MatchEngineService', () => {
     expect(matchState.state().opponentPoints).toBe(0);
   });
 
+  it('stops undo at match start and walks backward through consecutive actions', () => {
+    startWithLineup();
+    const matchId = offlineSync.getActiveMatchId();
+    expect(service.canUndoLastEvent()).toBeFalse();
+    expect(service.undoLastEvent()).toBeNull();
+
+    service.recordPlayerAction(1, 'kill');
+    service.recordOpponentPoint();
+    expect(service.canUndoLastEvent()).toBeTrue();
+
+    expect(service.undoLastEvent()?.kind).toBe('opponent-point');
+    expect(matchState.state().teamPoints).toBe(1);
+    expect(matchState.state().opponentPoints).toBe(0);
+    expect(service.canUndoLastEvent()).toBeTrue();
+
+    expect(service.undoLastEvent()?.kind).toBe('player-action');
+    expect(matchState.state().teamPoints).toBe(0);
+    expect(service.canUndoLastEvent()).toBeFalse();
+    expect(offlineSync.getMatchEvents(matchId).filter((event) => event.type === 'undo').length).toBe(2);
+  });
+
+  it('treats an ended-early match as terminal for canUndo and undo', () => {
+    startWithLineup();
+    service.recordPlayerAction(1, 'kill');
+    service.endMatchEarly();
+
+    expect(service.canUndoLastEvent()).toBeFalse();
+    expect(service.undoLastEvent()).toBeNull();
+    expect(matchState.state().isMatchOver).toBeTrue();
+  });
+
+  it('allows the final rally to be undone and reopens the match', () => {
+    startWithLineup();
+    for (let set = 1; set <= 3; set += 1) {
+      for (let point = 0; point < 25; point += 1) service.recordPlayerAction(1, 'kill');
+      if (set < 3) service.startNextSet(service.getNextSetDefaultLineup(), 'team');
+    }
+
+    expect(matchState.state().isMatchOver).toBeTrue();
+    expect(service.canUndoLastEvent()).toBeTrue();
+    service.undoLastEvent();
+    expect(matchState.state().isMatchOver).toBeFalse();
+    expect(matchState.state().teamPoints).toBe(24);
+  });
+
   it('persists opponent name into the active game snapshot', () => {
     const matchId = service.startMatch('team', { opponentName: 'Central High' });
 

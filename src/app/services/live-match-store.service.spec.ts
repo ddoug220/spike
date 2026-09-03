@@ -167,6 +167,38 @@ describe('LiveMatchStoreService', () => {
     expect(store.getMatchPlayerById('not-in-match')).toBeNull();
   });
 
+  it('derives the latest receipt from persisted applied events and saved player names', () => {
+    for (let index = 1; index <= 7; index += 1) {
+      teamRoster.addPlayer({ name: `Snapshot ${index}`, jerseyNumber: index, primaryPosition: 'OH' });
+    }
+    const players = teamRoster.players();
+    players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+    engine.startMatch('team');
+
+    engine.recordPlayerAction(1, 'kill');
+    expect(store.lastEvent()?.label).toBe('Kill · Snapshot 1');
+    engine.recordPlayerAction(2, 'dig');
+    expect(store.lastEvent()?.label).toBe('Dig · Snapshot 2');
+    engine.recordOpponentPoint();
+    expect(store.lastEvent()?.label).toBe('Opponent Winner');
+    engine.recordSubstitution(players[0].id, players[6].id);
+    expect(store.lastEvent()?.label).toBe('Substitution · Snapshot 7 in for Snapshot 1');
+    engine.recordTimeout('opponent');
+    expect(store.lastEvent()?.label).toBe('Opponent Timeout');
+    engine.setServingTeam('team');
+    expect(store.lastEvent()?.label).toBe('Serve corrected · Our team');
+    engine.manualRotateTeamTo(3);
+    expect(store.lastEvent()?.label).toBe('Rotation corrected · R3');
+
+    const refreshed = new LiveMatchStoreService(
+      new MatchStateService(),
+      new MatchStatsService(),
+      offlineSync,
+      firebaseDb as unknown as FirebaseDbService,
+    );
+    expect(refreshed.lastEvent()?.label).toBe('Rotation corrected · R3');
+  });
+
   it('uses the full synced stat line instead of mixing local stale fields', () => {
     matchStats.recordPlayerAction('p1', 'service-error', { wasReceiving: true, sideOutWon: false, currentSet: 1 });
     matchStats.recordPlayerAction('p1', 'dig', { wasReceiving: true, sideOutWon: false, currentSet: 1 });

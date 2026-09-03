@@ -4,7 +4,7 @@ import type { MatchPlayer } from '../domain/match-v2';
 import { Game, GameEvent, PlayerSetStats } from '../models/firestore.models';
 import { FirebaseDbService } from './firebase-db.service';
 import { MatchScoreState, MatchStateService } from './match-state.service';
-import { MatchStatsService, PlayerStatLine, StatsAction } from './match-stats.service';
+import { MatchStatsService, PlayerStatLine } from './match-stats.service';
 import {
   projectionFromFirestore,
   scoreStateFromProjection,
@@ -13,16 +13,13 @@ import {
 } from './match-v2.adapter';
 import { OfflineSyncService } from './offline-sync.service';
 
-export type LiveLastEvent =
-  | { kind: 'player-action'; playerId: number; playerName: string; action: StatsAction; impactedScore: boolean; impactedStats: boolean }
-  | { kind: 'opponent-error-point'; impactedScore: boolean; impactedStats: boolean }
-  | { kind: 'opponent-point'; impactedScore: true; impactedStats: boolean }
-  | { kind: 'manual-rotation'; impactedScore: false; impactedStats: false }
-  | { kind: 'timeout'; team: 'team' | 'opponent'; impactedScore: false; impactedStats: false };
+export interface LiveEventReceipt {
+  eventId: string;
+  label: string;
+}
 
 export interface LiveMatchUiState {
   activePlayer: number | null;
-  lastEvent?: LiveLastEvent;
   isSubOverlayOpen: boolean;
   substitutionOutPlayerId: string | null;
   substitutionStatus: string;
@@ -62,6 +59,16 @@ export class LiveMatchStoreService implements OnDestroy {
     return game ? projectionFromFirestore(game, this.events()) : null;
   });
   readonly matchSquad = computed<readonly MatchPlayer[]>(() => this.projection()?.session.squad ?? []);
+  readonly lastEvent = computed<LiveEventReceipt | null>(() => {
+    const projection = this.projection();
+    if (!projection) return null;
+    const eventId = [...projection.appliedEventIds].reverse().find((id) => {
+      const event = this.events().find((candidate) => candidate.id === id);
+      return event?.eventKind !== 'match-started' && event?.type !== 'matchStarted';
+    });
+    const event = eventId ? this.events().find((candidate) => candidate.id === eventId) : null;
+    return event ? { eventId: event.id, label: this.receiptLabel(event) } : null;
+  });
   readonly gameState = computed(() => {
     const projection = this.projection();
     return projection ? scoreStateFromProjection(projection) : this.toGameState(this.game()) ?? this.matchState.state();
@@ -251,6 +258,45 @@ export class LiveMatchStoreService implements OnDestroy {
       substitutionStatus: '',
       isExitSheetOpen: false,
     };
+  }
+
+  private receiptLabel(event: GameEvent): string {
+    const playerName = (playerId: string | null | undefined) =>
+      this.getMatchPlayerById(playerId ?? null)?.name ?? 'Unknown player';
+    switch (event.type) {
+      case 'playerAction':
+        if (event.action === 'opponent-error') return 'Opponent Unforced Error';
+        return `${this.actionLabel(event.action)} · ${playerName(event.playerId)}`;
+      case 'opponentPoint':
+        return 'Opponent Winner';
+      case 'substitution':
+        return `Substitution · ${playerName(event.inPlayerId)} in for ${playerName(event.outPlayerId)}`;
+      case 'timeoutCalled':
+        return `${event.timeoutTeam === 'opponent' ? 'Opponent' : 'Our'} Timeout`;
+      case 'serveTeamSet':
+        return `Serve corrected · ${event.servingTeam === 'opponent' ? 'Opponent' : 'Our team'}`;
+      case 'manualRotation':
+        return `Rotation corrected · R${event.targetRotation ?? event.targetTeamRotation ?? event.teamRotation ?? 1}`;
+      case 'setStarted':
+        return `Set ${event.actionSetNumber ?? event.setNumber ?? 1} started`;
+      case 'matchEndedEarly':
+        return 'Match ended early';
+      default:
+        return event.action;
+    }
+  }
+
+  private actionLabel(action: string): string {
+    const labels: Record<string, string> = {
+      kill: 'Kill',
+      'attack-error': 'Attack Error',
+      ace: 'Ace',
+      'service-error': 'Service Error',
+      block: 'Block',
+      dig: 'Dig',
+      'receive-error': 'Receive Error',
+    };
+    return labels[action] ?? action;
   }
 
   private emptyStats(): PlayerStatLine {

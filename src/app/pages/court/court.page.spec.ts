@@ -89,6 +89,7 @@ describe('CourtPage', () => {
   });
 
   it('renders the standard scoring actions and prominent undo control', () => {
+    startMatchWithLineup();
     component.recordOpponentPoint();
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
@@ -108,12 +109,32 @@ describe('CourtPage', () => {
   });
 
   it('updates last-action feedback after an immediate scoring tap', () => {
+    startMatchWithLineup();
     component.activePlayer = 2;
 
     component.recordStandardOutcome('ace');
 
     expect(component.getLastEventText()).toContain('Last: Ace · P2');
     expect(component.getLastEventText()).toContain('· R1');
+  });
+
+  it('keeps touch Undo available while prior applied actions remain', () => {
+    startMatchWithLineup();
+    component.activePlayer = 1;
+    component.recordStandardOutcome('kill');
+    component.recordStandardOutcome('opponent-point');
+    expect(component.canUndo).toBeTrue();
+    expect(component.getLastEventText()).toContain('Opponent Winner');
+
+    component.activePlayer = 4;
+    component.undoLastAction();
+    expect(component.activePlayer).toBeNull();
+    expect(component.canUndo).toBeTrue();
+    expect(component.getLastEventText()).toContain('Kill · Starter 1');
+
+    component.undoLastAction();
+    expect(component.canUndo).toBeFalse();
+    expect(component.getLastEventText()).toBe('No actions yet');
   });
 
   it('tracks an opponent winner point separately from team-error actions', () => {

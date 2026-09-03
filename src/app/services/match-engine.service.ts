@@ -492,6 +492,12 @@ export class MatchEngineService {
     return this.toEngineEvent(latestEvent);
   }
 
+  canUndoLastEvent(
+    syncedEvents: GameEvent[] = this.offlineSync.getMatchEvents(this.offlineSync.getActiveMatchId()),
+  ): boolean {
+    return this.latestUndoableEvent(this.offlineSync.getActiveMatchId(), syncedEvents) !== null;
+  }
+
   private getPlayerAtCourtPosition(courtPosition: number): MatchPlayer | null {
     const playerId = this.projectedLineup()?.[courtPosition - 1] ?? this.teamRoster.lineup()[courtPosition - 1] ?? null;
     const projection = this.currentProjection();
@@ -691,7 +697,7 @@ export class MatchEngineService {
     const game = this.offlineSync.getGame(matchId);
     if (!game) return null;
     const projection = projectionFromFirestore(game, events);
-    if (!projection) return null;
+    if (!projection || projection.status === 'ended-early') return null;
     const domainEvents = new Map(eventsFromFirestore(game, events).map((event) => [event.id, event]));
     const targetId = [...projection.appliedEventIds]
       .reverse()

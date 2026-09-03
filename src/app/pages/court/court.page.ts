@@ -13,7 +13,7 @@ import {
 import { addIcons } from 'ionicons';
 import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward, star } from 'ionicons/icons';
 import { MatchPlayer, selectTeamSideOut } from '../../domain/match-v2';
-import { LiveLastEvent, LiveMatchStoreService } from '../../services/live-match-store.service';
+import { LiveEventReceipt, LiveMatchStoreService } from '../../services/live-match-store.service';
 import { MatchEngineService } from '../../services/match-engine.service';
 import { MatchScoreState } from '../../services/match-state.service';
 import { StatsAction } from '../../services/match-stats.service';
@@ -186,12 +186,12 @@ export class CourtPage {
     this.liveStore.setUi({ activePlayer });
   }
 
-  get lastEvent(): LiveLastEvent | undefined {
-    return this.liveStore.ui().lastEvent;
+  get lastEvent(): LiveEventReceipt | null {
+    return this.liveStore.lastEvent();
   }
 
-  set lastEvent(lastEvent: LiveLastEvent | undefined) {
-    this.liveStore.setUi({ lastEvent });
+  get canUndo(): boolean {
+    return this.matchEngine.canUndoLastEvent(this.liveStore.events());
   }
 
   get isSubOverlayOpen(): boolean {
@@ -340,7 +340,6 @@ export class CourtPage {
 
     this.matchEngine.startMatch(this.gameState.servingTeam);
     this.liveStore.syncActiveGame();
-    this.lastEvent = undefined;
     this.substitutionStatus = '';
     this.isSubOverlayOpen = false;
     this.resetSubSelection();
@@ -360,27 +359,7 @@ export class CourtPage {
     }
 
     const selectedPosition = this.activePlayer ?? 1;
-    const selectedPlayer = this.getPlayerForPosition(selectedPosition);
-    const event = this.matchEngine.recordPlayerAction(selectedPosition, action);
-    if (action === 'opponent-error') {
-      this.lastEvent = {
-        kind: 'opponent-error-point',
-        impactedScore: event.impactedScore,
-        impactedStats: event.impactedStats,
-      };
-      this.activePlayer = null;
-      this.prepareNextSetDraft();
-      return;
-    }
-
-    this.lastEvent = {
-      kind: 'player-action',
-      playerId: selectedPosition,
-      playerName: selectedPlayer?.name ?? `P${selectedPosition}`,
-      action,
-      impactedScore: event.impactedScore,
-      impactedStats: event.impactedStats,
-    };
+    this.matchEngine.recordPlayerAction(selectedPosition, action);
     this.activePlayer = null;
     this.prepareNextSetDraft();
   }
@@ -390,23 +369,14 @@ export class CourtPage {
       return;
     }
 
-    const event = this.matchEngine.recordOpponentPoint();
-    this.lastEvent = {
-      kind: 'opponent-point',
-      impactedScore: true,
-      impactedStats: event.impactedStats,
-    };
+    this.matchEngine.recordOpponentPoint();
     this.activePlayer = null;
     this.prepareNextSetDraft();
   }
 
   undoLastAction(): void {
-    if (this.isEndedEarly) {
-      return;
-    }
-
     this.matchEngine.undoLastEvent(this.liveStore.events());
-    this.lastEvent = undefined;
+    this.activePlayer = null;
   }
 
   getPlayerForPosition(position: number): MatchPlayer | null {
@@ -514,13 +484,7 @@ export class CourtPage {
       return 'No actions yet';
     }
 
-    let action: string;
-    if (this.lastEvent.kind === 'opponent-point') action = 'Opponent Winner';
-    else if (this.lastEvent.kind === 'opponent-error-point') action = 'Opponent Unforced Error';
-    else if (this.lastEvent.kind === 'manual-rotation') action = 'Manual Rotation';
-    else if (this.lastEvent.kind === 'timeout') action = `${this.lastEvent.team === 'team' ? 'Our' : 'Opponent'} Timeout`;
-    else action = `${this.getActionLabel(this.lastEvent.action)} · ${this.lastEvent.playerName}`;
-    return `Last: ${action} · ${this.gameState.teamPoints}–${this.gameState.opponentPoints} · R${this.gameState.teamRotation}`;
+    return `Last: ${this.lastEvent.label} · ${this.gameState.teamPoints}–${this.gameState.opponentPoints} · R${this.gameState.teamRotation}`;
   }
 
   setServingTeam(team: 'team' | 'opponent'): void {
@@ -536,17 +500,7 @@ export class CourtPage {
       return;
     }
 
-    const didCallTimeout = this.matchEngine.recordTimeout(team);
-    if (!didCallTimeout) {
-      return;
-    }
-
-    this.lastEvent = {
-      kind: 'timeout',
-      team,
-      impactedScore: false,
-      impactedStats: false,
-    };
+    this.matchEngine.recordTimeout(team);
   }
 
   manualRotate(): void {
@@ -554,16 +508,7 @@ export class CourtPage {
       return;
     }
 
-    const didRotate = this.matchEngine.manualRotateTeam();
-    if (!didRotate) {
-      return;
-    }
-
-    this.lastEvent = {
-      kind: 'manual-rotation',
-      impactedScore: false,
-      impactedStats: false,
-    };
+    this.matchEngine.manualRotateTeam();
   }
 
   openMatchControls(): void {
@@ -577,10 +522,7 @@ export class CourtPage {
   }
 
   manualRotateTo(rotation: number): void {
-    if (!this.matchEngine.manualRotateTeamTo(rotation)) {
-      return;
-    }
-    this.lastEvent = { kind: 'manual-rotation', impactedScore: false, impactedStats: false };
+    this.matchEngine.manualRotateTeamTo(rotation);
   }
 
   endMatchEarly(): void {

@@ -1,0 +1,158 @@
+<section class="court-setup" aria-labelledby="court-setup-title">
+  <header class="setup-head">
+    <div>
+      <span class="team-label" dir="auto">{{ teamName }}</span>
+      <h1 id="court-setup-title">Set your starting lineup.</h1>
+      <p>Choose a position to add a player or adjust your lineup.</p>
+    </div>
+    <div class="roster-state" aria-live="polite">
+      <strong>{{ assignedCount }}/6</strong>
+      <span>{{ readinessText }}</span>
+    </div>
+  </header>
+
+  <p class="announcement" role="status">{{ hasDrafts ? "Drafts aren’t saved or synced. Leaving Home or refreshing discards them." : '' }}</p>
+  <p class="move-instruction" [hidden]="movingFrom === null">Choose a destination to move or swap players. <button type="button" (click)="cancelMove()">Cancel move</button></p>
+  @if (operationError && selectedPosition === null) { <p class="operation-error" role="alert">{{ operationError }}</p> }
+  <p class="announcement" role="status">{{ announcement }}</p>
+  <div class="court-workspace" [class.editing]="selectedPosition !== null">
+    <div class="court-wrap">
+      <div class="court" role="group" aria-label="Interactive starting lineup">
+        <span class="net-label">Net</span>
+        <div class="court-lines" aria-hidden="true"></div>
+        @for (slot of slots; track slot.position) {
+          <button
+            #courtSlotButton
+            type="button"
+            class="court-slot"
+            [class]="'court-slot ' + slot.className"
+            [class.selected]="selectedPosition === slot.position || movingFrom === slot.position"
+            [class.destination]="movingFrom !== null && movingFrom !== slot.position"
+            [attr.data-position]="slot.position"
+            aria-controls="court-slot-editor"
+            [attr.aria-describedby]="slotHasDraft(slot.position) ? 'draft-' + slot.position : null"
+            [attr.aria-expanded]="selectedPosition === slot.position"
+            (click)="selectSlot(slot.position)"
+            [attr.aria-label]="movingFrom !== null ? (movingFrom === slot.position ? 'Moving from P' + slot.position : (slot.player ? 'Swap with ' + slot.player.name + ' in P' + slot.position : 'Move to P' + slot.position)) : slot.player ? 'Edit ' + slot.player.name + ' in position ' + slot.position + ', ' + slot.zone : 'Add player to position ' + slot.position + ', ' + slot.zone"
+          >
+            <span class="position">P{{ slot.position }} @if (slotHasDraft(slot.position)) { <span class="draft-mark" [id]="'draft-' + slot.position">· Draft</span> }</span>
+            @if (slot.player; as player) {
+              <strong>#{{ player.jerseyNumber }}</strong>
+              <span class="player-name" dir="auto">{{ player.name }}</span>
+              <small>{{ player.primaryPosition }}</small>
+            } @else {
+              <strong class="plus" aria-hidden="true">+</strong>
+              <span class="open-label">{{ slot.zone }}</span>
+            }
+          </button>
+        }
+      </div>
+    </div>
+
+    <aside
+      id="court-slot-editor"
+      #slotEditor
+      class="slot-editor"
+      [class.empty]="!selectedSlot"
+      [attr.aria-labelledby]="selectedSlot ? 'court-slot-editor-title' : null"
+      aria-live="polite"
+    >
+      @for (editorKey of editorKeys; track editorKey) {
+        @if (selectedSlot; as slot) {
+        <div class="editor-head">
+          <div>
+            <span>Court Position <span class="stat">P{{ slot.position }}</span> · {{ slot.zone }}</span>
+            <h2 id="court-slot-editor-title">{{ slot.player ? 'Edit player' : 'Add player' }}</h2>
+          </div>
+          <button type="button" class="close" (click)="closeEditor()" aria-label="Close player form">×</button>
+        </div>
+
+        @if (operationError) { <p class="operation-error" role="alert">{{ operationError }}</p> }
+        @if (slot.player) {
+          <div class="placement-actions">
+            <button type="button" class="secondary-action" (click)="startMove()">Move player</button>
+            <button type="button" class="secondary-action" (click)="clearPosition()">Clear position</button>
+          </div>
+        }
+        @if (hasUnsavedChanges || operationError) {
+          <div class="draft-status"><span>{{ hasUnsavedChanges ? 'Unsaved changes' : 'Review saved details' }}</span><button type="button" (click)="discardChanges()">Discard changes</button></div>
+        }
+        @if (!slot.player && unassignedPlayers.length > 0) {
+          <form class="saved-player-form" (ngSubmit)="placeExistingPlayer()">
+            <label>
+              <span>Use a saved player</span>
+              <select #savedPlayerSelect name="existingCourtPlayer" [(ngModel)]="selectedExistingPlayerId">
+                @for (player of unassignedPlayers; track player.id) {
+                  <option [value]="player.id">#{{ player.jerseyNumber }} · {{ player.name }}</option>
+                }
+              </select>
+            </label>
+            <button type="submit" class="secondary-action">Place on <span class="stat">P{{ slot.position }}</span></button>
+          </form>
+          <div class="form-divider"><span>or add someone new</span></div>
+        }
+
+        <form #newPlayerForm="ngForm" class="new-player-form" (ngSubmit)="savePlayer()">
+          <label>
+            <span>Player name</span>
+            <input
+              #playerNameInput
+              #playerNameModel="ngModel"
+              name="courtPlayerName"
+              [(ngModel)]="draft.name"
+              [class.invalid]="playerNameModel.invalid && (playerNameModel.touched || newPlayerForm.submitted)"
+              [attr.aria-invalid]="playerNameModel.invalid && (playerNameModel.touched || newPlayerForm.submitted)"
+              [attr.aria-describedby]="playerNameModel.invalid && (playerNameModel.touched || newPlayerForm.submitted) ? 'player-name-error' : null"
+              dir="auto"
+              pattern=".*\S.*"
+              required
+              autocomplete="name"
+            />
+            @if (playerNameModel.invalid && (playerNameModel.touched || newPlayerForm.submitted)) {
+              <span id="player-name-error" class="field-error" role="alert">Enter a player name.</span>
+            }
+          </label>
+          <div class="compact-fields">
+            <label>
+              <span>Jersey</span>
+              <input
+                #jerseyModel="ngModel"
+                type="number"
+                name="courtJersey"
+                [(ngModel)]="draft.jerseyNumber"
+                [class.invalid]="jerseyModel.invalid && (jerseyModel.touched || newPlayerForm.submitted)"
+                [attr.aria-invalid]="jerseyModel.invalid && (jerseyModel.touched || newPlayerForm.submitted)"
+                [attr.aria-describedby]="jerseyModel.invalid && (jerseyModel.touched || newPlayerForm.submitted) ? 'jersey-error' : null"
+                inputmode="numeric"
+                min="0"
+                pattern="[0-9]{1,2}"
+                max="99"
+                required
+              />
+              @if (jerseyModel.invalid && (jerseyModel.touched || newPlayerForm.submitted)) {
+                <span id="jersey-error" class="field-error" role="alert">Enter a jersey number from 0 to 99.</span>
+              }
+            </label>
+            <label>
+              <span>Player role</span>
+              <select name="courtPosition" [(ngModel)]="draft.primaryPosition">
+                @for (position of positions; track position) {
+                  <option [value]="position">{{ position }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          <button type="submit" class="primary-action">
+            @if (slot.player) {
+              Save player
+            } @else {
+              Add to <span class="stat">P{{ slot.position }}</span>
+            }
+          </button>
+        </form>
+        }
+      }
+    </aside>
+  </div>
+
+</section>

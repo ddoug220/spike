@@ -1,5 +1,5 @@
 import { NgClass, NgFor, NgIf } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, ViewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
@@ -9,16 +9,35 @@ import { MatchStateService } from '../../services/match-state.service';
 import { MatchStatsService } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { TeamRosterService } from '../../services/team-roster.service';
+import { FirstRunCourtComponent } from './first-run-court/first-run-court.component';
 
 @Component({
   selector: 'app-home',
   templateUrl: './home.page.html',
   styleUrls: ['./home.page.scss'],
   standalone: true,
-  imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonIcon, NgClass, NgFor, NgIf, RouterLink],
+  imports: [
+    IonHeader,
+    IonToolbar,
+    IonTitle,
+    IonContent,
+    IonButton,
+    IonIcon,
+    NgClass,
+    NgFor,
+    NgIf,
+    RouterLink,
+    FirstRunCourtComponent,
+  ],
 })
 export class HomePage {
   signOutError: string | null = null;
+  @ViewChild(FirstRunCourtComponent) private courtEditor?: FirstRunCourtComponent;
+
+  ionViewWillLeave(): void {
+    this.courtEditor?.resetVisit();
+  }
+
 
   constructor(
     public readonly teamRoster: TeamRosterService,
@@ -31,12 +50,20 @@ export class HomePage {
     addIcons({ cloudDoneOutline, cloudOfflineOutline, logOutOutline, peopleOutline, timeOutline });
   }
 
+  async setUpMatch(): Promise<void> {
+    if (this.hasLiveMatch || !this.teamRoster.isMatchLineupReady) return;
+    await this.router.navigate(['/pre-match'], { queryParams: this.nextActionQueryParams });
+  }
+
   get userEmail(): string | null { return this.auth.email; }
   get activeMatchId(): string { return this.offlineSync.getActiveMatchId(); }
   get activeGame() { return this.offlineSync.getGame(this.activeMatchId); }
 
   get hasStartedMatch(): boolean {
-    return !!this.activeGame || this.offlineSync.getMatchEvents(this.activeMatchId).some((event) => event.type === 'matchStarted');
+    const hasStartEvent = this.offlineSync
+      .getMatchEvents(this.activeMatchId)
+      .some((event) => event.type === 'matchStarted');
+    return hasStartEvent || (!!this.activeGame && this.activeGame.status !== 'scheduled');
   }
 
   get hasLiveMatch(): boolean {
@@ -91,7 +118,7 @@ export class HomePage {
   }
 
   get nextActionQueryParams(): Record<string, string> | null {
-    return this.hasReviewableMatch ? { nextMatch: this.activeMatchId } : null;
+    return this.hasReviewableMatch ? { newMatch: '1' } : null;
   }
 
   get reviewLastMatchRoute(): string[] {

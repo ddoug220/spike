@@ -48,6 +48,25 @@ describe('TeamRosterService', () => {
     service = new TeamRosterService(new RotationService(), new FakeAuthService() as unknown as AuthService);
   });
 
+  it('moves and swaps starters without removing squad members or roster players', () => {
+    const first = service.addPlayer({ name: 'First', jerseyNumber: 1, primaryPosition: 'S' });
+    const second = service.addPlayer({ name: 'Second', jerseyNumber: 2, primaryPosition: 'OH' });
+    [first, second].forEach((player, index) => {
+      service.setMatchSquadPlayer(player.id, true);
+      service.assignMatchStarter(player.id, index + 1);
+    });
+    expect(service.moveMatchStarter(1, 3)).toBeTrue();
+    expect(service.matchDefaults().startingLineup.slice(0, 3)).toEqual([null, second.id, first.id]);
+    expect(service.moveMatchStarter(3, 2)).toBeTrue();
+    expect(service.matchDefaults().startingLineup.slice(0, 3)).toEqual([null, first.id, second.id]);
+    expect(service.getMatchSquadPlayers().map((player) => player.id)).toEqual([first.id, second.id]);
+    service.unassignMatchStarter(2);
+    expect(service.players().length).toBe(2);
+    expect(service.getMatchSquadPlayers().length).toBe(2);
+    expect(service.moveMatchStarter(1, 2)).toBeFalse();
+    expect(service.moveMatchStarter(3, 7)).toBeFalse();
+  });
+
   it('creates a persistent team profile for the saved player pool', () => {
     const initialTeam = service.team();
 

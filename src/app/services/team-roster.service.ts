@@ -117,7 +117,7 @@ export class TeamRosterService {
     return true;
   }
 
-  addPlayer(player: NewRosterPlayer): void {
+  addPlayer(player: NewRosterPlayer): RosterPlayer {
     const now = new Date().toISOString();
     const nextPlayer: RosterPlayer = {
       id: this.createPlayerId(),
@@ -131,6 +131,7 @@ export class TeamRosterService {
 
     this.playersSignal.update((players) => [...players, nextPlayer]);
     this.persist('all');
+    return nextPlayer;
   }
 
   updatePlayer(playerId: string, player: NewRosterPlayer): boolean {
@@ -289,6 +290,25 @@ export class TeamRosterService {
     }
     startingLineup[targetIndex] = playerId;
     this.setCurrentMatchDefaults({ ...defaults, startingLineup });
+  }
+
+  get isMatchLineupReady(): boolean {
+    const assigned = this.matchDefaults().startingLineup.filter((id): id is string => !!id);
+    return assigned.length === 6 && new Set(assigned).size === 6 &&
+      assigned.every((id) => this.isInMatchSquad(id) && !!this.getPlayerById(id));
+  }
+
+  moveMatchStarter(fromPosition: number, toPosition: number): boolean {
+    if (![fromPosition, toPosition].every((position) => Number.isInteger(position) && position >= 1 && position <= 6) ||
+      fromPosition === toPosition) return false;
+    const defaults = this.matchDefaults();
+    const startingLineup = [...defaults.startingLineup];
+    const source = startingLineup[fromPosition - 1];
+    if (!source) return false;
+    startingLineup[fromPosition - 1] = startingLineup[toPosition - 1];
+    startingLineup[toPosition - 1] = source;
+    this.setCurrentMatchDefaults({ ...defaults, startingLineup });
+    return true;
   }
 
   unassignMatchStarter(position: number): void {

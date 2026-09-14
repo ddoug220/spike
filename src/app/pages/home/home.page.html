@@ -10,26 +10,34 @@
 <ion-content [fullscreen]="true">
   <main class="home-shell">
     <div *ngIf="signOutError" class="account-error" role="alert">{{ signOutError }}</div>
-    <section class="next-step" aria-labelledby="next-title">
-      <div class="next-copy">
-        <span class="team-name">{{ teamRoster.team().name }}</span>
-        <h1 id="next-title">{{ nextTitle }}</h1>
-        <p>{{ nextDetail }}</p>
-        <ion-button size="large" [routerLink]="nextActionRoute" [queryParams]="nextActionQueryParams">{{ nextActionLabel }}</ion-button>
+    @if (!hasLiveMatch) {
+      <app-first-run-court [teamName]="teamRoster.team().name" />
+      <div class="setup-actions">
+        <ion-button [disabled]="!teamRoster.isMatchLineupReady" (click)="setUpMatch()">{{ hasReviewableMatch ? 'Set Up Next Match' : 'Set Up Match' }}</ion-button>
         <ion-button *ngIf="hasReviewableMatch" fill="clear" [routerLink]="reviewLastMatchRoute">Review Last Match</ion-button>
       </div>
+    } @else {
+      <section class="next-step" aria-labelledby="next-title">
+        <div class="next-copy">
+          <span class="team-name">{{ teamRoster.team().name }}</span>
+          <h1 id="next-title">{{ nextTitle }}</h1>
+          <p>{{ nextDetail }}</p>
+          <ion-button size="large" [routerLink]="nextActionRoute" [queryParams]="nextActionQueryParams">{{ nextActionLabel }}</ion-button>
+          <ion-button *ngIf="hasReviewableMatch" fill="clear" [routerLink]="reviewLastMatchRoute">Review Last Match</ion-button>
+        </div>
 
-      <div class="lineup-preview" aria-label="Saved starting lineup preview">
-        <div class="preview-head"><span>Next-match default</span><strong>{{ assignedDefaultCount }}/6</strong></div>
-        <div class="mini-court">
-          <div *ngFor="let slot of defaultLineup" class="mini-player" [ngClass]="'p' + slot.position">
-            <span>P{{ slot.position }}</span>
-            <strong>{{ slot.player ? '#' + slot.player.jerseyNumber : '—' }}</strong>
-            <small>{{ slot.player?.name || 'Open' }}</small>
+        <div class="lineup-preview" aria-label="Saved starting lineup preview">
+          <div class="preview-head"><span>Next-match default</span><strong>{{ assignedDefaultCount }}/6</strong></div>
+          <div class="mini-court">
+            <div *ngFor="let slot of defaultLineup" class="mini-player" [ngClass]="'p' + slot.position">
+              <span>P{{ slot.position }}</span>
+              <strong>{{ slot.player ? '#' + slot.player.jerseyNumber : '—' }}</strong>
+              <small>{{ slot.player?.name || 'Open' }}</small>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    }
 
     <footer class="home-status" [ngClass]="{ attention: hasSyncAttention }">
       <ion-icon [name]="hasSyncAttention ? 'cloud-offline-outline' : 'cloud-done-outline'"></ion-icon>

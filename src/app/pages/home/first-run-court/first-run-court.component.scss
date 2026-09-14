@@ -1,0 +1,442 @@
+:host {
+  display: block;
+  color: var(--color-text-1);
+}
+
+.court-setup {
+  padding: 0;
+}
+
+.setup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.team-label {
+  color: var(--color-accent);
+  font-weight: 800;
+}
+
+h1 {
+  max-width: 28ch;
+  margin: 10px 0 8px;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.setup-head p {
+  max-width: 50ch;
+  margin: 0;
+  color: var(--color-text-2);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.roster-state {
+  min-width: 132px;
+  display: grid;
+  gap: 4px;
+}
+
+.roster-state strong {
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+}
+
+.roster-state span {
+  color: var(--color-text-2);
+  font-size: 0.78rem;
+}
+
+.court-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.slot-editor {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  padding: 16px;
+}
+
+.court {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 440px;
+  margin-inline: auto;
+  overflow: hidden;
+  border: 2px solid var(--court-line-color);
+  background: var(--court-wood-bg);
+}
+
+.court-lines,
+.court-lines::before,
+.court-lines::after {
+  position: absolute;
+  pointer-events: none;
+  content: '';
+}
+
+.court-lines {
+  inset: 12px;
+  border: 2px solid var(--court-line-color);
+}
+
+.court-lines::before {
+  inset: -12px -12px auto;
+  border-top: 5px solid var(--court-line-color);
+}
+
+.court-lines::after {
+  inset: 33.33% 0 auto;
+  border-top: 2px solid var(--court-line-color);
+}
+
+.court-slot {
+  position: absolute;
+  z-index: 1;
+  width: min(var(--player-tile-w), 29%);
+  height: var(--player-tile-h);
+  translate: -50% -50%;
+  border: 1px dashed rgba(255, 255, 255, 0.44);
+  border-radius: var(--radius-sm);
+  background: rgba(14, 15, 17, 0.9);
+  color: #edf0f4;
+  padding: 8px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: border-color 160ms ease-out, background 160ms ease-out;
+}
+
+.court-slot:hover,
+.court-slot.selected {
+  border-style: solid;
+  border-color: #75adfa;
+  background: #17243a;
+}
+
+.court-slot:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.court-slot.p4,
+.court-slot.p5 { left: 18%; }
+.court-slot.p3,
+.court-slot.p6 { left: 50%; }
+.court-slot.p2,
+.court-slot.p1 { left: 82%; }
+.court-slot.p4,
+.court-slot.p3,
+.court-slot.p2 { top: 22%; }
+.court-slot.p5,
+.court-slot.p6,
+.court-slot.p1 { top: 72%; }
+
+.position,
+.court-slot small,
+.open-label {
+  color: #b8c0ce;
+  font-size: 0.75rem;
+}
+
+.position,
+.court-slot strong {
+  font-family: var(--font-mono);
+}
+
+.court-slot strong {
+  font-size: 1.15rem;
+}
+
+.court-slot .plus {
+  font-family: var(--font-body);
+  font-size: 1.7rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.player-name {
+  max-width: 10ch;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.editor-head span,
+form label span {
+  color: var(--color-text-2);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stat {
+  font-family: var(--font-mono);
+}
+
+h2 {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+}
+
+.close {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-2);
+  font: inherit;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.new-player-form,
+.saved-player-form {
+  margin-top: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+form label {
+  display: grid;
+  gap: 7px;
+}
+
+.compact-fields {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px;
+}
+
+input,
+select {
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text-1);
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 650;
+}
+
+input[name='courtJersey'],
+select[name='existingCourtPlayer'] {
+  font-family: var(--font-mono);
+}
+
+input:focus,
+select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-dim);
+}
+
+input.invalid {
+  border-color: var(--color-red);
+}
+
+form label .field-error {
+  color: var(--color-red);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: normal;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.primary-action,
+.secondary-action {
+  min-height: 48px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primary-action {
+  border: 0;
+  background: #1d6fe8;
+  color: #fff;
+  padding: 12px 20px;
+}
+
+.primary-action:hover,
+.primary-action:focus-visible {
+  background: #185ec5;
+}
+
+.secondary-action {
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--color-accent);
+  padding: 0 16px;
+}
+
+.saved-player-form {
+  gap: 10px;
+}
+
+.form-divider {
+  position: relative;
+  margin: 18px 0 0;
+  color: var(--color-text-2);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.form-divider::before {
+  position: absolute;
+  z-index: 0;
+  inset: 50% 0 auto;
+  border-top: 1px solid var(--color-border);
+  content: '';
+}
+
+.form-divider span {
+  position: relative;
+  z-index: 1;
+  background: var(--color-surface-1);
+  padding: 0 8px;
+}
+
+@media (max-width: 820px) {
+  .setup-head {
+    align-items: start;
+  }
+
+  .court-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .slot-editor {
+    min-height: 250px;
+  }
+
+  .slot-editor.empty {
+    display: none;
+  }
+
+}
+
+@media (max-width: 520px) {
+  .court-setup {
+    padding-top: 4px;
+  }
+
+  .setup-head {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    margin-top: 8px;
+    font-size: 1.75rem;
+  }
+
+  .setup-head p {
+    font-size: 0.96rem;
+  }
+
+  .roster-state {
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .roster-state strong {
+    font-size: 1.3rem;
+  }
+
+  .slot-editor {
+    padding: 10px;
+  }
+
+  .court {
+    min-height: 0;
+  }
+
+  .court-slot {
+    padding: 4px;
+  }
+
+  .position,
+  .court-slot small,
+  .open-label {
+    font-size: 0.7rem;
+  }
+
+  .court-slot .plus {
+    font-size: 1.25rem;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .court-slot {
+    transition: none;
+  }
+}
+
+.slot-editor.empty { display: none; }
+.placement-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.placement-actions button { flex: 1; }
+.draft-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: 12px; }
+.draft-status span { color: var(--color-text-2); }
+.draft-status button, .move-instruction button { min-height: 44px; border: 0; background: transparent; color: var(--color-accent); font: inherit; cursor: pointer; }
+.draft-mark { color: #edf0f4; }
+.court-slot.destination { border: 2px solid #75adfa; }
+.announcement { color: var(--color-text-2); margin: 0 0 12px; }
+.announcement:empty { margin: 0; }
+.move-instruction { margin: 0 0 12px; }
+@media (max-width: 820px) {
+  .court-workspace.editing { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .roster-state { flex-wrap: wrap; }
+}
+
+.net-label { position: absolute; z-index: 2; top: 5px; left: 50%; translate: -50% 0; padding: 2px 12px; background: #141618; color: #edf0f4; font-size: 0.75rem; }
+@media (min-width: 821px) {
+  .court-workspace {
+    grid-template-columns: minmax(0, 440px) 300px;
+    align-items: start;
+  }
+}
+.player-name { max-width: 100%; font-size: 0.8rem; }
+
+.setup-head > div, .editor-head > div, .court-wrap, .slot-editor { min-width: 0; }
+.team-label { display: block; overflow-wrap: anywhere; }
+.announcement, .operation-error, .editor-head { overflow-wrap: anywhere; }
+.operation-error { color: var(--color-text-1); border: 1px solid var(--color-red); padding: 12px; border-radius: var(--radius-sm); }

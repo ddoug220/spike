@@ -30,10 +30,12 @@ describe('PreMatchPage', () => {
   let offlineSync: OfflineSyncService;
   let router: Router;
   let finishedMatchId: string | null;
+  let newMatch: boolean;
 
   beforeEach(async () => {
     window.localStorage.clear();
     finishedMatchId = null;
+    newMatch = false;
     await TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -43,7 +45,7 @@ describe('PreMatchPage', () => {
           useValue: {
             snapshot: {
               get queryParamMap() {
-                return convertToParamMap(finishedMatchId ? { nextMatch: finishedMatchId } : {});
+                return convertToParamMap(newMatch ? { newMatch: '1' } : finishedMatchId ? { nextMatch: finishedMatchId } : {});
               },
             },
           },
@@ -58,6 +60,28 @@ describe('PreMatchPage', () => {
     offlineSync = TestBed.inject(OfflineSyncService);
     router = TestBed.inject(Router);
     fixture.detectChanges();
+  });
+
+  it('starts a new match from Home without overwriting its edited starters', () => {
+    addSixPlayers();
+    teamRoster.players().forEach((player, index) => {
+      teamRoster.setMatchSquadPlayer(player.id, true);
+      teamRoster.assignMatchStarter(player.id, index + 1);
+    });
+    teamRoster.moveMatchStarter(1, 4);
+    const lineup = [...teamRoster.matchDefaults().startingLineup];
+    component.opponentName = 'Previous opponent';
+    component.firstServeTeam = 'opponent';
+    newMatch = true;
+    spyOn(router, 'navigate').and.resolveTo(true);
+    component.ionViewWillEnter();
+    expect(component.opponentName).toBe('');
+    expect(component.firstServeTeam).toBe('team');
+    expect(teamRoster.matchDefaults().startingLineup).toEqual(lineup);
+    expect(router.navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute), queryParams: { newMatch: null, nextMatch: null },
+      queryParamsHandling: 'merge', replaceUrl: true,
+    });
   });
 
   it('requires an opponent, a six-player squad, and six unique starters', () => {

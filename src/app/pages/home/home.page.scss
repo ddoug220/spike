@@ -1,5 +1,6 @@
 :host { display: block; min-height: 100%; color: var(--color-text-1); }
 .home-toolbar { --background: color-mix(in srgb, var(--color-surface-1) 92%, transparent); --border-color: var(--color-border); }
+.home-toolbar ion-button { min-width: 44px; min-height: 44px; margin-block: 0; }
 .app-wordmark { color: var(--color-volt); font-weight: 800; letter-spacing: -0.03em; }
 .home-shell { width: min(1120px, calc(100% - 32px)); min-height: calc(100% - 32px); margin: 0 auto; padding: 32px 0 20px; }
 .account-error { margin-bottom: 16px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--color-red) 55%, transparent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-red) 12%, var(--color-surface-1)); }
@@ -11,10 +12,10 @@
 .lineup-preview { padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-1); }
 .preview-head { display: flex; justify-content: space-between; margin-bottom: 12px; color: var(--color-text-2); }
 .preview-head strong { color: var(--color-text-1); font-family: var(--font-mono); }
-.mini-court { position: relative; aspect-ratio: 2 / 1; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.36); background: linear-gradient(110deg, #2e1f0a, var(--color-court), #2a1b09); }
-.mini-court::after { content: ''; position: absolute; inset: 0 50% 0 auto; border-inline-start: 2px solid rgba(255, 255, 255, 0.45); }
-.mini-player { position: absolute; z-index: 1; display: grid; width: 104px; min-height: 74px; translate: -50% -50%; place-content: center; text-align: center; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius-sm); background: rgba(14, 15, 17, 0.9); }
-.mini-player span, .mini-player small { color: var(--color-text-2); }
+.mini-court { position: relative; aspect-ratio: 1; max-width: 480px; margin-inline: auto; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.36); background: var(--court-wood-bg); }
+.mini-court::after { content: ''; position: absolute; inset: 0 0 auto; border-block-start: 2px solid rgba(255, 255, 255, 0.45); }
+.mini-player { position: absolute; z-index: 1; display: grid; width: 104px; min-height: 74px; translate: -50% -50%; place-content: center; text-align: center; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius-sm); background: rgba(14, 15, 17, 0.9); color: #edf0f4; }
+.mini-player span, .mini-player small { color: #b8c0ce; }
 .mini-player strong { font-family: var(--font-mono); }
 .mini-player.p4, .mini-player.p5 { left: 20%; }
 .mini-player.p3, .mini-player.p6 { left: 50%; }
@@ -26,3 +27,12 @@
 .home-status button { min-height: 44px; border: 0; background: transparent; color: var(--color-accent); font: inherit; font-weight: 700; }
 @media (max-width: 820px) { .next-step { grid-template-columns: 1fr; align-content: start; min-height: auto; } .lineup-preview { order: -1; } }
 @media (max-width: 520px) { .home-shell { width: min(100% - 16px, 1120px); padding-top: 16px; } .next-copy h1 { font-size: clamp(2.2rem, 13vw, 3.4rem); } .mini-player { width: 76px; min-height: 60px; } .mini-player small { max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+
+.setup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+
+.setup-actions ion-button { min-height: 48px; --background: #1d6fe8; --color: #fff; }
+.setup-actions ion-button[fill="clear"] { --background: transparent; --color: var(--color-accent); }
+
+.team-name, .next-copy p, .account-error { overflow-wrap: anywhere; }
+.home-status { flex-wrap: wrap; }
+.home-status span { min-width: 0; overflow-wrap: anywhere; }

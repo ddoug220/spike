@@ -76,6 +76,17 @@ export class PreMatchPage {
   }
 
   ionViewWillEnter(): void {
+    if (this.route.snapshot.queryParamMap.get('newMatch') === '1') {
+      this.opponentName = '';
+      this.firstServeTeam = 'team';
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { newMatch: null, nextMatch: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+      return;
+    }
     const finishedMatchId = this.route.snapshot.queryParamMap.get('nextMatch');
     if (!finishedMatchId) return;
 
@@ -116,13 +127,7 @@ export class PreMatchPage {
   }
 
   get isLineupReady(): boolean {
-    const lineup = this.teamRoster.matchDefaults().startingLineup;
-    const assigned = lineup.filter((id): id is string => !!id);
-    return (
-      assigned.length === 6 &&
-      new Set(assigned).size === 6 &&
-      assigned.every((id) => this.teamRoster.isInMatchSquad(id) && !!this.teamRoster.getPlayerById(id))
-    );
+    return this.teamRoster.isMatchLineupReady;
   }
 
   get hasOpponent(): boolean {

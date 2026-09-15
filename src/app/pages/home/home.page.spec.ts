@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideRouter, Router, RouterLink } from '@angular/router';
+import { provideRouter, RouterLink } from '@angular/router';
 import { FirebaseDbService } from '../../services/firebase-db.service';
 import type { Game, GameStatus } from '../../models/firestore.models';
 import { OfflineSyncService } from '../../services/offline-sync.service';
@@ -36,7 +36,9 @@ describe('HomePage', () => {
   it('starts an empty team from the interactive court', () => {
     expect(component.nextTitle).toBe('Build your team');
     expect(component.nextActionLabel).toBe('Manage Team');
+    expect(component.showsFirstRunCourt).toBeTrue();
     expect(fixture.nativeElement.textContent).toContain('Set your starting lineup');
+    expect(fixture.nativeElement.textContent).toContain('Assign 6 more positions');
     expect(fixture.nativeElement.textContent).not.toContain('Ready check');
     expect(routeLinks()).toContain('/team');
   });
@@ -111,29 +113,38 @@ describe('HomePage', () => {
     expect(fixture.debugElement.query(By.directive(FirstRunCourtComponent))).not.toBeNull();
   });
 
-  it('keeps Match Setup disabled when six saved players have no starting assignments', () => {
+  it('keeps the court primary when six saved players still have an open starting position', () => {
     addSixPlayers();
+    teamRoster.players().slice(0, 5).forEach((player, index) => {
+      teamRoster.setMatchSquadPlayer(player.id, true);
+      teamRoster.assignMatchStarter(player.id, index + 1);
+    });
     fixture.detectChanges();
 
-    expect(component.nextTitle).toBe('Set up the next match');
-    expect(component.nextActionLabel).toBe('Set Up Match');
+    expect(component.showsFirstRunCourt).toBeTrue();
     expect(teamRoster.isMatchLineupReady).toBeFalse();
-    expect(fixture.nativeElement.querySelector('.setup-actions ion-button').disabled).toBeTrue();
-    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
-    void component.setUpMatch();
-    expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.debugElement.query(By.directive(FirstRunCourtComponent))).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Assign 1 more position');
+    expect(fixture.nativeElement.textContent).toContain('Choose a position to add a player or adjust your lineup.');
+    expect(fixture.nativeElement.textContent).not.toContain('Next-match default');
+    expect(routeLinks()).not.toContain('/pre-match');
   });
 
-  it('previews the saved match-default Starting Lineup without a readiness dashboard', () => {
+  it('makes Match Setup the next action once all six starting positions are assigned', () => {
     addSixPlayers();
     teamRoster.players().forEach((player) => teamRoster.setMatchSquadPlayer(player.id, true));
     teamRoster.players().forEach((player, index) => teamRoster.assignMatchStarter(player.id, index + 1));
     fixture.detectChanges();
 
+    expect(component.showsFirstRunCourt).toBeFalse();
     expect(component.assignedDefaultCount).toBe(6);
-    expect(fixture.nativeElement.textContent).toContain('Starting lineup ready');
+    expect(fixture.debugElement.query(By.directive(FirstRunCourtComponent))).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Set up the next match');
+    expect(fixture.nativeElement.textContent).toContain('Set Up Match');
+    expect(fixture.nativeElement.textContent).toContain('Next-match default');
     expect(fixture.nativeElement.textContent).toContain('Player 1');
     expect(fixture.nativeElement.textContent).not.toContain('First match guide');
+    expect(routeLinks()).toContain('/pre-match');
   });
 
   for (const status of ['final', 'ended-early'] as const) {
@@ -150,9 +161,8 @@ describe('HomePage', () => {
       expect(component.nextActionRoute).toEqual(['/pre-match']);
       expect(component.nextActionQueryParams).toEqual({ newMatch: '1' });
       expect(component.reviewLastMatchRoute).toEqual(['/review', offlineSync.getActiveMatchId()]);
-      const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
-      void component.setUpMatch();
-      expect(navigate).toHaveBeenCalledWith(['/pre-match'], { queryParams: { newMatch: '1' } });
+      expect(component.showsFirstRunCourt).toBeFalse();
+      expect(routeLinks()).toContain('/pre-match?newMatch=1');
       expect(routeLinks()).toContain(`/review/${offlineSync.getActiveMatchId()}`);
       expect(fixture.nativeElement.textContent).toContain('Review Last Match');
     });
@@ -183,9 +193,9 @@ describe('HomePage', () => {
     expect(teamRoster.players()).toEqual([]);
   });
 
-  it('keeps six starters editable and follows player drafts through a swap', () => {
+  it('keeps an incomplete lineup editable and follows player drafts through a swap', () => {
     addSixPlayers();
-    teamRoster.players().forEach((player, index) => {
+    teamRoster.players().slice(0, 5).forEach((player, index) => {
       teamRoster.setMatchSquadPlayer(player.id, true);
       teamRoster.assignMatchStarter(player.id, index + 1);
     });
@@ -199,14 +209,14 @@ describe('HomePage', () => {
     expect(court.draft.name).toBe('Renamed player');
     court.savePlayer();
     expect(teamRoster.getMatchStartingSlots()[1].player?.name).toBe('Renamed player');
-    expect(teamRoster.isMatchLineupReady).toBeTrue();
+    expect(teamRoster.isMatchLineupReady).toBeFalse();
     court.selectSlot(2);
     court.clearPosition();
     fixture.detectChanges();
     expect(teamRoster.isMatchLineupReady).toBeFalse();
     expect(teamRoster.players().length).toBe(6);
-    expect(teamRoster.getMatchSquadPlayers().length).toBe(6);
-    expect(fixture.nativeElement.querySelector('.setup-actions ion-button').disabled).toBeTrue();
+    expect(teamRoster.getMatchSquadPlayers().length).toBe(5);
+    expect(component.showsFirstRunCourt).toBeTrue();
   });
 
   it('keeps invalid jersey submissions out of the roster', () => {

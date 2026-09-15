@@ -98,7 +98,8 @@ describe('First-run mobile smoke flow', () => {
     harness.detectChanges();
 
     expect(router.url).toBe('/home');
-    expect(harness.routeNativeElement?.textContent).toContain('Build your team');
+    expect(harness.routeNativeElement?.textContent).toContain('Set your starting lineup');
+    expect(harness.routeNativeElement?.textContent).toContain('Assign 6 more positions');
 
     const team = await harness.navigateByUrl('/team', TeamPage);
     await harness.fixture.whenStable();

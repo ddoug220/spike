@@ -10,12 +10,8 @@
 <ion-content [fullscreen]="true">
   <main class="home-shell">
     <div *ngIf="signOutError" class="account-error" role="alert">{{ signOutError }}</div>
-    @if (!hasLiveMatch) {
+    @if (showsFirstRunCourt) {
       <app-first-run-court [teamName]="teamRoster.team().name" />
-      <div class="setup-actions">
-        <ion-button [disabled]="!teamRoster.isMatchLineupReady" (click)="setUpMatch()">{{ hasReviewableMatch ? 'Set Up Next Match' : 'Set Up Match' }}</ion-button>
-        <ion-button *ngIf="hasReviewableMatch" fill="clear" [routerLink]="reviewLastMatchRoute">Review Last Match</ion-button>
-      </div>
     } @else {
       <section class="next-step" aria-labelledby="next-title">
         <div class="next-copy">

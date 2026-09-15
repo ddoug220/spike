@@ -50,11 +50,6 @@ export class HomePage {
     addIcons({ cloudDoneOutline, cloudOfflineOutline, logOutOutline, peopleOutline, timeOutline });
   }
 
-  async setUpMatch(): Promise<void> {
-    if (this.hasLiveMatch || !this.teamRoster.isMatchLineupReady) return;
-    await this.router.navigate(['/pre-match'], { queryParams: this.nextActionQueryParams });
-  }
-
   get userEmail(): string | null { return this.auth.email; }
   get activeMatchId(): string { return this.offlineSync.getActiveMatchId(); }
   get activeGame() { return this.offlineSync.getGame(this.activeMatchId); }
@@ -73,6 +68,10 @@ export class HomePage {
   get hasReviewableMatch(): boolean {
     return this.activeGame?.status === 'final' ||
       this.activeGame?.status === 'ended-early';
+  }
+
+  get showsFirstRunCourt(): boolean {
+    return !this.hasStartedMatch && !this.teamRoster.isMatchLineupReady;
   }
 
   get playerCount(): number { return this.teamRoster.players().length; }

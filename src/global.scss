@@ -1,32 +1,31 @@
 /*
- * Spike — Global Styles
- * "Authority" design system — DM Sans + DM Mono
- */
+THESIS: Spike is tournament equipment, not a dashboard; the court and match state lead every task.
+OWN-WORLD: Powder-coated graphite or enamel shells frame a competition-cobalt court, machined controls, court-tape rules, and one optic stitch for current selection.
+STORY: A coach identifies state, selects a player, records an outcome, and can undo it before the next rally.
+FIRST VIEWPORT: A structural score rail spans a 58/42 court-and-control table; on phones it becomes score, compact court, then a thumb action dock.
+FORM: Competition Hardware, grounded direction five, corrected split-table staging, seed 8b35dc40.
+*/
 
-/* Google Fonts — DM Sans (body/UI) + DM Mono (stats/numbers) */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap');
 
-/* Core CSS required for Ionic components to work properly */
-@import "@ionic/angular/css/core.css";
-
-/* Basic CSS for apps built with Ionic */
-@import "@ionic/angular/css/normalize.css";
-@import "@ionic/angular/css/structure.css";
-@import "@ionic/angular/css/typography.css";
-@import "@ionic/angular/css/display.css";
-
-/* Optional CSS utils */
-@import "@ionic/angular/css/padding.css";
-@import "@ionic/angular/css/float-elements.css";
-@import "@ionic/angular/css/text-alignment.css";
-@import "@ionic/angular/css/text-transformation.css";
-@import "@ionic/angular/css/flex-utils.css";
-
-/* Dark mode */
+@import '@ionic/angular/css/core.css';
+@import '@ionic/angular/css/normalize.css';
+@import '@ionic/angular/css/structure.css';
+@import '@ionic/angular/css/typography.css';
+@import '@ionic/angular/css/display.css';
+@import '@ionic/angular/css/padding.css';
+@import '@ionic/angular/css/float-elements.css';
+@import '@ionic/angular/css/text-alignment.css';
+@import '@ionic/angular/css/text-transformation.css';
+@import '@ionic/angular/css/flex-utils.css';
 @import '@ionic/angular/css/palettes/dark.system.css';
 
-/* ─── Base typography ─── */
+html {
+  background: var(--spike-canvas);
+}
+
 body,
+ion-app,
 ion-content,
 ion-item,
 ion-label,
@@ -41,21 +40,86 @@ textarea {
   font-family: var(--font-body);
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
+body {
+  color: var(--spike-ink);
+  background: var(--spike-canvas);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
-/* ─── Smooth color transitions ─── */
-*,
-*::before,
-*::after {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+ion-title {
+  font-family: var(--font-display);
+  text-wrap: balance;
+}
+
+button,
+ion-button,
+a,
+input,
+select,
+textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ─── Custom scrollbar ─── */
+button,
+ion-button {
+  min-height: var(--spike-hit-target);
+}
+
+:focus-visible {
+  outline: 3px solid var(--spike-focus);
+  outline-offset: 2px;
+}
+
+ion-toolbar {
+  --background: var(--spike-frame);
+  --color: var(--spike-ink);
+  --border-color: var(--spike-line);
+  --min-height: 56px;
+  border-bottom: 1px solid var(--spike-line);
+}
+
+ion-toolbar ion-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+ion-button {
+  --border-radius: var(--radius-sm);
+  --box-shadow: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+
+ion-content {
+  --background: var(--spike-canvas);
+  --color: var(--spike-ink);
+  --keyboard-offset: 0px;
+}
+
+input,
+select,
+textarea {
+  border-radius: var(--radius-sm);
+}
+
+::selection {
+  color: #11161a;
+  background: var(--spike-stitch);
+}
+
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -63,67 +127,24 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--spike-line-strong);
+  background-clip: padding-box;
 }
 
-@media (prefers-color-scheme: light) {
-  ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.28);
+@keyframes spike-receipt-in {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-@media (prefers-color-scheme: light) {
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.4);
-  }
-}
-
-/* ─── Selection color ─── */
-::selection {
-  background: rgba(62, 173, 255, 0.3);
-  color: inherit;
-}
-
-/* ─── Keyframes ─── */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(62, 173, 255, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 10px rgba(62, 173, 255, 0);
-  }
-}
-
-@keyframes subtlePulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.78;
-  }
-}
-
-/* ─── Override Ionic defaults for premium feel ─── */
-ion-toolbar {
-  --min-height: 52px;
-}
-
-ion-content {
-  --keyboard-offset: 0px;
 }

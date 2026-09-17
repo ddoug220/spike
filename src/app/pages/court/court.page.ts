@@ -1,14 +1,12 @@
 import { DatePipe, NgClass, NgFor, NgIf } from '@angular/common';
 import { Component, HostListener } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
   IonActionSheet,
   IonButton,
   IonContent,
-  IonHeader,
   IonIcon,
-  IonTitle,
-  IonToolbar,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward, star } from 'ionicons/icons';
@@ -19,6 +17,7 @@ import { MatchScoreState } from '../../services/match-state.service';
 import { StatsAction } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { TeamRosterService } from '../../services/team-roster.service';
+import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 
 type QuickAction = StatsAction;
 type StandardOutcomeAction =
@@ -72,9 +71,6 @@ interface LiveEventRow {
   styleUrls: ['./court.page.scss'],
   standalone: true,
   imports: [
-    IonHeader,
-    IonToolbar,
-    IonTitle,
     IonContent,
     IonButton,
     NgFor,
@@ -83,6 +79,8 @@ interface LiveEventRow {
     DatePipe,
     IonIcon,
     IonActionSheet,
+    FormsModule,
+    EquipmentRailComponent,
   ],
 })
 export class CourtPage {
@@ -835,12 +833,15 @@ export class CourtPage {
   }
 
   private openSubOverlay(): void {
-    this.isSubOverlayOpen = true;
     const selectedOutPlayer = this.activePlayer === null ? null : this.getPlayerForPosition(this.activePlayer);
+    if (!selectedOutPlayer) {
+      this.substitutionStatus = 'Select an on-court player before opening Substitute.';
+      return;
+    }
+
+    this.isSubOverlayOpen = true;
     this.substitutionOutPlayerId = selectedOutPlayer?.id ?? null;
-    this.substitutionStatus = selectedOutPlayer
-      ? `OUT selected: ${selectedOutPlayer.name}. Tap a bench player to swap.`
-      : 'Tap an on-court player, then tap a bench player.';
+    this.substitutionStatus = `OUT selected: ${selectedOutPlayer.name}. Tap a bench player to swap.`;
   }
 
   private resetSubSelection(): void {

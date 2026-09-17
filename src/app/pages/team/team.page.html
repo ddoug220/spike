@@ -1,12 +1,4 @@
-<ion-header [translucent]="true">
-  <ion-toolbar class="team-toolbar">
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/home"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Team Roster</ion-title>
-    <ion-button slot="end" fill="clear" class="setup-link" [routerLink]="['/pre-match']">Match Setup</ion-button>
-  </ion-toolbar>
-</ion-header>
+<app-equipment-rail task="Team roster" context="Build the reusable bench board" />
 
 <ion-content [fullscreen]="true">
   <main class="team-shell">
@@ -31,7 +23,7 @@
             <span>Team Name</span>
             <input type="text" name="teamName" [(ngModel)]="teamNameDraft" required autocomplete="organization" />
           </label>
-          <ion-button type="submit">
+          <ion-button type="submit" class="local-submit">
             <ion-icon slot="start" name="save"></ion-icon>
             Save
           </ion-button>
@@ -92,7 +84,7 @@
               @for (position of primaryPositions; track position) { <option [value]="position">{{ position }}</option> }
             </select>
           </label>
-          <ion-button type="submit">
+          <ion-button type="submit" class="local-submit">
             <ion-icon slot="start" [name]="editingPlayerId ? 'create' : 'person-add'"></ion-icon>
             {{ editingPlayerId ? 'Save Player' : 'Add Player' }}
           </ion-button>
@@ -122,10 +114,11 @@
         </div>
       } @else {
         <div class="roster-list">
-          @for (player of players; track player.id) {
+          @for (player of players; track player.id; let benchIndex = $index) {
             <article class="roster-row" [ngClass]="{ editing: editingPlayerId === player.id }">
+              <span class="bench-index" aria-hidden="true">{{ benchIndex + 1 }}</span>
               <span class="jersey">#{{ player.jerseyNumber }}</span>
-              <div class="player-name"><strong>{{ player.name }}</strong><span>{{ player.primaryPosition }}</span></div>
+              <div class="player-name"><strong [title]="player.name">{{ player.name }}</strong><span>{{ player.primaryPosition }}</span></div>
               <button type="button" class="edit" (click)="editPlayer(player.id)" aria-label="Edit {{ player.name }}">
                 <ion-icon name="create"></ion-icon><span>Edit</span>
               </button>

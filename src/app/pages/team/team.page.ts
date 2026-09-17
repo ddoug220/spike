@@ -3,18 +3,14 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
-  IonBackButton,
   IonButton,
-  IonButtons,
   IonContent,
-  IonHeader,
   IonIcon,
-  IonTitle,
-  IonToolbar,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { checkmarkCircleOutline, close, cloudDownloadOutline, create, personAdd, save, trash } from 'ionicons/icons';
 import { OfflineSyncService } from '../../services/offline-sync.service';
+import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 import {
   NewRosterPlayer,
   PrimaryPosition,
@@ -29,17 +25,13 @@ import {
   styleUrls: ['./team.page.scss'],
   standalone: true,
   imports: [
-    IonHeader,
-    IonToolbar,
-    IonTitle,
     IonContent,
     IonButton,
-    IonButtons,
-    IonBackButton,
     IonIcon,
     FormsModule,
     NgClass,
     RouterLink,
+    EquipmentRailComponent,
   ],
 })
 export class TeamPage {

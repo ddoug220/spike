@@ -1,0 +1,32 @@
+<ion-header class="equipment-header">
+  <ion-toolbar>
+    <div class="equipment-rail">
+      <a class="rail-brand" routerLink="/home" aria-label="Spike home">
+        <span>Spike</span><b aria-hidden="true">/</b>
+      </a>
+
+      <div class="rail-task" aria-label="Current workspace">
+        <span>Workspace</span>
+        <strong [title]="task">{{ task }}</strong>
+        @if (context) { <small [title]="context">{{ context }}</small> }
+      </div>
+
+      <nav class="rail-nav" aria-label="Product navigation">
+        <a routerLink="/team" routerLinkActive="active">Team</a>
+        <a routerLink="/pre-match" routerLinkActive="active">Setup</a>
+        <a routerLink="/history" routerLinkActive="active">History</a>
+      </nav>
+
+      <div class="rail-state" [class.attention]="syncNeedsAttention" [attr.aria-label]="syncLabel" [title]="syncLabel">
+        <span class="state-light" aria-hidden="true"></span>
+        <span class="state-copy">
+          <strong>{{ syncLabel }}</strong>
+          <small [title]="accountLabel">{{ accountLabel }}</small>
+        </span>
+        @if (hasSyncError) { <button type="button" class="sync-retry" (click)="retrySync()">Retry</button> }
+      </div>
+
+      <div class="rail-action"><ng-content select="[rail-action]" /></div>
+    </div>
+  </ion-toolbar>
+</ion-header>

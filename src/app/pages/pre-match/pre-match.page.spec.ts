@@ -111,6 +111,57 @@ describe('PreMatchPage', () => {
     expect(teamRoster.matchDefaults().startingLineup[0]).toBeNull();
   });
 
+  it('assigns and moves starters through the position picker', () => {
+    addSixPlayers();
+    const players = teamRoster.players();
+    players.forEach((player) => teamRoster.setMatchSquadPlayer(player.id, true));
+    teamRoster.assignMatchStarter(players[0].id, 1);
+    teamRoster.assignMatchStarter(players[1].id, 2);
+
+    component.openPositionPicker(4);
+    component.choosePlayerForEditingPosition(players[2].id);
+    expect(teamRoster.matchDefaults().startingLineup[3]).toBe(players[2].id);
+    expect(component.editingPosition).toBeNull();
+
+    component.openPositionPicker(6);
+    component.choosePlayerForEditingPosition(players[0].id);
+    expect(teamRoster.matchDefaults().startingLineup[0]).toBeNull();
+    expect(teamRoster.matchDefaults().startingLineup[5]).toBe(players[0].id);
+  });
+
+  it('dismisses the picker without changing the lineup and restores trigger focus', () => {
+    addSixPlayers();
+    const player = teamRoster.players()[0];
+    teamRoster.setMatchSquadPlayer(player.id, true);
+    teamRoster.assignMatchStarter(player.id, 3);
+    const lineup = [...teamRoster.matchDefaults().startingLineup];
+    const trigger = document.createElement('button');
+    spyOn(trigger, 'focus');
+
+    component.openPositionPicker(3, trigger);
+    component.closePositionPicker();
+    component.handlePositionPickerDismiss();
+
+    expect(teamRoster.matchDefaults().startingLineup).toEqual(lineup);
+    expect(trigger.focus).toHaveBeenCalled();
+  });
+
+  it('clears the edited position explicitly and exposes descriptive accessible labels', () => {
+    addSixPlayers();
+    const player = teamRoster.players()[0];
+    teamRoster.setMatchSquadPlayer(player.id, true);
+    teamRoster.assignMatchStarter(player.id, 5);
+
+    expect(component.getCourtSlotAriaLabel(5)).toContain(`#${player.jerseyNumber} ${player.name}`);
+    expect(component.getPlayerPickerAriaLabel(player)).toContain('currently P5');
+
+    component.openPositionPicker(5);
+    component.clearEditingPosition();
+
+    expect(teamRoster.matchDefaults().startingLineup[4]).toBeNull();
+    expect(component.getCourtSlotAriaLabel(5)).toContain('open position');
+  });
+
   it('starts from saved match defaults without changing them during live lineup updates', async () => {
     addSixPlayers();
     const players = teamRoster.players();
@@ -183,7 +234,7 @@ describe('PreMatchPage', () => {
     expect(text).toContain('Starting Six');
     expect(text).not.toContain('Add Player');
     expect(text).not.toContain('Team Name');
-    expect(fixture.nativeElement.querySelector('ion-content + ion-footer.start-footer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('ion-footer.start-footer')).not.toBeNull();
     expect(component.opponentName).toBe('');
   });
 

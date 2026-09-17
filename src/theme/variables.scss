@@ -1,85 +1,92 @@
-// Spike — "Authority" Design System
-// Typography: DM Sans (body/UI) + DM Mono (stats/numbers)
-
+// Spike — Competition Hardware token contract
 :root {
-  --font-body: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'DM Mono', ui-monospace, monospace;
+  --font-body: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-mono: 'Barlow Condensed', 'Arial Narrow', sans-serif;
 
-  // ─── Radius ───
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
   --radius-full: 999px;
 
-  // ─── Player tile dimensions ───
-  --player-tile-w: 94px;
-  --player-tile-h: 78px;
+  --player-tile-w: 108px;
+  --player-tile-h: 76px;
 
-  // ─── Motion ───
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --duration-fast: 120ms;
-  --duration-base: 200ms;
-  --duration-slow: 360ms;
+  --ease-spring: var(--ease-out);
+  --duration-fast: 100ms;
+  --duration-base: 140ms;
+  --duration-slow: 160ms;
 
-  // ─── Dark theme (primary) ───
-  --color-bg:            #0e0f11;
-  --color-surface-1:     #141618;
-  --color-surface-2:     #1b1d21;
-  --color-surface-3:     #23262b;
-  --color-border:        rgba(255, 255, 255, 0.07);
-  --color-border-strong: rgba(255, 255, 255, 0.14);
+  --spike-canvas: #0f1418;
+  --spike-frame: #171d22;
+  --spike-control: #202830;
+  --spike-control-strong: #2a343d;
+  --spike-ink: #f5f4ef;
+  --spike-ink-muted: #b8c2c9;
+  --spike-ink-faint: #87949d;
+  --spike-line: rgba(245, 244, 239, 0.16);
+  --spike-line-strong: rgba(245, 244, 239, 0.32);
+  --spike-court: #1457d9;
+  --spike-court-deep: #0e3f9f;
+  --spike-court-line: rgba(255, 255, 255, 0.88);
+  --spike-stitch: #e8f316;
+  --spike-focus: #8fb4ff;
+  --spike-success: #0c7a43;
+  --spike-danger: #b82d36;
+  --spike-warning: #f1a51b;
+  --spike-on-signal: #ffffff;
+  --spike-hit-target: 44px;
 
-  --color-text-1: #edf0f4;
-  --color-text-2: #7e8899;
-  --color-text-3: #4d5562;
-
-  --color-accent:        #3d8ef8;
-  --color-volt:          #c8ff00;
-  --color-accent-dim:    rgba(61, 142, 248, 0.14);
-  --color-accent-subtle: rgba(61, 142, 248, 0.08);
-
-  --color-green:     #21d07a;
-  --color-green-dim: rgba(33, 208, 122, 0.14);
-  --color-red:       #f25757;
-  --color-red-dim:   rgba(242, 87, 87, 0.14);
-  --color-amber:     #f5a623;
-  --color-amber-dim: rgba(245, 166, 35, 0.14);
-
-  // ─── Court ───
-  --court-wood-bg:     linear-gradient(165deg, #2e1f0a 0%, #3f2c12 45%, #2a1b09 100%);
-  --court-line-color:  rgba(255, 255, 255, 0.18);
-  --court-attack-line: rgba(255, 255, 255, 0.10);
+  // Compatibility aliases while page styles move onto the Spike roles.
+  --color-bg: var(--spike-canvas);
+  --color-surface-1: var(--spike-frame);
+  --color-surface-2: var(--spike-control);
+  --color-surface-3: var(--spike-control-strong);
+  --color-border: var(--spike-line);
+  --color-border-strong: var(--spike-line-strong);
+  --color-text-1: var(--spike-ink);
+  --color-text-2: var(--spike-ink-muted);
+  --color-text-3: var(--spike-ink-faint);
+  --color-text-muted: var(--spike-ink-muted);
+  --color-accent: var(--spike-court);
+  --color-accent-dim: rgba(20, 87, 217, 0.2);
+  --color-accent-subtle: rgba(20, 87, 217, 0.12);
+  --color-volt: var(--spike-stitch);
+  --color-green: var(--spike-success);
+  --color-green-dim: rgba(12, 122, 67, 0.2);
+  --color-red: var(--spike-danger);
+  --color-red-dim: rgba(184, 45, 54, 0.2);
+  --color-amber: var(--spike-warning);
+  --color-amber-dim: rgba(241, 165, 27, 0.18);
+  --court-wood-bg: var(--spike-court);
+  --court-line-color: var(--spike-court-line);
+  --court-attack-line: rgba(255, 255, 255, 0.6);
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --color-bg:            #f3f4f6;
-    --color-surface-1:     #ffffff;
-    --color-surface-2:     #f8f9fa;
-    --color-surface-3:     #eef0f2;
-    --color-border:        rgba(0, 0, 0, 0.08);
-    --color-border-strong: rgba(0, 0, 0, 0.16);
+    --spike-canvas: #f5f4ef;
+    --spike-frame: #ffffff;
+    --spike-control: #e8e6df;
+    --spike-control-strong: #d9d7cf;
+    --spike-ink: #11161a;
+    --spike-ink-muted: #46535c;
+    --spike-ink-faint: #66737b;
+    --spike-line: rgba(17, 22, 26, 0.16);
+    --spike-line-strong: rgba(17, 22, 26, 0.32);
+    --spike-focus: #0e48bb;
+    --spike-success: #086739;
+    --spike-danger: #a5222c;
+    --spike-warning: #9a5b00;
+    --spike-on-signal: #ffffff;
 
-    --color-text-1: #0d0f11;
-    --color-text-2: #5a6270;
-    --color-text-3: #9aa1ab;
-
-    --color-accent:        #1d6fe8;
-    --color-volt:          #526b00;
-    --color-accent-dim:    rgba(29, 111, 232, 0.10);
-    --color-accent-subtle: rgba(29, 111, 232, 0.06);
-
-    --color-green:     #16a85a;
-    --color-green-dim: rgba(22, 168, 90, 0.10);
-    --color-red:       #d63c3c;
-    --color-red-dim:   rgba(214, 60, 60, 0.10);
-    --color-amber:     #d4820a;
-    --color-amber-dim: rgba(212, 130, 10, 0.10);
-
-    --court-wood-bg:    linear-gradient(165deg, #c9903a 0%, #b07830 45%, #c49040 100%);
-    --court-line-color: rgba(255, 255, 255, 0.55);
+    --color-accent-dim: rgba(20, 87, 217, 0.14);
+    --color-accent-subtle: rgba(20, 87, 217, 0.08);
+    --color-green-dim: rgba(8, 103, 57, 0.12);
+    --color-red-dim: rgba(165, 34, 44, 0.12);
+    --color-amber-dim: rgba(154, 91, 0, 0.12);
   }
 }

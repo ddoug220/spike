@@ -127,7 +127,7 @@ describe('HomePage', () => {
     expect(fixture.nativeElement.textContent).toContain('Assign 1 more position');
     expect(fixture.nativeElement.textContent).toContain('Choose a position to add a player or adjust your lineup.');
     expect(fixture.nativeElement.textContent).not.toContain('Next-match default');
-    expect(routeLinks()).not.toContain('/pre-match');
+    expect(fixture.nativeElement.querySelector('.court-setup a[href="/pre-match"]')).toBeNull();
   });
 
   it('makes Match Setup the next action once all six starting positions are assigned', () => {

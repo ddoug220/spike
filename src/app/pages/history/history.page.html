@@ -1,9 +1,4 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>History</ion-title>
-    <ion-button slot="end" fill="clear" [routerLink]="['/home']">Home</ion-button>
-  </ion-toolbar>
-</ion-header>
+<app-equipment-rail task="Match history" context="Official saved match records" />
 
 <ion-content [fullscreen]="true">
   <main class="history-shell">
@@ -18,9 +13,11 @@
     <section aria-labelledby="saved-matches-title">
       <h2 id="saved-matches-title">Saved matches</h2>
 
-      <p *ngIf="matches.length === 0" class="empty-state">
-        No matches yet. A match appears here after you start tracking it.
-      </p>
+      <div *ngIf="matches.length === 0" class="empty-state">
+        <strong>No matches yet</strong>
+        <span>A match appears here after you start tracking it.</span>
+        <a routerLink="/pre-match">Set up match</a>
+      </div>
 
       <div *ngIf="matches.length > 0" class="match-list">
         <a
@@ -30,7 +27,7 @@
           [attr.aria-label]="'Review match against ' + match.opponentName"
         >
           <span class="date">{{ match.startedAt | date:'mediumDate' }}</span>
-          <span class="opponent">vs {{ match.opponentName }}</span>
+          <span class="opponent" [title]="match.opponentName">vs {{ match.opponentName }}</span>
           <span class="status">{{ statusLabel(match) }}</span>
           <strong class="score">{{ scoreLabel(match) }}</strong>
           <span class="sync" [class.sync-pending]="syncLabel(match) === 'Pending sync'">{{ syncLabel(match) }}</span>

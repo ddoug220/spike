@@ -119,8 +119,8 @@ describe('First-run mobile smoke flow', () => {
     harness.detectChanges();
     preMatch.players.forEach((player, index) => {
       preMatch.teamRoster.setMatchSquadPlayer(player.id, true);
-      preMatch.selectPlayer(player.id);
-      preMatch.assignSelectedToPosition(index + 1);
+      preMatch.openPositionPicker(index + 1);
+      preMatch.choosePlayerForEditingPosition(player.id);
     });
     harness.detectChanges();
 

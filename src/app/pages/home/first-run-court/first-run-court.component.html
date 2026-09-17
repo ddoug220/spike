@@ -1,20 +1,24 @@
 <section class="court-setup" aria-labelledby="court-setup-title">
-  <header class="setup-head">
-    <div>
-      <span class="team-label" dir="auto">{{ teamName }}</span>
-      <h1 id="court-setup-title">Set your starting lineup.</h1>
-      <p>Choose a position to add a player or adjust your lineup.</p>
-    </div>
-    <div class="roster-state" aria-live="polite">
-      <strong>{{ assignedCount }}/6</strong>
-      <span>{{ readinessText }}</span>
-    </div>
-  </header>
+  <div class="setup-console">
+    <header class="setup-head">
+      <div>
+        <span class="team-label" dir="auto">{{ teamName }}</span>
+        <h1 id="court-setup-title">Set your starting lineup.</h1>
+        <p>Choose a position to add a player or adjust your lineup.</p>
+      </div>
+      <div class="roster-state" aria-live="polite">
+        <strong>{{ assignedCount }}/6</strong>
+        <span>{{ readinessText }}</span>
+      </div>
+    </header>
 
-  <p class="announcement" role="status">{{ hasDrafts ? "Drafts aren’t saved or synced. Leaving Home or refreshing discards them." : '' }}</p>
-  <p class="move-instruction" [hidden]="movingFrom === null">Choose a destination to move or swap players. <button type="button" (click)="cancelMove()">Cancel move</button></p>
-  @if (operationError && selectedPosition === null) { <p class="operation-error" role="alert">{{ operationError }}</p> }
-  <p class="announcement" role="status">{{ announcement }}</p>
+    <div class="setup-notices">
+      <p class="announcement" role="status">{{ hasDrafts ? "Drafts aren’t saved or synced. Leaving Home or refreshing discards them." : '' }}</p>
+      <p class="move-instruction" [hidden]="movingFrom === null">Choose a destination to move or swap players. <button type="button" (click)="cancelMove()">Cancel move</button></p>
+      @if (operationError && selectedPosition === null) { <p class="operation-error" role="alert">{{ operationError }}</p> }
+      <p class="announcement" role="status">{{ announcement }}</p>
+    </div>
+  </div>
   <div class="court-workspace" [class.editing]="selectedPosition !== null">
     <div class="court-wrap">
       <div class="court" role="group" aria-label="Interactive starting lineup">
@@ -32,6 +36,7 @@
             aria-controls="court-slot-editor"
             [attr.aria-describedby]="slotHasDraft(slot.position) ? 'draft-' + slot.position : null"
             [attr.aria-expanded]="selectedPosition === slot.position"
+            [attr.title]="slot.player?.name || slot.zone"
             (click)="selectSlot(slot.position)"
             [attr.aria-label]="movingFrom !== null ? (movingFrom === slot.position ? 'Moving from P' + slot.position : (slot.player ? 'Swap with ' + slot.player.name + ' in P' + slot.position : 'Move to P' + slot.position)) : slot.player ? 'Edit ' + slot.player.name + ' in position ' + slot.position + ', ' + slot.zone : 'Add player to position ' + slot.position + ', ' + slot.zone"
           >

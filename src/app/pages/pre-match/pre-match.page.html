@@ -1,18 +1,8 @@
-<ion-header [translucent]="true">
-  <ion-toolbar class="setup-toolbar">
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/home"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Match Setup</ion-title>
-    <ion-button slot="end" fill="clear" class="team-link" [routerLink]="['/team']">
-      <ion-icon slot="start" name="people-outline"></ion-icon>
-      Team Roster
-    </ion-button>
-  </ion-toolbar>
-</ion-header>
+<app-equipment-rail task="Match Setup" context="Confirm opponent, squad, rotation, and serve" />
 
 <ion-content [fullscreen]="true">
   <main class="setup-shell">
+    <section class="match-card" aria-label="Match setup progress">
     <section class="setup-intro">
       <div>
         <span class="team-name">{{ teamRoster.team().name }}</span>
@@ -65,7 +55,8 @@
         <header class="section-head">
           <div>
             <h2>Starting Six</h2>
-            <p>{{ selectedPlayerText }}</p>
+            <p class="desktop-lineup-instruction">{{ selectedPlayerText }}</p>
+            <p class="compact-lineup-instruction">Tap a court position to choose its player.</p>
           </div>
           <span class="step-state" [ngClass]="{ ready: isLineupReady }">
             <ion-icon [name]="isLineupReady ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
@@ -85,13 +76,15 @@
               }"
               [style.top]="slot.top"
               [style.left]="slot.left"
-              (click)="assignSelectedToPosition(slot.position)"
+              [attr.title]="getSlotPlayer(slot.position)?.name || slot.roleLabel"
+              [attr.aria-label]="getCourtSlotAriaLabel(slot.position)"
+              (click)="handleCourtPositionClick(slot.position, $event)"
               (dragover)="allowDrop($event)"
               (drop)="dropOnPosition($event, slot.position)"
             >
               <span class="slot-position">P{{ slot.position }}</span>
               @if (getSlotPlayer(slot.position); as player) {
-                <strong>{{ player.name }}</strong>
+                <strong [title]="player.name">{{ player.name }}</strong>
                 <span class="slot-meta">#{{ player.jerseyNumber }} · {{ player.primaryPosition }}</span>
                 <span class="clear-slot">Tap to remove</span>
               } @else {
@@ -140,7 +133,7 @@
                   <span class="check-mark" aria-hidden="true"></span>
                   <span class="player-number">#{{ player.jerseyNumber }}</span>
                   <span class="player-copy">
-                    <strong>{{ player.name }}</strong>
+                    <strong [title]="player.name">{{ player.name }}</strong>
                     <span>{{ player.primaryPosition }}</span>
                   </span>
                 </label>
@@ -153,16 +146,87 @@
                   draggable="true"
                   (dragstart)="onDragStart($event, player.id)"
                 >
-                  {{ selectedPlayerId === player.id ? 'Selected' : 'Set starter' }}
+                  @if (getPlayerAssignedPosition(player.id); as position) {
+                    P{{ position }} · Move
+                  } @else {
+                    {{ selectedPlayerId === player.id ? 'Selected' : 'Set starter' }}
+                  }
                 </button>
+                <span class="compact-assignment-status">
+                  @if (getPlayerAssignedPosition(player.id); as position) {
+                    P{{ position }}
+                  } @else if (teamRoster.isInMatchSquad(player.id)) {
+                    Squad
+                  } @else {
+                    Out
+                  }
+                </span>
               </div>
             }
           </div>
         }
       </section>
     </div>
+    </section>
   </main>
 </ion-content>
+
+<ion-modal
+  class="position-picker-modal"
+  [isOpen]="editingPosition !== null"
+  [initialBreakpoint]="0.72"
+  [breakpoints]="[0, 0.72, 1]"
+  [backdropDismiss]="true"
+  [attr.aria-label]="positionPickerTitle"
+  (didDismiss)="handlePositionPickerDismiss()"
+>
+  <ng-template>
+    <section class="position-picker" aria-labelledby="position-picker-title">
+      <header class="position-picker-head">
+        <div>
+          <span>Starting Six</span>
+          <h2 id="position-picker-title">{{ positionPickerTitle }}</h2>
+        </div>
+        <button type="button" class="position-picker-close" (click)="closePositionPicker()">Close</button>
+      </header>
+
+      @if (squadPlayers.length === 0) {
+        <p class="position-picker-empty">Select players in Match Squad before assigning the court.</p>
+      } @else {
+        <div class="position-picker-list">
+          @for (player of squadPlayers; track player.id) {
+            <button
+              type="button"
+              class="position-player"
+              [class.current]="getPlayerAssignedPosition(player.id) === editingPosition"
+              [attr.aria-label]="getPlayerPickerAriaLabel(player)"
+              (click)="choosePlayerForEditingPosition(player.id)"
+            >
+              <span class="position-player-number">#{{ player.jerseyNumber }}</span>
+              <span class="position-player-copy">
+                <strong>{{ player.name }}</strong>
+                <span>{{ player.primaryPosition }}</span>
+              </span>
+              <span class="position-player-assignment">
+                @if (getPlayerAssignedPosition(player.id); as position) {
+                  {{ position === editingPosition ? 'Current' : 'P' + position }}
+                } @else {
+                  Available
+                }
+              </span>
+            </button>
+          }
+        </div>
+      }
+
+      @if (editingPosition !== null && getSlotPlayer(editingPosition)) {
+        <button type="button" class="clear-position" (click)="clearEditingPosition()">
+          Clear P{{ editingPosition }}
+        </button>
+      }
+    </section>
+  </ng-template>
+</ion-modal>
 
 <ion-footer class="start-footer">
   <div class="footer-status" aria-live="polite">

@@ -1,4 +1,3 @@
-import { NgClass } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -12,7 +11,7 @@ type AuthMode = 'signin' | 'signup';
   templateUrl: './login.page.html',
   styleUrls: ['./login.page.scss'],
   standalone: true,
-  imports: [IonContent, NgClass, FormsModule],
+  imports: [IonContent, FormsModule],
 })
 export class LoginPage {
   mode: AuthMode = 'signin';

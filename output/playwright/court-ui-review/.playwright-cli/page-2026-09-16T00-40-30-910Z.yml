@@ -1,0 +1,120 @@
+- generic [ref=f3e4]:
+  - banner [ref=f3e5]:
+    - generic [ref=f3e7]:
+      - generic [ref=f3e8]: Live Court
+      - button "Exit" [ref=f3e12] [cursor=pointer]
+  - main [ref=f3e14]:
+    - generic [ref=f3e16]:
+      - generic:
+        - generic [ref=f3e18]:
+          - generic [ref=f3e19]:
+            - generic [ref=f3e20]: My Team
+            - generic [ref=f3e21]: "0"
+          - generic [ref=f3e26]:
+            - generic [ref=f3e27]: SET 1
+            - generic [ref=f3e28]: My Team serving
+            - generic [ref=f3e29]:
+              - generic [ref=f3e30]: Home
+              - generic [ref=f3e31]: "R1 #1"
+              - generic [ref=f3e32]: T 2 / 2
+          - generic [ref=f3e33]:
+            - generic [ref=f3e34]: Central High
+            - generic [ref=f3e35]: "0"
+        - generic [ref=f3e40]:
+          - generic [ref=f3e41]:
+            - generic [ref=f3e42]:
+              - heading "Live Court" [level=2] [ref=f3e43]
+              - paragraph [ref=f3e44]: Tap a player on the court, then tap the outcome of the rally.
+            - generic "Live match context" [ref=f3e45]:
+              - generic [ref=f3e46]:
+                - generic [ref=f3e47]: Selected
+                - strong [ref=f3e48]: Select a player for player-specific actions
+              - generic [ref=f3e49]:
+                - generic [ref=f3e50]: Serve
+                - strong [ref=f3e51]: My Team
+              - generic [ref=f3e52]:
+                - generic [ref=f3e53]: This Set
+                - strong [ref=f3e54]: 0K / 0E
+            - grid "Volleyball court with player positions. Use arrow keys to navigate between players." [ref=f3e55]:
+              - generic [ref=f3e56]: "Serve: Our Team"
+              - button "Player 4, Jersey 4, OH, LF." [ref=f3e57] [cursor=pointer]:
+                - generic [ref=f3e58]:
+                  - generic [ref=f3e59]: "#4"
+                  - generic [ref=f3e60]: OH
+                - generic [ref=f3e61]: Player 4
+                - generic [ref=f3e62]: 0K / 0E
+              - button "Player 3, Jersey 3, OH, MF." [ref=f3e63] [cursor=pointer]:
+                - generic [ref=f3e64]:
+                  - generic [ref=f3e65]: "#3"
+                  - generic [ref=f3e66]: OH
+                - generic [ref=f3e67]: Player 3
+                - generic [ref=f3e68]: 0K / 0E
+              - button "Player 2, Jersey 2, OH, RF." [ref=f3e69] [cursor=pointer]:
+                - generic [ref=f3e70]:
+                  - generic [ref=f3e71]: "#2"
+                  - generic [ref=f3e72]: OH
+                - generic [ref=f3e73]: Player 2
+                - generic [ref=f3e74]: 0K / 0E
+              - button "Player 5, Jersey 5, OH, LB." [ref=f3e75] [cursor=pointer]:
+                - generic [ref=f3e76]:
+                  - generic [ref=f3e77]: "#5"
+                  - generic [ref=f3e78]: OH
+                - generic [ref=f3e79]: Player 5
+                - generic [ref=f3e80]: 0K / 0E
+              - button "Player 6, Jersey 6, OH, MB." [ref=f3e81] [cursor=pointer]:
+                - generic [ref=f3e82]:
+                  - generic [ref=f3e83]: "#6"
+                  - generic [ref=f3e84]: OH
+                - generic [ref=f3e85]: Player 6
+                - generic [ref=f3e86]: 0K / 0E
+              - button "Player 1, Jersey 1, OH, RB, Currently serving." [ref=f3e87] [cursor=pointer]:
+                - generic [ref=f3e88]:
+                  - generic [ref=f3e89]: "#1"
+                  - generic [ref=f3e90]: OH
+                - generic [ref=f3e95]: Player 1
+                - generic [ref=f3e96]: 0K / 0E
+          - complementary [ref=f3e97]:
+            - generic [ref=f3e98]:
+              - heading "Score the Point" [level=2] [ref=f3e99]
+              - paragraph [ref=f3e100]: Select a player for player-specific actions
+              - paragraph [ref=f3e101]: "Side-out: --"
+            - generic [ref=f3e102]: Select a player, then record their action. Team-only outcomes stay available.
+            - generic [ref=f3e103]: Rally outcome
+            - generic [ref=f3e104]:
+              - generic:
+                - button "Kill - awards point" [disabled]:
+                  - generic: Kill
+              - generic:
+                - button "Attack Error - awards point" [disabled]:
+                  - generic: Attack Error
+              - generic:
+                - button "Block - awards point" [disabled]:
+                  - generic: Block
+              - generic:
+                - button "Ace - awards point" [disabled]:
+                  - generic: Ace
+              - generic:
+                - button "Service Error - awards point" [disabled]:
+                  - generic: Service Error
+              - button "Opponent Error - awards point" [ref=f3e106] [cursor=pointer]:
+                - generic [ref=f3e107]: Opponent Error
+              - button "Opponent Winner - awards point" [ref=f3e109] [cursor=pointer]:
+                - generic [ref=f3e110]: Opponent Winner
+              - generic:
+                - button "Receive Error - awards point" [disabled]:
+                  - generic: Receive Error
+            - generic [ref=f3e111]: Stat observation - score stays the same
+            - generic [ref=f3e112]:
+              - generic:
+                - button "Dig - stat only, no point" [disabled]:
+                  - generic: Dig
+            - generic [ref=f3e113]:
+              - button "Open substitution panel (S)" [ref=f3e115] [cursor=pointer]:
+                - generic [ref=f3e116]: Substitute
+              - button "Match Controls" [ref=f3e118] [cursor=pointer]
+            - generic [ref=f3e120]: No actions yet
+            - paragraph [ref=f3e122]: No substitutions yet
+            - generic [ref=f3e123]: All changes synced
+            - generic [ref=f3e126]:
+              - generic [ref=f3e127]: 6:37 PM
+              - generic [ref=f3e128]: Match Started

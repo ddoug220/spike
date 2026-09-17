@@ -1,0 +1,185 @@
+- generic [ref=f3e4]:
+  - banner [ref=f3e6]:
+    - generic [ref=f3e10]:
+      - link "Spike home" [ref=f3e11] [cursor=pointer]:
+        - /url: /home
+        - generic [ref=f3e12]: Spike
+        - generic [aria-hidden] [ref=f3e13]: /
+      - generic "Current workspace" [ref=f3e14]:
+        - generic [ref=f3e15]: Workspace
+        - strong [ref=f3e16]: Match review
+        - generic "Result, rotations, leaders, and timeline" [ref=f3e17]
+      - navigation "Product navigation" [ref=f3e18]:
+        - link "Team" [ref=f3e19] [cursor=pointer]:
+          - /url: /team
+        - link "Setup" [ref=f3e20] [cursor=pointer]:
+          - /url: /pre-match
+        - link "History" [ref=f3e21] [cursor=pointer]:
+          - /url: /history
+      - generic "Synced" [ref=f3e22]:
+        - generic [ref=f3e24]:
+          - strong [ref=f3e25]: Synced
+          - generic "coach@example.com" [ref=f3e26]
+  - main [ref=f3e28]:
+    - main [ref=f3e31]:
+      - generic [ref=f3e32]:
+        - generic [ref=f3e33]:
+          - generic [ref=f3e34]: Live
+          - heading "vs Central High" [level=1] [ref=f3e35]
+          - paragraph [ref=f3e36]: Tuesday, September 15, 2026
+        - generic "Match score" [ref=f3e37]:
+          - generic [ref=f3e38]:
+            - strong [ref=f3e39]: "0"
+            - generic [ref=f3e40]: Team
+          - generic [aria-hidden] [ref=f3e41]: –
+          - generic [ref=f3e42]:
+            - strong [ref=f3e43]: "0"
+            - generic [ref=f3e44]: Opponent
+        - link "Resume match" [ref=f3e45] [cursor=pointer]:
+          - /url: /court
+      - region [ref=f3e46]:
+        - generic [ref=f3e47]:
+          - generic [ref=f3e48]:
+            - heading "Team performance" [level=2] [ref=f3e49]
+            - paragraph [ref=f3e50]: Rates use completed rallies only.
+          - generic [ref=f3e51]:
+            - generic [ref=f3e52]: Side-out
+            - strong [ref=f3e53]: –
+            - generic [ref=f3e54]: 0/0 rallies
+        - generic "Rally win rate by team rotation" [ref=f3e55]:
+          - generic [ref=f3e56]:
+            - generic [ref=f3e57]: R1
+            - strong [ref=f3e58]: 100%
+            - generic [ref=f3e59]: 1/1 rallies won
+          - generic [ref=f3e60]:
+            - generic [ref=f3e61]: R2
+            - strong [ref=f3e62]: –
+            - generic [ref=f3e63]: 0/0 rallies won
+          - generic [ref=f3e64]:
+            - generic [ref=f3e65]: R3
+            - strong [ref=f3e66]: –
+            - generic [ref=f3e67]: 0/0 rallies won
+          - generic [ref=f3e68]:
+            - generic [ref=f3e69]: R4
+            - strong [ref=f3e70]: –
+            - generic [ref=f3e71]: 0/0 rallies won
+          - generic [ref=f3e72]:
+            - generic [ref=f3e73]: R5
+            - strong [ref=f3e74]: –
+            - generic [ref=f3e75]: 0/0 rallies won
+          - generic [ref=f3e76]:
+            - generic [ref=f3e77]: R6
+            - strong [ref=f3e78]: –
+            - generic [ref=f3e79]: 0/0 rallies won
+        - paragraph [ref=f3e80]: Strongest and weakest labels require at least 5 rallies in two rotations.
+      - region [ref=f3e81]:
+        - heading "Leaders" [level=2] [ref=f3e82]
+        - generic [ref=f3e84]:
+          - generic [ref=f3e85]: Kills
+          - strong [ref=f3e86]: "#1 Player 1"
+          - generic [ref=f3e87]: "1"
+      - region [ref=f3e88]:
+        - heading "Box score" [level=2] [ref=f3e89]
+        - region "Player box score" [ref=f3e90]:
+          - table [ref=f3e91]:
+            - rowgroup [ref=f3e92]:
+              - row [ref=f3e93]:
+                - columnheader "Player" [ref=f3e94]
+                - columnheader "K" [ref=f3e95]
+                - columnheader "E" [ref=f3e96]
+                - columnheader "Ace" [ref=f3e97]
+                - columnheader "Blk" [ref=f3e98]
+                - columnheader "Dig" [ref=f3e99]
+                - columnheader "SE" [ref=f3e100]
+                - columnheader "RE" [ref=f3e101]
+                - columnheader "Serve in" [ref=f3e102]
+            - rowgroup [ref=f3e103]:
+              - row [ref=f3e104]:
+                - rowheader "#1 Player 1" [ref=f3e105]:
+                  - generic [ref=f3e106]: "#1"
+                  - text: Player 1
+                - cell "1" [ref=f3e107]
+                - cell "0" [ref=f3e108]
+                - cell "0" [ref=f3e109]
+                - cell "0" [ref=f3e110]
+                - cell "0" [ref=f3e111]
+                - cell "0" [ref=f3e112]
+                - cell "0" [ref=f3e113]
+                - cell "100%" [ref=f3e114]
+              - row [ref=f3e115]:
+                - rowheader "#2 Player 2" [ref=f3e116]:
+                  - generic [ref=f3e117]: "#2"
+                  - text: Player 2
+                - cell "0" [ref=f3e118]
+                - cell "0" [ref=f3e119]
+                - cell "0" [ref=f3e120]
+                - cell "0" [ref=f3e121]
+                - cell "0" [ref=f3e122]
+                - cell "0" [ref=f3e123]
+                - cell "0" [ref=f3e124]
+                - cell "–" [ref=f3e125]
+              - row [ref=f3e126]:
+                - rowheader "#3 Player 3" [ref=f3e127]:
+                  - generic [ref=f3e128]: "#3"
+                  - text: Player 3
+                - cell "0" [ref=f3e129]
+                - cell "0" [ref=f3e130]
+                - cell "0" [ref=f3e131]
+                - cell "0" [ref=f3e132]
+                - cell "0" [ref=f3e133]
+                - cell "0" [ref=f3e134]
+                - cell "0" [ref=f3e135]
+                - cell "–" [ref=f3e136]
+              - row [ref=f3e137]:
+                - rowheader "#4 Player 4" [ref=f3e138]:
+                  - generic [ref=f3e139]: "#4"
+                  - text: Player 4
+                - cell "0" [ref=f3e140]
+                - cell "0" [ref=f3e141]
+                - cell "0" [ref=f3e142]
+                - cell "0" [ref=f3e143]
+                - cell "0" [ref=f3e144]
+                - cell "0" [ref=f3e145]
+                - cell "0" [ref=f3e146]
+                - cell "–" [ref=f3e147]
+              - row [ref=f3e148]:
+                - rowheader "#5 Player 5" [ref=f3e149]:
+                  - generic [ref=f3e150]: "#5"
+                  - text: Player 5
+                - cell "0" [ref=f3e151]
+                - cell "0" [ref=f3e152]
+                - cell "0" [ref=f3e153]
+                - cell "0" [ref=f3e154]
+                - cell "0" [ref=f3e155]
+                - cell "0" [ref=f3e156]
+                - cell "0" [ref=f3e157]
+                - cell "–" [ref=f3e158]
+              - row [ref=f3e159]:
+                - rowheader "#6 Player 6" [ref=f3e160]:
+                  - generic [ref=f3e161]: "#6"
+                  - text: Player 6
+                - cell "0" [ref=f3e162]
+                - cell "0" [ref=f3e163]
+                - cell "0" [ref=f3e164]
+                - cell "0" [ref=f3e165]
+                - cell "0" [ref=f3e166]
+                - cell "0" [ref=f3e167]
+                - cell "0" [ref=f3e168]
+                - cell "–" [ref=f3e169]
+      - generic [ref=f3e170]:
+        - region [ref=f3e171]:
+          - heading "Sets" [level=2] [ref=f3e172]
+          - paragraph [ref=f3e173]: No completed sets.
+        - region [ref=f3e174]:
+          - heading "Event timeline" [level=2] [ref=f3e175]
+          - list [ref=f3e176]:
+            - listitem [ref=f3e177]:
+              - time [ref=f3e178]: 9:24 PM
+              - generic [ref=f3e179]:
+                - strong [ref=f3e180]: Match started
+                - generic [ref=f3e181]: Set 1
+            - listitem [ref=f3e182]:
+              - time [ref=f3e183]: 9:24 PM
+              - generic [ref=f3e184]:
+                - strong [ref=f3e185]: "Kill · #1 Player 1"
+                - generic [ref=f3e186]: Set 1 · R1 · Team serving

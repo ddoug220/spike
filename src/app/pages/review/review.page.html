@@ -1,9 +1,4 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>Match Review</ion-title>
-    <ion-button slot="end" fill="clear" [routerLink]="['/history']">History</ion-button>
-  </ion-toolbar>
-</ion-header>
+<app-equipment-rail task="Match review" context="Result, rotations, leaders, and timeline" />
 
 <ion-content [fullscreen]="true">
   <main class="review-shell" *ngIf="review as match; else missingMatch">

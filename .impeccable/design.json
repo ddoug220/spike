@@ -1,218 +1,617 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-06-14T00:00:00Z",
+  "generatedAt": "2026-09-16T03:36:53.602204+00:00",
   "title": "Design System: Spike",
   "extensions": {
     "colorMeta": {
-      "ink-dark": {
+      "graphite": {
         "role": "neutral",
-        "displayName": "Ink (Dark)",
-        "canonical": "oklch(12% 0.005 250)",
-        "tonalRamp": ["#050607", "#0a0b0c", "#0e0f11", "#141618", "#1b1d21", "#23262b", "#2f3237", "#3c3f44"]
+        "displayName": "Graphite",
+        "canonical": "#0f1418",
+        "tonalRamp": [
+          "oklch(15.00% 0.01127 242.40 / 1)",
+          "oklch(26.43% 0.01127 242.40 / 1)",
+          "oklch(37.86% 0.01127 242.40 / 1)",
+          "oklch(49.29% 0.01127 242.40 / 1)",
+          "oklch(60.71% 0.01127 242.40 / 1)",
+          "oklch(72.14% 0.01127 242.40 / 1)",
+          "oklch(83.57% 0.01127 242.40 / 1)",
+          "oklch(95.00% 0.01127 242.40 / 1)"
+        ]
       },
-      "accent-blue-dark": {
+      "graphite-frame": {
+        "role": "neutral",
+        "displayName": "Graphite Frame",
+        "canonical": "#171d22",
+        "tonalRamp": [
+          "oklch(15.00% 0.01320 243.49 / 1)",
+          "oklch(26.43% 0.01320 243.49 / 1)",
+          "oklch(37.86% 0.01320 243.49 / 1)",
+          "oklch(49.29% 0.01320 243.49 / 1)",
+          "oklch(60.71% 0.01320 243.49 / 1)",
+          "oklch(72.14% 0.01320 243.49 / 1)",
+          "oklch(83.57% 0.01320 243.49 / 1)",
+          "oklch(95.00% 0.01320 243.49 / 1)"
+        ]
+      },
+      "graphite-control": {
+        "role": "neutral",
+        "displayName": "Graphite Control",
+        "canonical": "#202830",
+        "tonalRamp": [
+          "oklch(15.00% 0.01873 248.52 / 1)",
+          "oklch(26.43% 0.01873 248.52 / 1)",
+          "oklch(37.86% 0.01873 248.52 / 1)",
+          "oklch(49.29% 0.01873 248.52 / 1)",
+          "oklch(60.71% 0.01873 248.52 / 1)",
+          "oklch(72.14% 0.01873 248.52 / 1)",
+          "oklch(83.57% 0.01873 248.52 / 1)",
+          "oklch(95.00% 0.01873 248.52 / 1)"
+        ]
+      },
+      "graphite-control-strong": {
+        "role": "neutral",
+        "displayName": "Graphite Control Strong",
+        "canonical": "#2a343d",
+        "tonalRamp": [
+          "oklch(15.00% 0.02108 245.69 / 1)",
+          "oklch(26.43% 0.02108 245.69 / 1)",
+          "oklch(37.86% 0.02108 245.69 / 1)",
+          "oklch(49.29% 0.02108 245.69 / 1)",
+          "oklch(60.71% 0.02108 245.69 / 1)",
+          "oklch(72.14% 0.02108 245.69 / 1)",
+          "oklch(83.57% 0.02108 245.69 / 1)",
+          "oklch(95.00% 0.02108 245.69 / 1)"
+        ]
+      },
+      "enamel": {
+        "role": "neutral",
+        "displayName": "Enamel",
+        "canonical": "#f5f4ef",
+        "tonalRamp": [
+          "oklch(15.00% 0.00671 97.35 / 1)",
+          "oklch(26.43% 0.00671 97.35 / 1)",
+          "oklch(37.86% 0.00671 97.35 / 1)",
+          "oklch(49.29% 0.00671 97.35 / 1)",
+          "oklch(60.71% 0.00671 97.35 / 1)",
+          "oklch(72.14% 0.00671 97.35 / 1)",
+          "oklch(83.57% 0.00671 97.35 / 1)",
+          "oklch(95.00% 0.00671 97.35 / 1)"
+        ]
+      },
+      "steel": {
+        "role": "neutral",
+        "displayName": "Steel",
+        "canonical": "#b8c2c9",
+        "tonalRamp": [
+          "oklch(15.00% 0.01483 238.06 / 1)",
+          "oklch(26.43% 0.01483 238.06 / 1)",
+          "oklch(37.86% 0.01483 238.06 / 1)",
+          "oklch(49.29% 0.01483 238.06 / 1)",
+          "oklch(60.71% 0.01483 238.06 / 1)",
+          "oklch(72.14% 0.01483 238.06 / 1)",
+          "oklch(83.57% 0.01483 238.06 / 1)",
+          "oklch(95.00% 0.01483 238.06 / 1)"
+        ]
+      },
+      "steel-faint": {
+        "role": "neutral",
+        "displayName": "Steel Faint",
+        "canonical": "#87949d",
+        "tonalRamp": [
+          "oklch(15.00% 0.02012 237.94 / 1)",
+          "oklch(26.43% 0.02012 237.94 / 1)",
+          "oklch(37.86% 0.02012 237.94 / 1)",
+          "oklch(49.29% 0.02012 237.94 / 1)",
+          "oklch(60.71% 0.02012 237.94 / 1)",
+          "oklch(72.14% 0.02012 237.94 / 1)",
+          "oklch(83.57% 0.02012 237.94 / 1)",
+          "oklch(95.00% 0.02012 237.94 / 1)"
+        ]
+      },
+      "graphite-line": {
+        "role": "neutral",
+        "displayName": "Graphite Line",
+        "canonical": "rgba(245, 244, 239, 0.16)",
+        "tonalRamp": [
+          "oklch(15.00% 0.00671 97.35 / 0.16)",
+          "oklch(26.43% 0.00671 97.35 / 0.16)",
+          "oklch(37.86% 0.00671 97.35 / 0.16)",
+          "oklch(49.29% 0.00671 97.35 / 0.16)",
+          "oklch(60.71% 0.00671 97.35 / 0.16)",
+          "oklch(72.14% 0.00671 97.35 / 0.16)",
+          "oklch(83.57% 0.00671 97.35 / 0.16)",
+          "oklch(95.00% 0.00671 97.35 / 0.16)"
+        ]
+      },
+      "graphite-line-strong": {
+        "role": "neutral",
+        "displayName": "Graphite Line Strong",
+        "canonical": "rgba(245, 244, 239, 0.32)",
+        "tonalRamp": [
+          "oklch(15.00% 0.00671 97.35 / 0.32)",
+          "oklch(26.43% 0.00671 97.35 / 0.32)",
+          "oklch(37.86% 0.00671 97.35 / 0.32)",
+          "oklch(49.29% 0.00671 97.35 / 0.32)",
+          "oklch(60.71% 0.00671 97.35 / 0.32)",
+          "oklch(72.14% 0.00671 97.35 / 0.32)",
+          "oklch(83.57% 0.00671 97.35 / 0.32)",
+          "oklch(95.00% 0.00671 97.35 / 0.32)"
+        ]
+      },
+      "competition-cobalt": {
         "role": "primary",
-        "displayName": "Broadcast Blue (Dark)",
-        "canonical": "oklch(65% 0.18 245)",
-        "tonalRamp": ["#0d2a5e", "#143c7a", "#1d5096", "#2666b2", "#3d8ef8", "#5ba0fa", "#7ab2fc", "#9ac5fd"]
+        "displayName": "Competition Cobalt",
+        "canonical": "#1457d9",
+        "tonalRamp": [
+          "oklch(15.00% 0.20948 261.97 / 1)",
+          "oklch(26.43% 0.20948 261.97 / 1)",
+          "oklch(37.86% 0.20948 261.97 / 1)",
+          "oklch(49.29% 0.20948 261.97 / 1)",
+          "oklch(60.71% 0.20948 261.97 / 1)",
+          "oklch(72.14% 0.20948 261.97 / 1)",
+          "oklch(83.57% 0.20948 261.97 / 1)",
+          "oklch(95.00% 0.20948 261.97 / 1)"
+        ]
       },
-      "signal-green-dark": {
-        "role": "signal",
-        "displayName": "Signal Green (Dark)",
-        "canonical": "oklch(75% 0.18 155)",
-        "tonalRamp": ["#0a3d24", "#0f5632", "#156e40", "#1a874f", "#21d07a", "#45d990", "#6ae2a6", "#8febbc"]
+      "competition-cobalt-deep": {
+        "role": "primary",
+        "displayName": "Competition Cobalt Deep",
+        "canonical": "#0e3f9f",
+        "tonalRamp": [
+          "oklch(15.00% 0.16413 262.00 / 1)",
+          "oklch(26.43% 0.16413 262.00 / 1)",
+          "oklch(37.86% 0.16413 262.00 / 1)",
+          "oklch(49.29% 0.16413 262.00 / 1)",
+          "oklch(60.71% 0.16413 262.00 / 1)",
+          "oklch(72.14% 0.16413 262.00 / 1)",
+          "oklch(83.57% 0.16413 262.00 / 1)",
+          "oklch(95.00% 0.16413 262.00 / 1)"
+        ]
       },
-      "signal-red-dark": {
-        "role": "signal",
-        "displayName": "Signal Red (Dark)",
-        "canonical": "oklch(65% 0.22 25)",
-        "tonalRamp": ["#4a1515", "#6b1e1e", "#8c2828", "#ad3232", "#f25757", "#f47575", "#f69494", "#f8b3b3"]
+      "court-tape": {
+        "role": "neutral",
+        "displayName": "Court Tape",
+        "canonical": "rgba(255, 255, 255, 0.88)",
+        "tonalRamp": [
+          "oklch(15.00% 0.00000 89.88 / 0.88)",
+          "oklch(26.43% 0.00000 89.88 / 0.88)",
+          "oklch(37.86% 0.00000 89.88 / 0.88)",
+          "oklch(49.29% 0.00000 89.88 / 0.88)",
+          "oklch(60.71% 0.00000 89.88 / 0.88)",
+          "oklch(72.14% 0.00000 89.88 / 0.88)",
+          "oklch(83.57% 0.00000 89.88 / 0.88)",
+          "oklch(95.00% 0.00000 89.88 / 0.88)"
+        ]
       },
-      "signal-amber-dark": {
-        "role": "signal",
-        "displayName": "Signal Amber (Dark)",
-        "canonical": "oklch(75% 0.16 70)",
-        "tonalRamp": ["#3d2a0a", "#563b0f", "#704c14", "#8a5d19", "#f5a623", "#f7b84d", "#f9ca77", "#fbdca1"]
+      "optic-stitch": {
+        "role": "secondary",
+        "displayName": "Optic Stitch",
+        "canonical": "#e8f316",
+        "tonalRamp": [
+          "oklch(15.00% 0.20346 113.07 / 1)",
+          "oklch(26.43% 0.20346 113.07 / 1)",
+          "oklch(37.86% 0.20346 113.07 / 1)",
+          "oklch(49.29% 0.20346 113.07 / 1)",
+          "oklch(60.71% 0.20346 113.07 / 1)",
+          "oklch(72.14% 0.20346 113.07 / 1)",
+          "oklch(83.57% 0.20346 113.07 / 1)",
+          "oklch(95.00% 0.20346 113.07 / 1)"
+        ]
       },
-      "volt": {
-        "role": "accent",
-        "displayName": "Volt",
-        "canonical": "oklch(92% 0.25 110)",
-        "tonalRamp": ["#3a4b00", "#526800", "#6a8500", "#82a200", "#c8ff00", "#d3ff33", "#deff66", "#e9ff99"]
+      "focus-dark": {
+        "role": "neutral",
+        "displayName": "Focus Dark",
+        "canonical": "#8fb4ff",
+        "tonalRamp": [
+          "oklch(15.00% 0.11544 263.77 / 1)",
+          "oklch(26.43% 0.11544 263.77 / 1)",
+          "oklch(37.86% 0.11544 263.77 / 1)",
+          "oklch(49.29% 0.11544 263.77 / 1)",
+          "oklch(60.71% 0.11544 263.77 / 1)",
+          "oklch(72.14% 0.11544 263.77 / 1)",
+          "oklch(83.57% 0.11544 263.77 / 1)",
+          "oklch(95.00% 0.11544 263.77 / 1)"
+        ]
+      },
+      "signal-green": {
+        "role": "neutral",
+        "displayName": "Signal Green",
+        "canonical": "#0c7a43",
+        "tonalRamp": [
+          "oklch(15.00% 0.12510 153.90 / 1)",
+          "oklch(26.43% 0.12510 153.90 / 1)",
+          "oklch(37.86% 0.12510 153.90 / 1)",
+          "oklch(49.29% 0.12510 153.90 / 1)",
+          "oklch(60.71% 0.12510 153.90 / 1)",
+          "oklch(72.14% 0.12510 153.90 / 1)",
+          "oklch(83.57% 0.12510 153.90 / 1)",
+          "oklch(95.00% 0.12510 153.90 / 1)"
+        ]
+      },
+      "signal-red": {
+        "role": "neutral",
+        "displayName": "Signal Red",
+        "canonical": "#b82d36",
+        "tonalRamp": [
+          "oklch(15.00% 0.17497 22.61 / 1)",
+          "oklch(26.43% 0.17497 22.61 / 1)",
+          "oklch(37.86% 0.17497 22.61 / 1)",
+          "oklch(49.29% 0.17497 22.61 / 1)",
+          "oklch(60.71% 0.17497 22.61 / 1)",
+          "oklch(72.14% 0.17497 22.61 / 1)",
+          "oklch(83.57% 0.17497 22.61 / 1)",
+          "oklch(95.00% 0.17497 22.61 / 1)"
+        ]
+      },
+      "signal-amber": {
+        "role": "neutral",
+        "displayName": "Signal Amber",
+        "canonical": "#f1a51b",
+        "tonalRamp": [
+          "oklch(15.00% 0.15878 74.60 / 1)",
+          "oklch(26.43% 0.15878 74.60 / 1)",
+          "oklch(37.86% 0.15878 74.60 / 1)",
+          "oklch(49.29% 0.15878 74.60 / 1)",
+          "oklch(60.71% 0.15878 74.60 / 1)",
+          "oklch(72.14% 0.15878 74.60 / 1)",
+          "oklch(83.57% 0.15878 74.60 / 1)",
+          "oklch(95.00% 0.15878 74.60 / 1)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15.00% 0.00000 89.88 / 1)",
+          "oklch(26.43% 0.00000 89.88 / 1)",
+          "oklch(37.86% 0.00000 89.88 / 1)",
+          "oklch(49.29% 0.00000 89.88 / 1)",
+          "oklch(60.71% 0.00000 89.88 / 1)",
+          "oklch(72.14% 0.00000 89.88 / 1)",
+          "oklch(83.57% 0.00000 89.88 / 1)",
+          "oklch(95.00% 0.00000 89.88 / 1)"
+        ]
+      },
+      "enamel-control": {
+        "role": "neutral",
+        "displayName": "Enamel Control",
+        "canonical": "#e8e6df",
+        "tonalRamp": [
+          "oklch(15.00% 0.00962 93.57 / 1)",
+          "oklch(26.43% 0.00962 93.57 / 1)",
+          "oklch(37.86% 0.00962 93.57 / 1)",
+          "oklch(49.29% 0.00962 93.57 / 1)",
+          "oklch(60.71% 0.00962 93.57 / 1)",
+          "oklch(72.14% 0.00962 93.57 / 1)",
+          "oklch(83.57% 0.00962 93.57 / 1)",
+          "oklch(95.00% 0.00962 93.57 / 1)"
+        ]
+      },
+      "enamel-control-strong": {
+        "role": "neutral",
+        "displayName": "Enamel Control Strong",
+        "canonical": "#d9d7cf",
+        "tonalRamp": [
+          "oklch(15.00% 0.01106 95.18 / 1)",
+          "oklch(26.43% 0.01106 95.18 / 1)",
+          "oklch(37.86% 0.01106 95.18 / 1)",
+          "oklch(49.29% 0.01106 95.18 / 1)",
+          "oklch(60.71% 0.01106 95.18 / 1)",
+          "oklch(72.14% 0.01106 95.18 / 1)",
+          "oklch(83.57% 0.01106 95.18 / 1)",
+          "oklch(95.00% 0.01106 95.18 / 1)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#11161a",
+        "tonalRamp": [
+          "oklch(15.00% 0.01115 242.35 / 1)",
+          "oklch(26.43% 0.01115 242.35 / 1)",
+          "oklch(37.86% 0.01115 242.35 / 1)",
+          "oklch(49.29% 0.01115 242.35 / 1)",
+          "oklch(60.71% 0.01115 242.35 / 1)",
+          "oklch(72.14% 0.01115 242.35 / 1)",
+          "oklch(83.57% 0.01115 242.35 / 1)",
+          "oklch(95.00% 0.01115 242.35 / 1)"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "canonical": "#46535c",
+        "tonalRamp": [
+          "oklch(15.00% 0.02217 238.27 / 1)",
+          "oklch(26.43% 0.02217 238.27 / 1)",
+          "oklch(37.86% 0.02217 238.27 / 1)",
+          "oklch(49.29% 0.02217 238.27 / 1)",
+          "oklch(60.71% 0.02217 238.27 / 1)",
+          "oklch(72.14% 0.02217 238.27 / 1)",
+          "oklch(83.57% 0.02217 238.27 / 1)",
+          "oklch(95.00% 0.02217 238.27 / 1)"
+        ]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Ink Faint",
+        "canonical": "#66737b",
+        "tonalRamp": [
+          "oklch(15.00% 0.02001 234.79 / 1)",
+          "oklch(26.43% 0.02001 234.79 / 1)",
+          "oklch(37.86% 0.02001 234.79 / 1)",
+          "oklch(49.29% 0.02001 234.79 / 1)",
+          "oklch(60.71% 0.02001 234.79 / 1)",
+          "oklch(72.14% 0.02001 234.79 / 1)",
+          "oklch(83.57% 0.02001 234.79 / 1)",
+          "oklch(95.00% 0.02001 234.79 / 1)"
+        ]
+      },
+      "enamel-line": {
+        "role": "neutral",
+        "displayName": "Enamel Line",
+        "canonical": "rgba(17, 22, 26, 0.16)",
+        "tonalRamp": [
+          "oklch(15.00% 0.01115 242.35 / 0.16)",
+          "oklch(26.43% 0.01115 242.35 / 0.16)",
+          "oklch(37.86% 0.01115 242.35 / 0.16)",
+          "oklch(49.29% 0.01115 242.35 / 0.16)",
+          "oklch(60.71% 0.01115 242.35 / 0.16)",
+          "oklch(72.14% 0.01115 242.35 / 0.16)",
+          "oklch(83.57% 0.01115 242.35 / 0.16)",
+          "oklch(95.00% 0.01115 242.35 / 0.16)"
+        ]
+      },
+      "enamel-line-strong": {
+        "role": "neutral",
+        "displayName": "Enamel Line Strong",
+        "canonical": "rgba(17, 22, 26, 0.32)",
+        "tonalRamp": [
+          "oklch(15.00% 0.01115 242.35 / 0.32)",
+          "oklch(26.43% 0.01115 242.35 / 0.32)",
+          "oklch(37.86% 0.01115 242.35 / 0.32)",
+          "oklch(49.29% 0.01115 242.35 / 0.32)",
+          "oklch(60.71% 0.01115 242.35 / 0.32)",
+          "oklch(72.14% 0.01115 242.35 / 0.32)",
+          "oklch(83.57% 0.01115 242.35 / 0.32)",
+          "oklch(95.00% 0.01115 242.35 / 0.32)"
+        ]
+      },
+      "focus-light": {
+        "role": "neutral",
+        "displayName": "Focus Light",
+        "canonical": "#0e48bb",
+        "tonalRamp": [
+          "oklch(15.00% 0.18991 262.16 / 1)",
+          "oklch(26.43% 0.18991 262.16 / 1)",
+          "oklch(37.86% 0.18991 262.16 / 1)",
+          "oklch(49.29% 0.18991 262.16 / 1)",
+          "oklch(60.71% 0.18991 262.16 / 1)",
+          "oklch(72.14% 0.18991 262.16 / 1)",
+          "oklch(83.57% 0.18991 262.16 / 1)",
+          "oklch(95.00% 0.18991 262.16 / 1)"
+        ]
+      },
+      "signal-green-light": {
+        "role": "neutral",
+        "displayName": "Signal Green Light",
+        "canonical": "#086739",
+        "tonalRamp": [
+          "oklch(15.00% 0.10967 154.56 / 1)",
+          "oklch(26.43% 0.10967 154.56 / 1)",
+          "oklch(37.86% 0.10967 154.56 / 1)",
+          "oklch(49.29% 0.10967 154.56 / 1)",
+          "oklch(60.71% 0.10967 154.56 / 1)",
+          "oklch(72.14% 0.10967 154.56 / 1)",
+          "oklch(83.57% 0.10967 154.56 / 1)",
+          "oklch(95.00% 0.10967 154.56 / 1)"
+        ]
+      },
+      "signal-red-light": {
+        "role": "neutral",
+        "displayName": "Signal Red Light",
+        "canonical": "#a5222c",
+        "tonalRamp": [
+          "oklch(15.00% 0.16612 22.80 / 1)",
+          "oklch(26.43% 0.16612 22.80 / 1)",
+          "oklch(37.86% 0.16612 22.80 / 1)",
+          "oklch(49.29% 0.16612 22.80 / 1)",
+          "oklch(60.71% 0.16612 22.80 / 1)",
+          "oklch(72.14% 0.16612 22.80 / 1)",
+          "oklch(83.57% 0.16612 22.80 / 1)",
+          "oklch(95.00% 0.16612 22.80 / 1)"
+        ]
+      },
+      "signal-amber-light": {
+        "role": "neutral",
+        "displayName": "Signal Amber Light",
+        "canonical": "#9a5b00",
+        "tonalRamp": [
+          "oklch(15.00% 0.11903 65.12 / 1)",
+          "oklch(26.43% 0.11903 65.12 / 1)",
+          "oklch(37.86% 0.11903 65.12 / 1)",
+          "oklch(49.29% 0.11903 65.12 / 1)",
+          "oklch(60.71% 0.11903 65.12 / 1)",
+          "oklch(72.14% 0.11903 65.12 / 1)",
+          "oklch(83.57% 0.11903 65.12 / 1)",
+          "oklch(95.00% 0.11903 65.12 / 1)"
+        ]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Hero headlines on home and pre-match pages. Maximum impact."
+        "purpose": "Supporting route titles."
+      },
+      "score": {
+        "displayName": "Score",
+        "purpose": "Live match score."
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Section headers, panel titles."
+        "purpose": "Supporting section headings."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Descriptions, instructions. Max line length 65ch."
+        "purpose": "Names, instructions, and reading."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Status badges, kickers, metadata. Always uppercase."
+        "purpose": "Form labels."
       },
-      "mono": {
-        "displayName": "Stats",
-        "purpose": "Scores, jersey numbers, timestamps. Tabular alignment."
+      "navigation": {
+        "displayName": "Navigation",
+        "purpose": "Desktop equipment rail links."
       }
     },
-    "shadows": [],
+    "shadows": [
+      {
+        "name": "overlay",
+        "value": "0 20px 48px rgba(0, 0, 0, 0.6)",
+        "purpose": "Match-controls overlay."
+      },
+      {
+        "name": "player-selection",
+        "value": "inset 0 -4px 0 var(--spike-stitch)",
+        "purpose": "Selected player marker."
+      }
+    ],
     "motion": [
       {
-        "name": "ease-out",
-        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Standard exit easing. Fast start, smooth deceleration."
-      },
-      {
-        "name": "ease-spring",
-        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
-        "purpose": "Bouncy entrance for celebratory moments only."
-      },
-      {
         "name": "duration-fast",
-        "value": "120ms",
-        "purpose": "Micro-interactions: button hover, focus states."
+        "value": "100ms",
+        "purpose": "Short control and receipt transitions."
       },
       {
         "name": "duration-base",
-        "value": "200ms",
-        "purpose": "Standard transitions: panel reveals, mode switches."
+        "value": "140ms",
+        "purpose": "Short control and receipt transitions."
       },
       {
         "name": "duration-slow",
-        "value": "360ms",
-        "purpose": "Page-level transitions, court animations."
+        "value": "160ms",
+        "purpose": "Short control and receipt transitions."
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Short control and receipt transitions."
       }
     ],
     "breakpoints": [
-      { "name": "sm", "value": "375px" },
-      { "name": "md", "value": "520px" },
-      { "name": "lg", "value": "840px" },
-      { "name": "xl", "value": "1180px" }
+      {
+        "name": "compact-phone",
+        "value": "430px"
+      },
+      {
+        "name": "setup-phone",
+        "value": "560px"
+      },
+      {
+        "name": "review-phone",
+        "value": "640px"
+      },
+      {
+        "name": "court-phone",
+        "value": "680px"
+      },
+      {
+        "name": "equipment-rail",
+        "value": "760px"
+      },
+      {
+        "name": "workbench-stack",
+        "value": "820px"
+      },
+      {
+        "name": "history-review",
+        "value": "900px"
+      },
+      {
+        "name": "court-stack",
+        "value": "980px"
+      }
     ]
   },
   "components": [
     {
-      "name": "Primary Button",
+      "name": "Primary button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Main CTA button. Broadcast Blue background, white text. Used sparingly for primary actions.",
-      "html": "<button class=\"ds-btn-primary\">Start Match</button>",
-      "css": ".ds-btn-primary { background: #3d8ef8; color: #ffffff; padding: 12px 20px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.01em; border: none; border-radius: 8px; cursor: pointer; transition: background 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1); min-height: 44px; min-width: 44px; } .ds-btn-primary:hover { background: #2a7ae6; } .ds-btn-primary:focus-visible { outline: 2px solid #3d8ef8; outline-offset: 2px; } .ds-btn-primary:active { transform: scale(0.98); }"
+      "description": "Cobalt action control; sizing follows the owning surface.",
+      "html": "<button class=\"ds-primary\">Set up match</button>",
+      "css": ".ds-primary{min-height:44px;border-radius:var(--radius-sm);font-family:var(--font-display);font-weight:700;letter-spacing:.035em;cursor:pointer;background:var(--spike-court);color:var(--spike-on-signal);border:0;padding:12px 18px;}.ds-primary:hover{filter:brightness(.95);}.ds-primary:focus-visible{outline: 3px solid var(--spike-focus); outline-offset: 2px;}.ds-primary:disabled{opacity:.5;cursor:default;}@media(prefers-reduced-motion:reduce){.ds-primary{transition-duration:.01ms;animation-duration:.01ms;}}"
     },
     {
-      "name": "Ghost Button",
+      "name": "Local submit button",
       "kind": "button",
-      "refersTo": "button-ghost",
-      "description": "Secondary action button. Transparent background with accent border.",
-      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
-      "css": ".ds-btn-ghost { background: transparent; color: #3d8ef8; padding: 12px 20px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.01em; border: 1px solid rgba(61, 142, 248, 0.3); border-radius: 8px; cursor: pointer; transition: background 120ms, border-color 120ms; min-height: 44px; min-width: 44px; } .ds-btn-ghost:hover { background: rgba(61, 142, 248, 0.08); border-color: rgba(61, 142, 248, 0.5); } .ds-btn-ghost:focus-visible { outline: 2px solid #3d8ef8; outline-offset: 2px; }"
+      "refersTo": "button-control",
+      "description": "Team editing control with a bordered surface and stronger hover fill.",
+      "html": "<button class=\"ds-control\">Save</button>",
+      "css": ".ds-control{min-height:44px;border-radius:var(--radius-sm);font-family:var(--font-display);font-weight:700;letter-spacing:.035em;cursor:pointer;background:var(--spike-control);color:var(--spike-ink);border:1px solid var(--spike-line-strong);padding:10px 14px;}.ds-control:hover{background:var(--spike-control-strong);}.ds-control:focus-visible{outline: 3px solid var(--spike-focus); outline-offset: 2px;}.ds-control:disabled{opacity:.5;cursor:default;}@media(prefers-reduced-motion:reduce){.ds-control{transition-duration:.01ms;animation-duration:.01ms;}}"
     },
     {
-      "name": "Status Chip (Success)",
-      "kind": "chip",
-      "refersTo": "chip-status",
-      "description": "Status indicator for success states. Signal green on dim green background.",
-      "html": "<span class=\"ds-chip-success\">SYNCED</span>",
-      "css": ".ds-chip-success { display: inline-flex; align-items: center; gap: 6px; background: rgba(33, 208, 122, 0.14); color: #21d07a; padding: 6px 12px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 999px; }"
-    },
-    {
-      "name": "Status Chip (Warning)",
-      "kind": "chip",
-      "refersTo": "chip-status-warning",
-      "description": "Status indicator for pending/warning states. Signal amber on dim amber background.",
-      "html": "<span class=\"ds-chip-warning\">PENDING</span>",
-      "css": ".ds-chip-warning { display: inline-flex; align-items: center; gap: 6px; background: rgba(245, 166, 35, 0.14); color: #f5a623; padding: 6px 12px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 999px; }"
-    },
-    {
-      "name": "Panel",
-      "kind": "card",
-      "refersTo": "panel",
-      "description": "Standard content container. Surface-1 background with subtle border, no shadow.",
-      "html": "<div class=\"ds-panel\"><h3 class=\"ds-panel-title\">Roster</h3><p class=\"ds-panel-body\">12 players added</p></div>",
-      "css": ".ds-panel { background: #141618; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 16px; } .ds-panel-title { margin: 0 0 8px; color: #edf0f4; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 1.125rem; font-weight: 700; line-height: 1.2; } .ds-panel-body { margin: 0; color: #7e8899; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 1rem; line-height: 1.55; }"
-    },
-    {
-      "name": "Input Field",
+      "name": "Player name field",
       "kind": "input",
       "refersTo": "input-default",
-      "description": "Standard text input. Surface-2 background with focus ring.",
-      "html": "<input type=\"text\" class=\"ds-input\" placeholder=\"Player name\" />",
-      "css": ".ds-input { width: 100%; background: #1b1d21; color: #edf0f4; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 12px 16px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 1rem; transition: border-color 120ms, box-shadow 120ms; } .ds-input::placeholder { color: #4d5562; } .ds-input:focus { outline: none; border-color: #3d8ef8; box-shadow: 0 0 0 3px rgba(61, 142, 248, 0.15); } .ds-input:hover:not(:focus) { border-color: rgba(255, 255, 255, 0.14); }"
+      "description": "Team form field with a visible label.",
+      "html": "<label class=\"ds-field\">Player name<input type=\"text\" placeholder=\"Player name\"></label>",
+      "css": ".ds-field{display:grid;gap:6px;color:var(--spike-ink-muted);font-family:var(--font-display);font-size:.875rem;letter-spacing:.05em;}.ds-field input{height:48px;min-width:0;padding:0 12px;background:var(--spike-control);color:var(--spike-ink);border:1px solid var(--spike-line);border-radius:var(--radius-sm);font:inherit;font-family:var(--font-body);}.ds-field input:focus-visible{outline: 3px solid var(--spike-focus); outline-offset: 2px;}@media(prefers-reduced-motion:reduce){.ds-field{transition-duration:.01ms;animation-duration:.01ms;}}"
     },
     {
-      "name": "Stat Number",
-      "kind": "custom",
-      "refersTo": "stat-number",
-      "description": "Monospace number for scores, jersey numbers, and statistics.",
-      "html": "<span class=\"ds-stat\">23</span>",
-      "css": ".ds-stat { font-family: 'DM Mono', ui-monospace, monospace; font-size: 1.5rem; font-weight: 500; line-height: 1; color: #edf0f4; font-variant-numeric: tabular-nums; }"
-    },
-    {
-      "name": "Toolbar Sync Status",
+      "name": "Equipment navigation",
       "kind": "nav",
-      "refersTo": "toolbar-sync",
-      "description": "Sync status indicator in the toolbar. Shows connection state.",
-      "html": "<div class=\"ds-toolbar-sync\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M22 12c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2s10 4.48 10 10z\"/><path d=\"M8 12l2 2 4-4\"/></svg>SYNCED</div>",
-      "css": ".ds-toolbar-sync { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 999px; background: #141618; color: #7e8899; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.76rem; font-weight: 800; } .ds-toolbar-sync svg { color: #21d07a; }"
+      "refersTo": "equipment-nav",
+      "description": "Active route uses an optic stitch; hover brightens the label.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Product\"><a href=\"#team\" aria-current=\"page\">Team</a><a href=\"#setup\">Setup</a><a href=\"#history\">History</a></nav>",
+      "css": ".ds-nav{display:flex;background:var(--spike-frame);}.ds-nav a{position:relative;display:grid;min-height:44px;min-width:70px;place-items:center;padding:0 14px;font-family:var(--font-display);font-size:.88rem;font-weight:700;letter-spacing:.045em;text-transform:uppercase;color:var(--spike-ink-muted);text-decoration:none;}.ds-nav a:hover,.ds-nav a[aria-current]{color:var(--spike-ink);}.ds-nav a[aria-current]::after{content:\"\";position:absolute;inset:auto 12px 0;height:3px;background:var(--spike-stitch);}.ds-nav a:focus-visible{outline: 3px solid var(--spike-focus); outline-offset: 2px;}@media(prefers-reduced-motion:reduce){.ds-nav{transition-duration:.01ms;animation-duration:.01ms;}}"
+    },
+    {
+      "name": "Equipment frame",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat structural panel with a single border; preview text is illustrative.",
+      "html": "<section class=\"ds-panel\"><h2>Saved players</h2><p>Add players to the Team Roster.</p></section>",
+      "css": ".ds-panel{padding:16px;border:1px solid var(--spike-line-strong);border-radius:var(--radius-md);background:var(--spike-frame);color:var(--spike-ink);}.ds-panel h2{margin:0 0 8px;font-family:var(--font-display);font-size:1.4rem;text-transform:uppercase;letter-spacing:.04em;}.ds-panel p{margin:0;color:var(--spike-ink-muted);font-family:var(--font-body);}@media(prefers-reduced-motion:reduce){.ds-panel{transition-duration:.01ms;animation-duration:.01ms;}}"
+    },
+    {
+      "name": "Player tag",
+      "kind": "chip",
+      "refersTo": "player-tag",
+      "description": "Court tag; pressed state clips the corner and adds the selection stitch. Preview player is illustrative.",
+      "html": "<button class=\"ds-player\" aria-pressed=\"true\"><strong>#1</strong><span>Player</span><small>0K / 0E</small></button>",
+      "css": ".ds-player{display:grid;align-content:center;gap:3px;width:108px;height:76px;border:1px solid rgba(255,255,255,.58);border-radius:var(--radius-sm);background:rgba(15,20,24,.94);color:#fff;cursor:pointer;transition:border-color var(--duration-fast) var(--ease-out);}.ds-player strong{font-family:var(--font-display);font-size:1.05rem;}.ds-player span{font-family:var(--font-body);font-size:.85rem;}.ds-player small{color:#d9e3eb;font-family:var(--font-display);font-size:.82rem;}.ds-player:hover{border-color:#fff;}.ds-player[aria-pressed=true]{background:var(--spike-canvas);border-color:var(--spike-stitch);box-shadow:inset 0 -4px 0 var(--spike-stitch);clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,0 100%);background:#0f1418;}.ds-player:focus-visible{outline: 3px solid var(--spike-focus); outline-offset: 2px;}@media(prefers-reduced-motion:reduce){.ds-player{transition-duration:.01ms;animation-duration:.01ms;}}"
+    },
+    {
+      "name": "Action receipt",
+      "kind": "custom",
+      "refersTo": "action-receipt",
+      "description": "Factual operation receipt and adjacent Undo. Preview event is illustrative.",
+      "html": "<div class=\"ds-receipt\"><span>Kill \u00b7 Player</span><button>Undo</button></div>",
+      "css": ".ds-receipt{display:flex;gap:12px;justify-content:space-between;align-items:center;min-height:50px;padding:8px 12px;border:1px solid var(--spike-line-strong);border-radius:var(--radius-sm);background:var(--spike-control);color:var(--spike-ink);box-shadow:inset 3px 0 0 var(--spike-success);font-family:var(--font-body);}.ds-receipt button{min-height:44px;border-radius:var(--radius-sm);font-family:var(--font-display);font-weight:700;letter-spacing:.035em;cursor:pointer;padding:0 12px;background:transparent;color:var(--spike-ink);border:1px solid var(--spike-line-strong);}.ds-receipt button:hover{background:var(--spike-control-strong);}.ds-receipt button:focus-visible{outline: 3px solid var(--spike-focus); outline-offset: 2px;}@media(prefers-reduced-motion:reduce){.ds-receipt{transition-duration:.01ms;animation-duration:.01ms;}}"
     }
   ],
   "narrative": {
-    "northStar": "The Broadcast Control Room",
-    "overview": "Spike's interface is built for game-speed decision making. Like a broadcast control room during a live match, information is dense but instantly scannable. Every element earns its place by being either actionable or immediately informative. There is no decoration for decoration's sake.\n\nThe system is dark-first because coaches track matches in variable gym lighting, often under bright overheads or afternoon sun through windows. High contrast text on deep surfaces cuts through the chaos. The court visualization grounds the interface in the physical space coaches already understand.\n\nThis is not enterprise software. It's not a dashboard full of charts. It's a tool that disappears into the workflow, letting the coach focus on the game, not the screen.",
+    "northStar": "Competition Hardware",
+    "overview": "Spike feels like the equipment and officiating system used at an elite volleyball tournament: durable, exact, fast to read, and purpose-built for the court. The court is the instrument. Scores, player tags, rails, and action keys behave like a coherent scorer's console rather than a collection of app cards.\n\nThe system is designed for coaches and stat keepers working under variable gym lighting. Dark and light modes are equally intentional. Expression comes from court geometry, equipment labeling, structural framing, and decisive scale\u2014not decoration, hype, or gamification.",
     "keyCharacteristics": [
-      "Dense information, instant readability",
-      "Dark surfaces with high-contrast text",
-      "Court-centric spatial organization",
-      "Monospace numerals for stats (DM Mono)",
-      "Tonal surface layering instead of shadows",
-      "Large touch targets for courtside taps"
+      "Court geometry and structural equipment rails.",
+      "Cobalt playing surfaces with graphite and enamel shells.",
+      "Condensed display lettering with open, readable body text.",
+      "Flat panels, tactile controls, and scarce selection markers."
     ],
-    "rules": [
-      {
-        "name": "The Signal Color Rule",
-        "body": "Green, red, and amber are reserved for match state and system status. They never appear as decorative accents, button backgrounds, or brand elements. If a color communicates scoring or errors, it must be one of the three signals.",
-        "section": "colors"
-      },
-      {
-        "name": "The Volt Scarcity Rule",
-        "body": "The volt accent (#c8ff00) appears only on the SPIKE wordmark and match-winning celebrations. Its rarity is the point. Overuse dilutes its impact.",
-        "section": "colors"
-      },
-      {
-        "name": "The Mono Rule",
-        "body": "Any number that a coach might need to scan quickly—score, jersey number, match time, stat count—uses DM Mono. Body text uses DM Sans even when numbers appear inline.",
-        "section": "typography"
-      },
-      {
-        "name": "The Flat Default Rule",
-        "body": "Surfaces are flat at rest. If a card \"pops\" visually, it's because its surface color is lighter than its container, not because it has a shadow. Shadows are earned through interaction, not inheritance.",
-        "section": "elevation"
-      }
-    ],
+    "rules": [],
     "dos": [
-      "Do use DM Mono for all numeric stats, scores, and jersey numbers.",
-      "Do maintain 4.5:1 contrast minimum for all body text—gyms have variable lighting.",
-      "Do use signal colors only for their designated purpose (green = success, red = error, amber = warning).",
-      "Do provide 44x44px minimum touch targets for any button a coach might tap during a live match.",
-      "Do use tonal surface stepping (surface-1 → surface-2 → surface-3) for visual hierarchy.",
-      "Do respect the court's spatial logic—rotations, positions, and net orientation should match physical reality."
+      "Do make the court and match state visible before controls.",
+      "Do preserve 44px touch targets, keyboard focus, reduced motion, and full accessible names.",
+      "Do use real volleyball geometry and the user's six-player rotation."
     ],
     "donts": [
-      "Don't use shadows for visual hierarchy—this system is flat by default with tonal layering.",
-      "Don't apply signal colors decoratively. If it's green, it means success. If it's red, it means error for all users.",
-      "Don't use Volt (#c8ff00) anywhere except the wordmark and match-winning moments.",
-      "Don't make it look like generic SaaS—white/gray grids, muted colors, corporate blandness. Spike is a sports tool.",
-      "Don't make it look like a toy sports app—no cartoon mascots, no rounded bubbly UI, no gamification excess.",
-      "Don't add shadows to cards at rest. If you're reaching for box-shadow, use a lighter surface color instead.",
-      "Don't use the eyebrow/kicker pattern on every section. One deliberate kicker per page is voice; kickers on every section is scaffold."
+      "Don't use photoreal court imagery, extra opponent players, invented match data, marketing slogans, decorative gradients, glass, neon glow, esports motifs, bubbly cards, or elastic motion. CSS gradients that draw court lines are structural geometry.",
+      "Don't let Ionic defaults become the visual identity.",
+      "Don't trade scoring speed for spectacle."
     ]
   }
 }

@@ -1,15 +1,16 @@
 import { DatePipe, NgFor, NgIf } from '@angular/common';
 import { Component, OnDestroy } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { IonButton, IonContent, IonHeader, IonTitle, IonToolbar } from '@ionic/angular/standalone';
+import { IonContent } from '@ionic/angular/standalone';
 import { MatchArchiveSummary, OfflineSyncService } from '../../services/offline-sync.service';
+import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 
 @Component({
   selector: 'app-history',
   templateUrl: './history.page.html',
   styleUrls: ['./history.page.scss'],
   standalone: true,
-  imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButton, NgFor, NgIf, RouterLink, DatePipe],
+  imports: [IonContent, NgFor, NgIf, RouterLink, DatePipe, EquipmentRailComponent],
 })
 export class HistoryPage implements OnDestroy {
   private readonly unsubscribe: () => void;

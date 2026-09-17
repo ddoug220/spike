@@ -1,0 +1,109 @@
+- generic [ref=e71]:
+  - banner [ref=e72]:
+    - generic [ref=e74]:
+      - generic [ref=e75]: Live Court
+      - button "Exit" [ref=e79] [cursor=pointer]
+  - main [ref=e81]:
+    - generic [ref=e83]:
+      - generic:
+        - generic [ref=e85]:
+          - generic [ref=e86]:
+            - generic [ref=e87]: My Team
+            - generic [ref=e88]: "0"
+          - generic [ref=e93]:
+            - generic [ref=e94]: SET 1
+            - generic [ref=e95]: My Team serving
+            - generic [ref=e96]:
+              - generic [ref=e97]: Home
+              - generic [ref=e98]: "R1 #1"
+              - generic [ref=e99]: T 2 / 2
+          - generic [ref=e100]:
+            - generic [ref=e101]: Central High
+            - generic [ref=e102]: "0"
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - heading "Live Court" [level=2] [ref=e110]
+              - paragraph [ref=e111]: Tap a player on the court, then tap the outcome of the rally.
+            - generic "Live match context" [ref=e112]:
+              - generic [ref=e113]:
+                - generic [ref=e114]: Selected
+                - strong [ref=e115]: "#1 Player 1 - OH"
+              - generic [ref=e116]:
+                - generic [ref=e117]: Serve
+                - strong [ref=e118]: My Team
+              - generic [ref=e119]:
+                - generic [ref=e120]: This Set
+                - strong [ref=e121]: 0K / 0E
+            - grid "Volleyball court with player positions. Use arrow keys to navigate between players." [ref=e122]:
+              - generic [ref=e123]: "Serve: Our Team"
+              - button "Player 4, Jersey 4, OH, LF." [ref=e124] [cursor=pointer]:
+                - generic [ref=e125]:
+                  - generic [ref=e126]: "#4"
+                  - generic [ref=e127]: OH
+                - generic [ref=e128]: Player 4
+                - generic [ref=e129]: 0K / 0E
+              - button "Player 3, Jersey 3, OH, MF." [ref=e130] [cursor=pointer]:
+                - generic [ref=e131]:
+                  - generic [ref=e132]: "#3"
+                  - generic [ref=e133]: OH
+                - generic [ref=e134]: Player 3
+                - generic [ref=e135]: 0K / 0E
+              - button "Player 2, Jersey 2, OH, RF." [ref=e136] [cursor=pointer]:
+                - generic [ref=e137]:
+                  - generic [ref=e138]: "#2"
+                  - generic [ref=e139]: OH
+                - generic [ref=e140]: Player 2
+                - generic [ref=e141]: 0K / 0E
+              - button "Player 5, Jersey 5, OH, LB." [ref=e142] [cursor=pointer]:
+                - generic [ref=e143]:
+                  - generic [ref=e144]: "#5"
+                  - generic [ref=e145]: OH
+                - generic [ref=e146]: Player 5
+                - generic [ref=e147]: 0K / 0E
+              - button "Player 6, Jersey 6, OH, MB." [ref=e148] [cursor=pointer]:
+                - generic [ref=e149]:
+                  - generic [ref=e150]: "#6"
+                  - generic [ref=e151]: OH
+                - generic [ref=e152]: Player 6
+                - generic [ref=e153]: 0K / 0E
+              - button "Player 1, Jersey 1, OH, RB, Currently serving, Selected." [active] [pressed] [ref=e192] [cursor=pointer]:
+                - generic [ref=e155]:
+                  - generic [ref=e156]: "#1"
+                  - generic [ref=e157]: OH
+                - generic [ref=e162]: Player 1
+                - generic [ref=e163]: 0K / 0E
+          - complementary [ref=e164]:
+            - generic [ref=e165]:
+              - heading "Score the Point" [level=2] [ref=e166]
+              - paragraph [ref=e167]: "#1 Player 1 - OH"
+              - paragraph [ref=e168]: "Side-out: --"
+            - generic [ref=e169]: Record one action. Player selection clears after the tap.
+            - generic [ref=e170]: Point outcome
+            - generic [ref=e171]:
+              - button "Kill - awards point" [ref=e194] [cursor=pointer]:
+                - generic [ref=e195]: Kill
+              - button "Attack Error - awards point" [ref=e197] [cursor=pointer]:
+                - generic [ref=e198]: Attack Error
+              - button "Block - awards point" [ref=e200] [cursor=pointer]:
+                - generic [ref=e201]: Block
+              - button "Ace - awards point" [ref=e203] [cursor=pointer]:
+                - generic [ref=e204]: Ace
+              - button "Service Error - awards point" [ref=e206] [cursor=pointer]:
+                - generic [ref=e207]: Service Error
+              - button "Opponent Error - awards point" [ref=e209] [cursor=pointer]:
+                - generic [ref=e210]: Opponent Error
+              - button "Opponent Winner - awards point" [ref=e212] [cursor=pointer]:
+                - generic [ref=e213]: Opponent Winner
+              - button "Receive Error - awards point" [ref=e215] [cursor=pointer]:
+                - generic [ref=e216]: Receive Error
+            - generic [ref=e178]: Stat tap - score stays the same
+            - button "Dig - stat only, no point" [ref=e218] [cursor=pointer]:
+              - generic [ref=e219]: Dig
+            - generic [ref=e180]:
+              - button "Open substitution panel (S)" [ref=e182] [cursor=pointer]:
+                - generic [ref=e183]: Substitute
+              - button "Match Controls" [ref=e185] [cursor=pointer]
+            - generic [ref=e187]: No actions yet
+            - paragraph [ref=e189]: No substitutions yet
+            - generic [ref=e190]: All changes synced

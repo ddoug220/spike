@@ -3,19 +3,16 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  IonBackButton,
   IonButton,
-  IonButtons,
   IonContent,
   IonFooter,
-  IonHeader,
   IonIcon,
-  IonTitle,
-  IonToolbar,
+  IonModal,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play } from 'ionicons/icons';
 import { MatchEngineService } from '../../services/match-engine.service';
+import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
 
@@ -36,18 +33,15 @@ type FirstServeTeam = 'team' | 'opponent';
   styleUrls: ['./pre-match.page.scss'],
   standalone: true,
   imports: [
-    IonHeader,
-    IonToolbar,
-    IonTitle,
     IonContent,
     IonFooter,
     IonButton,
-    IonButtons,
-    IonBackButton,
     IonIcon,
+    IonModal,
     NgClass,
     FormsModule,
     RouterLink,
+    EquipmentRailComponent,
   ],
 })
 export class PreMatchPage {
@@ -63,7 +57,9 @@ export class PreMatchPage {
   opponentName = '';
   firstServeTeam: FirstServeTeam = 'team';
   selectedPlayerId: string | null = null;
+  editingPosition: number | null = null;
   private draggedPlayerId: string | null = null;
+  private positionPickerTrigger: HTMLElement | null = null;
 
   constructor(
     public readonly teamRoster: TeamRosterService,
@@ -159,6 +155,10 @@ export class PreMatchPage {
       : 'Select a squad player, then tap a court position.';
   }
 
+  get positionPickerTitle(): string {
+    return this.editingPosition === null ? 'Choose player' : `Choose player for P${this.editingPosition}`;
+  }
+
   toggleSquadPlayer(playerId: string, event: Event): void {
     const selected = (event.target as HTMLInputElement).checked;
     this.teamRoster.setMatchSquadPlayer(playerId, selected);
@@ -172,6 +172,49 @@ export class PreMatchPage {
       return;
     }
     this.selectedPlayerId = this.selectedPlayerId === playerId ? null : playerId;
+  }
+
+  handleCourtPositionClick(position: number, event: Event): void {
+    if (window.matchMedia('(max-width: 820px)').matches) {
+      this.openPositionPicker(position, event.currentTarget);
+      return;
+    }
+    this.assignSelectedToPosition(position);
+  }
+
+  openPositionPicker(position: number, trigger: EventTarget | null = null): void {
+    if (!Number.isInteger(position) || position < 1 || position > 6) {
+      return;
+    }
+    this.positionPickerTrigger = trigger instanceof HTMLElement ? trigger : null;
+    this.editingPosition = position;
+  }
+
+  closePositionPicker(): void {
+    this.editingPosition = null;
+  }
+
+  handlePositionPickerDismiss(): void {
+    this.editingPosition = null;
+    const trigger = this.positionPickerTrigger;
+    this.positionPickerTrigger = null;
+    trigger?.focus();
+  }
+
+  choosePlayerForEditingPosition(playerId: string): void {
+    if (this.editingPosition === null || !this.teamRoster.isInMatchSquad(playerId)) {
+      return;
+    }
+    this.teamRoster.assignMatchStarter(playerId, this.editingPosition);
+    this.closePositionPicker();
+  }
+
+  clearEditingPosition(): void {
+    if (this.editingPosition === null) {
+      return;
+    }
+    this.teamRoster.unassignMatchStarter(this.editingPosition);
+    this.closePositionPicker();
   }
 
   assignSelectedToPosition(position: number): void {
@@ -215,6 +258,25 @@ export class PreMatchPage {
   getSlotPlayer(position: number): RosterPlayer | null {
     const id = this.teamRoster.matchDefaults().startingLineup[position - 1] ?? null;
     return this.teamRoster.getPlayerById(id);
+  }
+
+  getPlayerAssignedPosition(playerId: string): number | null {
+    const index = this.teamRoster.matchDefaults().startingLineup.indexOf(playerId);
+    return index < 0 ? null : index + 1;
+  }
+
+  getCourtSlotAriaLabel(position: number): string {
+    const player = this.getSlotPlayer(position);
+    if (!player) {
+      return `P${position}, open position. Choose player`;
+    }
+    return `P${position}, #${player.jerseyNumber} ${player.name}, ${player.primaryPosition}. Change player`;
+  }
+
+  getPlayerPickerAriaLabel(player: RosterPlayer): string {
+    const assignedPosition = this.getPlayerAssignedPosition(player.id);
+    const assignment = assignedPosition === null ? 'unassigned' : `currently P${assignedPosition}`;
+    return `#${player.jerseyNumber} ${player.name}, ${player.primaryPosition}, ${assignment}`;
   }
 
   async startMatch(): Promise<void> {

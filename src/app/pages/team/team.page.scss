@@ -132,12 +132,13 @@ section header p {
 }
 
 .player-form {
-  grid-template-columns: minmax(0, 1fr) 90px 110px auto;
+  grid-template-columns: 90px minmax(110px, 1fr) auto;
   align-items: end;
 }
 
 .name-field {
-  min-width: 160px;
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
 form label {
@@ -179,8 +180,17 @@ ion-button {
   min-height: 44px;
   margin: 0;
   --background: var(--blue);
-  --border-radius: 8px;
+  --border-radius: var(--radius-sm);
   font-weight: 750;
+}
+
+ion-button.local-submit {
+  --background: var(--spike-control);
+  --background-hover: var(--spike-control-strong);
+  --border-color: var(--spike-line-strong);
+  --border-style: solid;
+  --border-width: 1px;
+  --color: var(--spike-ink);
 }
 
 .saved-teams {
@@ -380,3 +390,162 @@ ion-button {
     display: none;
   }
 }
+
+/* Competition Hardware */
+:host {
+  --bg: var(--spike-canvas);
+  --panel: var(--spike-frame);
+  --raised: var(--spike-control);
+  --field: var(--spike-control);
+  --line: var(--spike-line);
+  --text: var(--spike-ink);
+  --muted: var(--spike-ink-muted);
+  --blue: var(--spike-court);
+  --red: var(--spike-danger);
+}
+
+.team-toolbar { --background: var(--spike-frame); }
+.team-toolbar ion-title { font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.setup-link { --color: var(--spike-ink-muted); font-family: var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.team-shell {
+  width: min(1180px, calc(100% - 40px));
+  padding-top: 28px;
+}
+
+.team-intro {
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 22px 24px;
+  border: 1px solid var(--spike-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--spike-frame);
+}
+
+.team-kicker {
+  color: var(--spike-ink-muted);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+}
+
+.team-intro h1 {
+  margin: 4px 0;
+  font-size: clamp(2.75rem, 5vw, 4.75rem);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.player-count {
+  min-width: 132px;
+  border-color: var(--spike-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--spike-control);
+}
+
+.player-count strong { font-family: var(--font-display); font-size: 2.2rem; line-height: 0.9; }
+.player-count span { font-size: 0.875rem; }
+
+.team-grid {
+  grid-template-columns: minmax(300px, 0.75fr) minmax(0, 1.25fr);
+  gap: 0;
+  border: 1px solid var(--spike-line-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.team-panel,
+.player-panel,
+.roster-panel {
+  border: 0;
+  border-radius: 0;
+  background: var(--spike-frame);
+  padding: 22px;
+}
+
+.team-panel { border-right: 1px solid var(--spike-line); }
+
+section header h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+form label span {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+}
+
+input,
+select {
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--spike-control);
+}
+
+.roster-panel {
+  margin-top: 16px;
+  border: 1px solid var(--spike-line-strong);
+  border-radius: var(--radius-md);
+}
+
+.roster-panel > header ion-button { --color: var(--spike-on-signal); }
+
+.roster-list { border-top: 1px solid var(--spike-line-strong); }
+
+.roster-row {
+  min-height: 68px;
+  grid-template-columns: 34px 70px minmax(0, 1fr) auto auto;
+  border-bottom-color: var(--spike-line);
+  transition: background var(--duration-base) var(--ease-out);
+}
+
+.bench-index {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--spike-line-strong);
+  border-radius: var(--radius-xs);
+  place-items: center;
+  color: var(--spike-ink-muted);
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.roster-row:hover { background: var(--spike-control); }
+.roster-row.editing { background: var(--color-accent-subtle); }
+
+.jersey {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--spike-ink);
+}
+
+.roster-row button {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 820px) {
+  .team-grid { grid-template-columns: 1fr; }
+  .team-panel { border-right: 0; border-bottom: 1px solid var(--spike-line); }
+}
+
+@media (max-width: 560px) {
+  .team-shell { width: calc(100% - 16px); }
+  .team-intro { align-items: stretch; padding: 18px; }
+  .team-intro h1 { font-size: 3rem; }
+  .team-panel, .player-panel, .roster-panel { padding: 16px; }
+  .roster-row { grid-template-columns: 28px 46px minmax(0, 1fr) 44px 44px; }
+}
+
+.setup-link { --background: var(--spike-court); --color: #fff; }

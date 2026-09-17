@@ -14,11 +14,21 @@ async function setUpMatch(page: Page): Promise<void> {
   }
 
   await page.getByRole('link', { name: 'Set Up Match' }).click();
+  const usesPositionPicker = (page.viewportSize()?.width ?? 1024) <= 820;
   for (let index = 0; index < 6; index += 1) {
     const row = page.locator('.player-row').filter({ hasText: players[index].name });
     await row.getByRole('checkbox').check();
-    await row.getByRole('button', { name: 'Set starter' }).click();
-    await page.locator('.court-slot').filter({ hasText: `P${index + 1}` }).click();
+    const courtPosition = page.locator('.court-slot').filter({ hasText: `P${index + 1}` });
+    if (usesPositionPicker) {
+      await courtPosition.click();
+      const picker = page.locator('ion-modal.position-picker-modal');
+      await expect(picker).toBeVisible();
+      await picker.locator('.position-player').filter({ hasText: players[index].name }).click();
+      await expect(picker).toBeHidden();
+    } else {
+      await row.getByRole('button', { name: 'Set starter' }).click();
+      await courtPosition.click();
+    }
   }
   await page.getByLabel('Opponent').fill('Central High');
 }
@@ -94,7 +104,7 @@ test('tablet setup and scoring loop fit, undo repeatedly, and honor the Match Sq
 
   await page.locator('.player-chip[data-position="1"]').click();
   await page.getByRole('button', { name: 'Open substitution panel (S)' }).click();
-  await expect(page.locator('.sub-overlay-panel')).not.toContainText('Player 7');
+  await expect(page.locator('.substitution-rail')).not.toContainText('Player 7');
   await page.getByRole('button', { name: 'Close substitution panel', exact: true }).click();
 
   for (let point = 0; point < 25; point += 1) await scoreKill(page);
@@ -130,7 +140,7 @@ test('phone setup, scoring, and recovery work through normal vertical scrolling 
   reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Dig - stat only, no point' })));
   reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Open substitution panel (S)' })));
   await page.getByRole('button', { name: 'Open substitution panel (S)' }).click();
-  await expect(page.getByRole('region', { name: 'Substitution panel' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Substitution bench rail' })).toBeVisible();
   await page.getByRole('button', { name: 'Close substitution panel', exact: true }).click();
 
   reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Match Controls' })));

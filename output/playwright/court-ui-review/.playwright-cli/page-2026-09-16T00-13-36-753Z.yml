@@ -1,0 +1,60 @@
+- generic [ref=e4]:
+  - banner [ref=e5]:
+    - generic [ref=e7]:
+      - button "back" [ref=e10] [cursor=pointer]
+      - generic [ref=e12]: Team Roster
+      - link "Match Setup" [ref=e16] [cursor=pointer]:
+        - /url: /pre-match
+  - main [ref=e18]:
+    - main [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - text: Saved team
+          - heading "My Team" [level=1] [ref=e24]
+          - paragraph [ref=e25]: Manage the player details you reuse in every match.
+        - generic [ref=e26]:
+          - strong [ref=e27]: "0"
+          - generic [ref=e28]: Players
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - heading "Team" [level=2] [ref=e32]
+            - paragraph [ref=e33]: Changes save on this device first, then sync to the cloud.
+          - generic [ref=e34]:
+            - generic [ref=e35]:
+              - generic [ref=e36]: Team Name
+              - textbox "Team Name" [ref=e37]: My Team
+            - button "Save" [ref=e39] [cursor=pointer]
+          - generic [ref=e41]: Team saved
+        - generic [ref=e43]:
+          - generic [ref=e44]:
+            - heading "Add Player" [level=2] [ref=e45]
+            - paragraph [ref=e46]: Match Setup uses this saved player pool.
+          - generic [ref=e47]:
+            - generic [ref=e48]:
+              - generic [ref=e49]: Player Name
+              - textbox "Player Name" [ref=e50]:
+                - /placeholder: Ava Johnson
+            - generic [ref=e51]:
+              - generic [ref=e52]: Jersey
+              - spinbutton "Jersey" [ref=e53]: "1"
+            - generic [ref=e54]:
+              - generic [ref=e55]: Position
+              - combobox "Position" [ref=e56]:
+                - option "S"
+                - option "OH" [selected]
+                - option "MB"
+                - option "OPP"
+                - option "L"
+                - option "DS"
+            - button "Add Player" [ref=e58] [cursor=pointer]
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - heading "Saved Players" [level=2] [ref=e63]
+            - paragraph [ref=e64]: Team Roster stores identity. Match Setup decides who dresses and starts.
+          - link "Set Up Match" [ref=e66] [cursor=pointer]:
+            - /url: /pre-match
+        - generic [ref=e68]:
+          - strong [ref=e69]: Add your first player
+          - generic [ref=e70]: Use the form above. Add at least six players before starting a match.

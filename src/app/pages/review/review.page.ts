@@ -2,18 +2,19 @@ import { DatePipe, NgFor, NgIf } from '@angular/common';
 import { Component, OnDestroy, signal } from '@angular/core';
 import { Unsubscribe } from 'firebase/firestore';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { IonButton, IonContent, IonHeader, IonTitle, IonToolbar } from '@ionic/angular/standalone';
+import { IonContent } from '@ionic/angular/standalone';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { FirebaseDbService } from '../../services/firebase-db.service';
 import { Game, GameEvent } from '../../models/firestore.models';
 import { MatchReviewData, buildMatchReview } from './review-data';
+import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 
 @Component({
   selector: 'app-review',
   templateUrl: './review.page.html',
   styleUrls: ['./review.page.scss'],
   standalone: true,
-  imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButton, NgFor, NgIf, RouterLink, DatePipe],
+  imports: [IonContent, NgFor, NgIf, RouterLink, DatePipe, EquipmentRailComponent],
 })
 export class ReviewPage implements OnDestroy {
   readonly matchId: string;

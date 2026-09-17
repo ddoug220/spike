@@ -105,7 +105,8 @@ describe('CourtPage', () => {
     expect(text).toContain('Opponent Error');
     expect(text).toContain('Opponent Winner');
     expect(text).toContain('Receive Error');
-    expect(text).toContain('Stat tap');
+    expect(text).toContain('Rally outcome');
+    expect(text).toContain('Stat observation');
     expect(text).toContain('Dig');
     expect(text).toContain('Undo');
   });
@@ -246,7 +247,7 @@ describe('CourtPage', () => {
     expect(component.getLastEventText()).toContain('Last: Rotation corrected · R2');
   });
 
-  it('applies substitution immediately when a bench player is tapped in overlay mode', () => {
+  it('applies substitution immediately when a bench player is selected from the bench rail', () => {
     for (let i = 1; i <= 8; i += 1) {
       teamRoster.addPlayer({
         name: `Player ${i}`,
@@ -267,6 +268,15 @@ describe('CourtPage', () => {
     expect(component.getPlayerForPosition(1)?.id).toBe(benchInPlayer.id);
     expect(teamRoster.lineup()[0]).toBe(players[0].id);
     expect(component.substitutionStatus).toContain('Substituted:');
+  });
+
+  it('keeps substitution closed until an on-court player is selected', () => {
+    startMatchWithLineup();
+
+    component.toggleSubMode();
+
+    expect(component.isSubOverlayOpen).toBeFalse();
+    expect(component.substitutionStatus).toBe('Select an on-court player before opening Substitute.');
   });
 
   it('uses only saved match players for court identity, substitution bench, and next-set choices', () => {
@@ -297,6 +307,23 @@ describe('CourtPage', () => {
     expect(options).toContain('#7 Snapshot 7');
     expect(options).not.toContain('#8 Snapshot 8');
     expect(options).not.toContain('#90 Roster rename');
+  });
+
+  it('shows the submitted next-set lineup in the controls before enabling Start', async () => {
+    startMatchWithLineup();
+    for (let point = 0; point < 25; point += 1) {
+      matchEngine.recordPlayerAction(1, 'kill');
+    }
+    component.nextSetLineup = matchEngine.getNextSetDefaultLineup();
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const selects = Array.from(fixture.nativeElement.querySelectorAll('.next-set-grid select')) as HTMLSelectElement[];
+    const startButton = fixture.nativeElement.querySelector('.next-set-footer ion-button') as HTMLIonButtonElement;
+    expect(selects.map((select) => select.value)).toEqual(component.nextSetLineup.map((playerId) => playerId ?? ''));
+    expect(startButton.disabled).toBeFalse();
   });
 
   it('offers only safe exit actions during a live match', () => {

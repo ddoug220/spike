@@ -1,11 +1,8 @@
-<ion-header [translucent]="true">
-  <ion-toolbar class="home-toolbar">
-    <ion-title class="app-wordmark">Spike</ion-title>
-    <ion-button slot="end" fill="clear" size="small" [routerLink]="['/team']"><ion-icon slot="start" name="people-outline"></ion-icon>Team</ion-button>
-    <ion-button slot="end" fill="clear" size="small" [routerLink]="['/history']"><ion-icon slot="start" name="time-outline"></ion-icon>History</ion-button>
-    <ion-button slot="end" fill="clear" size="small" (click)="signOut()" [title]="userEmail ?? ''" aria-label="Sign out"><ion-icon slot="icon-only" name="log-out-outline"></ion-icon></ion-button>
-  </ion-toolbar>
-</ion-header>
+<app-equipment-rail task="Home" [context]="nextTitle">
+  <ion-button rail-action fill="clear" size="small" (click)="signOut()" [title]="userEmail ?? ''" aria-label="Sign out">
+    <ion-icon slot="icon-only" name="log-out-outline"></ion-icon>
+  </ion-button>
+</app-equipment-rail>
 
 <ion-content [fullscreen]="true">
   <main class="home-shell">
@@ -25,7 +22,7 @@
         <div class="lineup-preview" aria-label="Saved starting lineup preview">
           <div class="preview-head"><span>Next-match default</span><strong>{{ assignedDefaultCount }}/6</strong></div>
           <div class="mini-court">
-            <div *ngFor="let slot of defaultLineup" class="mini-player" [ngClass]="'p' + slot.position">
+            <div *ngFor="let slot of defaultLineup" class="mini-player" [ngClass]="'p' + slot.position" [title]="slot.player?.name || 'Open position'">
               <span>P{{ slot.position }}</span>
               <strong>{{ slot.player ? '#' + slot.player.jerseyNumber : '—' }}</strong>
               <small>{{ slot.player?.name || 'Open' }}</small>
@@ -34,11 +31,5 @@
         </div>
       </section>
     }
-
-    <footer class="home-status" [ngClass]="{ attention: hasSyncAttention }">
-      <ion-icon [name]="hasSyncAttention ? 'cloud-offline-outline' : 'cloud-done-outline'"></ion-icon>
-      <span>{{ syncText }}</span>
-      <button *ngIf="offlineSync.lastError()" type="button" (click)="offlineSync.retryNow()">Retry</button>
-    </footer>
   </main>
 </ion-content>

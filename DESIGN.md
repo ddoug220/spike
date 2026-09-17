@@ -1,242 +1,189 @@
 ---
-name: Spike
-description: Volleyball match tracking for coaches and stat keepers
+name: "Spike"
+description: "Volleyball match tracking for coaches and stat keepers"
 colors:
-  ink-dark: "#0e0f11"
-  surface-1-dark: "#141618"
-  surface-2-dark: "#1b1d21"
-  surface-3-dark: "#23262b"
-  text-primary-dark: "#edf0f4"
-  text-secondary-dark: "#7e8899"
-  text-tertiary-dark: "#4d5562"
-  accent-blue-dark: "#3d8ef8"
-  signal-green-dark: "#21d07a"
-  signal-red-dark: "#f25757"
-  signal-amber-dark: "#f5a623"
-  ink-light: "#0d0f11"
-  surface-1-light: "#ffffff"
-  surface-2-light: "#f8f9fa"
-  surface-3-light: "#eef0f2"
-  text-primary-light: "#0d0f11"
-  text-secondary-light: "#5a6270"
-  accent-blue-light: "#1d6fe8"
-  volt: "#c8ff00"
-  court-wood-dark: "#3f2c12"
-  court-wood-light: "#c9903a"
+  graphite: "#0f1418"
+  graphite-frame: "#171d22"
+  graphite-control: "#202830"
+  graphite-control-strong: "#2a343d"
+  enamel: "#f5f4ef"
+  steel: "#b8c2c9"
+  steel-faint: "#87949d"
+  graphite-line: "rgba(245, 244, 239, 0.16)"
+  graphite-line-strong: "rgba(245, 244, 239, 0.32)"
+  competition-cobalt: "#1457d9"
+  competition-cobalt-deep: "#0e3f9f"
+  court-tape: "rgba(255, 255, 255, 0.88)"
+  optic-stitch: "#e8f316"
+  focus-dark: "#8fb4ff"
+  signal-green: "#0c7a43"
+  signal-red: "#b82d36"
+  signal-amber: "#f1a51b"
+  white: "#ffffff"
+  enamel-control: "#e8e6df"
+  enamel-control-strong: "#d9d7cf"
+  ink: "#11161a"
+  ink-muted: "#46535c"
+  ink-faint: "#66737b"
+  enamel-line: "rgba(17, 22, 26, 0.16)"
+  enamel-line-strong: "rgba(17, 22, 26, 0.32)"
+  focus-light: "#0e48bb"
+  signal-green-light: "#086739"
+  signal-red-light: "#a5222c"
+  signal-amber-light: "#9a5b00"
 typography:
   display:
-    fontFamily: "DM Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "'Barlow Condensed', 'Arial Narrow', sans-serif"
+    fontSize: "clamp(2.75rem, 5vw, 4.75rem)"
     fontWeight: 800
-    lineHeight: 1.04
-    letterSpacing: "-0.03em"
+    lineHeight: 0.9
+    letterSpacing: "-0.02em"
+  score:
+    fontFamily: "'Barlow Condensed', 'Arial Narrow', sans-serif"
+    fontSize: "clamp(3.4rem, 6vw, 5.25rem)"
+    fontWeight: 800
+    letterSpacing: "-0.02em"
   headline:
-    fontFamily: "DM Sans, ui-sans-serif, system-ui, sans-serif"
-    fontWeight: 700
-    lineHeight: 1.1
-    letterSpacing: "-0.01em"
+    fontFamily: "'Barlow Condensed', 'Arial Narrow', sans-serif"
+    fontSize: "1.4rem"
+    letterSpacing: "0.04em"
   body:
-    fontFamily: "DM Sans, ui-sans-serif, system-ui, sans-serif"
-    fontWeight: 400
+    fontFamily: "'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
-    lineHeight: 1.55
+    fontWeight: 400
   label:
-    fontFamily: "DM Sans, ui-sans-serif, system-ui, sans-serif"
-    fontWeight: 800
-    fontSize: "0.72rem"
-    letterSpacing: "0.08em"
-    textTransform: "uppercase"
-  mono:
-    fontFamily: "DM Mono, ui-monospace, monospace"
-    fontWeight: 500
-    lineHeight: 1
+    fontFamily: "'Barlow Condensed', 'Arial Narrow', sans-serif"
+    fontSize: "0.875rem"
+    letterSpacing: "0.05em"
+  navigation:
+    fontFamily: "'Barlow Condensed', 'Arial Narrow', sans-serif"
+    fontSize: "0.88rem"
+    fontWeight: 700
+    letterSpacing: "0.045em"
 rounded:
-  sm: "8px"
-  md: "12px"
-  lg: "16px"
-  xl: "22px"
+  xs: "2px"
+  sm: "4px"
+  md: "8px"
   full: "999px"
 spacing:
-  xs: "8px"
-  sm: "12px"
-  md: "16px"
-  lg: "24px"
+  xs: "4px"
+  sm: "8px"
+  md: "12px"
+  base: "16px"
+  lg: "20px"
+  section: "24px"
   xl: "32px"
 components:
   button-primary:
-    backgroundColor: "{colors.accent-blue-dark}"
-    textColor: "#ffffff"
+    backgroundColor: "{colors.competition-cobalt}"
+    textColor: "{colors.white}"
     rounded: "{rounded.sm}"
-    padding: "12px 20px"
-  button-primary-hover:
-    backgroundColor: "#2a7ae6"
-  chip-status:
-    backgroundColor: "rgba(33, 208, 122, 0.14)"
-    textColor: "{colors.signal-green-dark}"
-    rounded: "{rounded.full}"
-    padding: "6px 12px"
+  button-control:
+    backgroundColor: "{colors.graphite-control}"
+    textColor: "{colors.enamel}"
+    rounded: "{rounded.sm}"
   panel:
-    backgroundColor: "{colors.surface-1-dark}"
-    rounded: "{rounded.sm}"
+    backgroundColor: "{colors.graphite-frame}"
+    textColor: "{colors.enamel}"
+    rounded: "{rounded.md}"
     padding: "16px"
+  input-default:
+    backgroundColor: "{colors.graphite-control}"
+    textColor: "{colors.enamel}"
+    rounded: "{rounded.sm}"
+    height: "48px"
+  equipment-nav:
+    backgroundColor: "{colors.graphite-frame}"
+    textColor: "{colors.steel}"
+    typography: "{typography.navigation}"
+  player-tag:
+    textColor: "{colors.white}"
+    rounded: "{rounded.sm}"
+    width: "108px"
+    height: "76px"
+  action-receipt:
+    backgroundColor: "{colors.graphite-control}"
+    textColor: "{colors.enamel}"
+    rounded: "{rounded.sm}"
 ---
 
 # Design System: Spike
 
-## 1. Overview
+## Overview
 
-**Creative North Star: "The Broadcast Control Room"**
+**Creative North Star: "Competition Hardware"**
 
-Spike's interface is built for game-speed decision making. Like a broadcast control room during a live match, information is dense but instantly scannable. Every element earns its place by being either actionable or immediately informative. There is no decoration for decoration's sake.
+Spike feels like the equipment and officiating system used at an elite volleyball tournament: durable, exact, fast to read, and purpose-built for the court. The court is the instrument. Scores, player tags, rails, and action keys behave like a coherent scorer's console rather than a collection of app cards.
 
-The system is dark-first because coaches track matches in variable gym lighting, often under bright overheads or afternoon sun through windows. High contrast text on deep surfaces cuts through the chaos. The court visualization grounds the interface in the physical space coaches already understand.
-
-This is not enterprise software. It's not a dashboard full of charts. It's a tool that disappears into the workflow, letting the coach focus on the game, not the screen.
+The system is designed for coaches and stat keepers working under variable gym lighting. Dark and light modes are equally intentional. Expression comes from court geometry, equipment labeling, structural framing, and decisive scale—not decoration, hype, or gamification.
 
 **Key Characteristics:**
-- Dense information, instant readability
-- Dark surfaces with high-contrast text
-- Court-centric spatial organization
-- Monospace numerals for stats (DM Mono)
-- Tonal surface layering instead of shadows
-- Large touch targets for courtside taps
 
-## 2. Colors
+- Court geometry and structural equipment rails.
+- Cobalt playing surfaces with graphite and enamel shells.
+- Condensed display lettering with open, readable body text.
+- Flat panels, tactile controls, and scarce selection markers.
 
-A dark-first palette with high contrast for gym lighting. Signal colors (green, red, amber) are reserved for match state and never decorative.
+## Colors
 
-### Primary
+- **Competition Cobalt** owns the court and primary actions. It appears in large, decisive fields rather than scattered accents.
+- **Graphite / Enamel** are the two equipment shells. Dark mode uses powder-coated graphite; light mode uses warm enamel with dark ink.
+- **Optic Stitch** is scarce. It marks the Spike brand stitch and the current player or control selection only.
+- **Signal Green, Red, and Amber** communicate outcomes and system state. They are never decorative.
+- Secondary text follows the surrounding surface. `steel` and `steel-faint` are the dark-theme muted roles; `ink-muted` and `ink-faint` are their light-theme counterparts. The frontmatter preserves the exact values from `src/theme/variables.scss`.
+- The default token block supplies the dark shell; `prefers-color-scheme: light` replaces canvas, frame, control, text, border, focus, and signal roles. Cobalt and optic stitch remain constant.
+- Frontmatter component colors describe the dark baseline. Use the `--spike-*` semantic variables in implementation so components follow the active theme. Generated tonal ramps in the companion file are preview aids, not additional approved application colors.
 
-- **Broadcast Blue** (#3d8ef8 dark / #1d6fe8 light): Primary interactive accent. Buttons, links, focus rings. Used sparingly—never as a surface color.
+## Typography
 
-### Secondary
+- **Barlow Condensed** is the equipment face. Use it for scores, jersey numbers, route titles, action labels, and compact identifiers.
+- **Atkinson Hyperlegible** carries instructions, names, form fields, and longer reading. Its open forms protect legibility at a glance.
+- Scores and jersey numbers use tabular numerals. Do not use monospace as a technical costume.
+- Route titles use `clamp(2.75rem, 5vw, 4.75rem)` at weight 800; the Home title uses `clamp(3rem, 6vw, 5.75rem)`. Live scores use `clamp(3.4rem, 6vw, 5.25rem)`.
+- Supporting section headings are commonly 1.25–1.4rem. Form labels are 0.875rem; desktop rail links are 0.88rem. Smaller metadata varies by surface and viewport; there is no single enforced modular type scale.
+- `--font-mono` is a compatibility alias for Barlow Condensed, not a separate monospace family.
+- Hierarchy is created with decisive size and weight changes. Avoid tiny uppercase labels and excessive tracking.
 
-- **Volt** (#c8ff00): Brand accent for the SPIKE wordmark and celebratory moments only. Its rarity is the point.
+## Layout
 
-### Signal
+- The live-match desktop composition is a 58/42 split: one-team six-position court on the left, fixed scorer's control table on the right, joined by a structural scoreboard rail.
+- Landscape tablets preserve simultaneous court, score, action, and Undo visibility. Portrait layouts stack court above a fixed-width action table.
+- Live Court stacks at 980px and below; its phone controls compact further at 680px and 430px. Phones use a sticky compact scoreboard, reduced-height court, and two-column action grid. At 320×568, controlled vertical scrolling is preferable to shrinking controls.
+- Supporting routes use rails, boards, records, and workbenches—not same-sized card grids.
+- Content containers top out at 1180px; the live court may use the full viewport. Supporting pages normally have 20px outer gutters; compact page gutters vary from 6px to 12px. The spacing entries record recurring values, not existing CSS spacing variables.
+- Equipment navigation changes from one 64px rail to 56px and 38px rows at 760px. Team and Match Setup stack their workbenches at 820px. History switches to two-column records at 900px.
+- Match Review uses three rotation columns below 900px and two below 640px. Its box score scrolls horizontally inside the panel, with a fixed 180px player column; the page itself remains within the viewport.
 
-- **Signal Green** (#21d07a dark / #16a85a light): Points scored, successful actions, sync status OK. Functional only.
-- **Signal Red** (#f25757 dark / #d63c3c light): Errors, opponent points, warnings. Never decoration.
-- **Signal Amber** (#f5a623 dark / #d4820a light): Pending states, timeouts, caution.
+## Elevation & Depth
 
-### Neutral
+Depth comes from structural layering: canvas → frame → control. Panels use one border or one inset highlight, never an ambient card shadow. Overlays may use a directional shadow because they physically cover working content. No glass, glow, or decorative blur. The match-controls overlay uses `0 20px 48px rgba(0, 0, 0, 0.6)`. Player selection and action receipts use inset signal marks rather than ambient elevation.
 
-- **Ink** (#0e0f11 dark / #0d0f11 light): Base background. Pure darkness.
-- **Surface 1** (#141618 dark / #ffffff light): Primary panels and cards.
-- **Surface 2** (#1b1d21 dark / #f8f9fa light): Nested containers, secondary panels.
-- **Surface 3** (#23262b dark / #eef0f2 light): Tertiary surfaces, input backgrounds.
-- **Text Primary** (#edf0f4 dark / #0d0f11 light): Headlines, primary content. WCAG AAA contrast.
-- **Text Secondary** (#7e8899 dark / #5a6270 light): Body text, descriptions. WCAG AA minimum.
-- **Text Tertiary** (#4d5562 dark / #9aa1ab light): Disabled, placeholder, timestamps.
+Transitions use 100ms, 140ms, or 160ms with `cubic-bezier(0.16, 1, 0.3, 1)`. The action receipt reveals with a horizontal clip. Global reduced-motion styles shorten animations and transitions to 0.01ms and remove smooth scrolling.
 
-### Special
+## Shapes
 
-- **Court Wood** (gradient #2e1f0a → #3f2c12 → #2a1b09 dark / #c9903a → #b07830 → #c49040 light): The hardwood court surface. Warm brown tones ground the interface in the physical gym.
+Corners are machined, not soft: 2px for tags, 4px for controls, and 8px for major frames. Full pills are limited to compact status indicators. Court lines, net tape, separator rails, and clipped tag corners provide the signature geometry.
 
-### Named Rules
+## Components
 
-**The Signal Color Rule.** Green, red, and amber are reserved for match state and system status. They never appear as decorative accents, button backgrounds, or brand elements. If a color communicates scoring or errors, it must be one of the three signals.
+- **Equipment rail:** compact navigation or scoreboard frame with clear separators and one current-state marker.
+- **Player tag:** jersey number, name, position, and optional live stats; selection uses optic stitch plus a non-color shape change.
+- **Outcome key:** rectangular Ionic button, normally 58px high, with a 4px radius. Kills and aces use success, errors use danger, blocks use deep cobalt, and stat-only or neutral actions use the control surface. Disabled state follows Ionic. Color states remain understandable through label and border treatment.
+- **Action receipt:** persistent factual summary of the last operation with adjacent Undo.
+- **Match record:** one desktop row containing opponent, date, result, status, and Review action; compact records put opponent and score first. Keyboard focus is inset 3px so the containing frame does not clip it.
+- **Work bench:** stable editing region beside a roster, squad, or lineup surface. It does not appear as a modal unless focus protection is required.
 
-**The Volt Scarcity Rule.** The volt accent (#c8ff00) appears only on the SPIKE wordmark and match-winning celebrations. Its rarity is the point. Overuse dilutes its impact.
+- **Buttons and fields:** controls use 4px corners. Team fields are 48px high; the player name spans the form before Jersey, Position, and Add Player. Local-submit buttons use control surfaces and stronger control hover fills. Primary navigation actions use cobalt with white text.
+- **Navigation state:** muted links brighten on hover and active state; the active link carries a 3px optic stitch beneath it. Text labels remain present.
+- **Focus:** the global outline is 3px with a 2px offset; some components use local 2px outlines. Use the semantic focus color when extending the system.
+- **Current implementation exception:** the compact landscape layout (width at least 981px, height at most 800px) reduces outcome buttons to 46px, some commands to 42px, and Undo to 38px. This falls below the product's 44px touch-target requirement for some controls; it is observed drift, not a new system minimum.
 
-## 3. Typography
+## Do's and Don'ts
 
-**Display Font:** DM Sans (weight 800, with ui-sans-serif, system-ui fallbacks)
-**Body Font:** DM Sans (weight 400-700)
-**Stats Font:** DM Mono (weight 400-500)
+- Do make the court and match state visible before controls.
+- Do preserve 44px touch targets, keyboard focus, reduced motion, and full accessible names.
+- Do use real volleyball geometry and the user's six-player rotation.
 
-**Character:** DM Sans is a geometric sans with optical sizing that stays readable at any scale. Its high x-height and open apertures work in dim gym lighting. DM Mono is reserved exclusively for statistics—scores, jersey numbers, timestamps—where tabular alignment matters.
-
-### Hierarchy
-
-- **Display** (800, clamp(2rem, 3vw, 2.5rem), 1.04): Hero headlines on home and pre-match. Maximum impact, minimum words.
-- **Headline** (700, 1.5rem, 1.1): Section headers, panel titles. Clear hierarchy without shouting.
-- **Title** (700, 1.125rem, 1.2): Card headers, list item primaries. Scannable anchors.
-- **Body** (400, 1rem, 1.55): Descriptions, instructions. Max line length 65ch.
-- **Label** (800, 0.72rem, 0.08em tracking, uppercase): Status badges, kickers, metadata. Always uppercase, always tracked.
-- **Stats** (DM Mono 500, tabular): Scores, jersey numbers, timestamps. Monospace ensures columns align.
-
-### Named Rules
-
-**The Mono Rule.** Any number that a coach might need to scan quickly—score, jersey number, match time, stat count—uses DM Mono. Body text uses DM Sans even when numbers appear inline.
-
-## 4. Elevation
-
-This system uses **tonal layering**, not shadows. Depth is conveyed by stepping through surface colors (surface-1 → surface-2 → surface-3), not by box-shadows. The result is flatter and faster to render, with no ambient blur calculations.
-
-Shadows appear only as feedback:
-- Focus rings on inputs (subtle glow)
-- Active drag states
-- Modal overlays (backdrop dimming, not card shadow)
-
-### Named Rules
-
-**The Flat Default Rule.** Surfaces are flat at rest. If a card "pops" visually, it's because its surface color is lighter than its container, not because it has a shadow. Shadows are earned through interaction, not inheritance.
-
-## 5. Components
-
-### Buttons
-
-- **Shape:** Consistent 8px radius (--radius-sm) on all buttons.
-- **Primary:** Broadcast Blue background, white text, 12px 20px padding. Used for main CTAs only.
-- **Hover / Focus:** Background shifts to darker blue (#2a7ae6), 2px solid focus ring matching the button color.
-- **Ghost:** Transparent background, accent-colored text and border. For secondary actions.
-- **Large Touch Target:** Minimum 44x44px touch area for all buttons. Courtside taps require margin for error.
-
-### Chips / Status Badges
-
-- **Style:** Pill-shaped (--radius-full), dim background color matching the signal (green-dim, red-dim, amber-dim), signal-colored text.
-- **State:** No hover state—chips are status indicators, not interactive.
-- **Label:** Uppercase, tracked, 800 weight.
-
-### Cards / Panels
-
-- **Corner Style:** 8px radius (--radius-sm)
-- **Background:** Surface-1 in dark mode, white in light mode
-- **Shadow Strategy:** None. Depth via tonal layering.
-- **Border:** 1px solid at 7% white opacity (dark) or 8% black opacity (light)
-- **Internal Padding:** 16px standard, 24px for hero cards
-
-### Inputs / Fields
-
-- **Style:** Surface-2 background with 1px border (--color-border)
-- **Focus:** Border shifts to accent color, subtle glow ring
-- **Error:** Border shifts to signal-red, error text below in signal-red
-- **Radius:** 8px (--radius-sm)
-
-### Navigation / Toolbar
-
-- **Style:** Blurred glass effect (backdrop-filter: blur(20px) saturate(1.4)) over surface color
-- **Height:** 52px minimum
-- **Typography:** Display weight on title, secondary weight on nav buttons
-
-### Court Visualization
-
-The court component is the signature element. It renders a volleyball court in correct 9m x 18m proportions with:
-- Wood-grain gradient background
-- White court lines at 18% opacity (dark) or 55% opacity (light)
-- Attack lines at 10% opacity
-- Net centerline
-- Player positions as interactive tiles
-
-**Player Tiles:** 94px x 78px fixed size, positioned absolutely on the court. Jersey number in DM Mono, player name below.
-
-## 6. Do's and Don'ts
-
-### Do:
-
-- **Do** use DM Mono for all numeric stats, scores, and jersey numbers.
-- **Do** maintain 4.5:1 contrast minimum for all body text—gyms have variable lighting.
-- **Do** use signal colors only for their designated purpose (green = success, red = error, amber = warning).
-- **Do** provide 44x44px minimum touch targets for any button a coach might tap during a live match.
-- **Do** use tonal surface stepping (surface-1 → surface-2 → surface-3) for visual hierarchy.
-- **Do** respect the court's spatial logic—rotations, positions, and net orientation should match physical reality.
-
-### Don't:
-
-- **Don't** use shadows for visual hierarchy—this system is flat by default with tonal layering.
-- **Don't** apply signal colors decoratively. If it's green, it means success. If it's red, it means error for all users.
-- **Don't** use Volt (#c8ff00) anywhere except the wordmark and match-winning moments.
-- **Don't** make it look like generic SaaS—white/gray grids, muted colors, corporate blandness. Spike is a sports tool.
-- **Don't** make it look like a toy sports app—no cartoon mascots, no rounded bubbly UI, no gamification excess.
-- **Don't** add shadows to cards at rest. If you're reaching for box-shadow, use a lighter surface color instead.
-- **Don't** use the eyebrow/kicker pattern on every section. One deliberate kicker per page is voice; kickers on every section is scaffold.
+- Don't use photoreal court imagery, extra opponent players, invented match data, marketing slogans, decorative gradients, glass, neon glow, esports motifs, bubbly cards, or elastic motion. CSS gradients that draw court lines are structural geometry.
+- Don't let Ionic defaults become the visual identity.
+- Don't trade scoring speed for spectacle.

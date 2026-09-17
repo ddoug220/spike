@@ -1,10 +1,11 @@
 import { NgClass, NgFor, NgIf } from '@angular/common';
 import { Component, ViewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { IonButton, IonContent, IonHeader, IonIcon, IonTitle, IonToolbar } from '@ionic/angular/standalone';
+import { IonButton, IonContent, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { cloudDoneOutline, cloudOfflineOutline, logOutOutline, peopleOutline, timeOutline } from 'ionicons/icons';
+import { logOutOutline } from 'ionicons/icons';
 import { AuthService } from '../../services/auth.service';
+import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 import { MatchStateService } from '../../services/match-state.service';
 import { MatchStatsService } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
@@ -17,9 +18,7 @@ import { FirstRunCourtComponent } from './first-run-court/first-run-court.compon
   styleUrls: ['./home.page.scss'],
   standalone: true,
   imports: [
-    IonHeader,
-    IonToolbar,
-    IonTitle,
+    EquipmentRailComponent,
     IonContent,
     IonButton,
     IonIcon,
@@ -47,7 +46,7 @@ export class HomePage {
     private readonly auth: AuthService,
     private readonly router: Router,
   ) {
-    addIcons({ cloudDoneOutline, cloudOfflineOutline, logOutOutline, peopleOutline, timeOutline });
+    addIcons({ logOutOutline });
   }
 
   get userEmail(): string | null { return this.auth.email; }

@@ -1,31 +1,43 @@
-// ─── Tokens ────────────────────────────────────────────────────────────────────
+// Competition Hardware compatibility pass
 :host {
-  --bg:           #090c11;
-  --panel:        #111720;
-  --border:       rgba(255, 255, 255, 0.1);
-  --border-focus: #c8ff00;
-  --text:         #e4eaf5;
-  --muted:        #8fa0b8;
-  --subtle:       #6f8098;
-  --volt:         #c8ff00;
-  --volt-ink:     #0a0f00;
-  --error:        #ff5c3e;
-  --inp-bg:       rgba(255, 255, 255, 0.04);
-  --inp-border:   rgba(255, 255, 255, 0.12);
-
+  --bg: var(--spike-canvas);
+  --panel: var(--spike-frame);
+  --border: var(--spike-line-strong);
+  --border-focus: var(--spike-focus);
+  --text: var(--spike-ink);
+  --muted: var(--spike-ink-muted);
+  --subtle: var(--spike-ink-faint);
+  --volt: var(--spike-stitch);
+  --volt-ink: #11161a;
+  --error: var(--spike-danger);
+  --inp-bg: var(--spike-control);
+  --inp-border: var(--spike-line-strong);
+  --login-court-line: rgba(245, 244, 239, 0.16);
   display: block;
   height: 100%;
 }
 
-// Darker darks in OS dark mode
-@media (prefers-color-scheme: dark) {
-  :host {
-    --bg:         #05070a;
-    --panel:      #0d1219;
-    --border:     rgba(255, 255, 255, 0.08);
-    --inp-bg:     rgba(255, 255, 255, 0.03);
-    --inp-border: rgba(255, 255, 255, 0.09);
-  }
+@media (prefers-color-scheme: light) {
+  :host { --login-court-line: rgba(17, 22, 26, 0.14); }
+}
+
+.court-bounds { border-color: var(--login-court-line); }
+.court-net { background: var(--login-court-line); }
+.court-attack { background: var(--login-court-line); }
+
+.brand-block,
+.auth-card { animation-duration: var(--duration-slow); }
+
+.wordmark {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.wordmark::after {
+  width: 1.2ch;
+  height: 4px;
+  border-radius: 0;
 }
 
 // ─── Ionic Content ─────────────────────────────────────────────────────────────
@@ -91,20 +103,6 @@ ion-content {
 
 .court-attack--far {
   top: calc(50% + clamp(100px, 29.3vw, 193px));
-}
-
-// Volt ambient glow behind the wordmark area
-.court-glow {
-  position: absolute;
-  top: -5%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80vw;
-  max-width: 600px;
-  height: 60vw;
-  max-height: 400px;
-  background: radial-gradient(ellipse at 50% 30%, rgba(200, 255, 0, 0.055) 0%, transparent 68%);
-  pointer-events: none;
 }
 
 // ─── Login Wrap ────────────────────────────────────────────────────────────────
@@ -208,7 +206,7 @@ ion-content {
   width: 100%;
   height: 46px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text);
   cursor: pointer;
@@ -290,7 +288,7 @@ ion-content {
   font-family: var(--font-body);
   font-size: 0.95rem;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--duration-base) var(--ease-out);
   appearance: none;
   box-sizing: border-box;
 
@@ -300,7 +298,6 @@ ion-content {
 
   &:focus {
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.12);
   }
 
   &.field-input--pw {
@@ -411,3 +408,9 @@ ion-content {
     transform: rotate(360deg);
   }
 }
+
+.auth-card { border-radius: var(--radius-md); background: var(--spike-frame); }
+.mode-btn { font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.035em; text-transform: uppercase; }
+.mode-btn.mode-btn--active { color: var(--spike-ink); border-bottom-color: var(--spike-stitch); }
+.btn-google, .field-input, .btn-primary { border-radius: var(--radius-sm); }
+.btn-primary { background: var(--spike-court); color: #fff; }

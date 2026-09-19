@@ -139,6 +139,51 @@ describe('OfflineSyncService', () => {
     expect(service.lastSuccessfulSyncAt()).not.toBeNull();
   });
 
+  it('migrates legacy match keys only after the combined record is readable', () => {
+    window.localStorage.clear();
+    window.localStorage.setItem('spike-active-match-id-v2:owner-1', 'legacy-match');
+    window.localStorage.setItem('spike-sync-queue-v2:owner-1', '[]');
+    window.localStorage.setItem('spike-sync-archive-v2:owner-1', JSON.stringify({
+      games: [],
+      events: [event('legacy-event', 'legacy-match', 'matchStarted', '2026-09-17T10:00:00.000Z')],
+      playerSetStats: [],
+    }));
+
+    service = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
+
+    expect(service.getActiveMatchId()).toBe('legacy-match');
+    expect(service.getMatchEvents('legacy-match').map((entry) => entry.id)).toEqual(['legacy-event']);
+    expect(window.localStorage.getItem('spike-durable-match-record-v1:owner-1')).not.toBeNull();
+    expect(window.localStorage.getItem('spike-active-match-id-v2:owner-1')).toBeNull();
+    expect(window.localStorage.getItem('spike-sync-archive-v2:owner-1')).toBeNull();
+  });
+
+  it('retains legacy keys when the combined migration write fails', () => {
+    window.localStorage.clear();
+    window.localStorage.setItem('spike-active-match-id-v2:owner-1', 'legacy-match');
+    window.localStorage.setItem('spike-sync-queue-v2:owner-1', '[]');
+    window.localStorage.setItem('spike-sync-archive-v2:owner-1', JSON.stringify({ games: [], events: [], playerSetStats: [] }));
+    spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+    service = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
+
+    expect(window.localStorage.getItem('spike-active-match-id-v2:owner-1')).toBe('legacy-match');
+    expect(window.localStorage.getItem('spike-sync-archive-v2:owner-1')).not.toBeNull();
+    expect(service.mutationBlocked()).toBeTrue();
+  });
+
+  it('reports a corrupt durable record without replacing it with empty state', () => {
+    window.localStorage.clear();
+    const key = 'spike-durable-match-record-v1:owner-1';
+    window.localStorage.setItem(key, '{"version":1,"archive":"broken"}');
+
+    service = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
+
+    expect(service.lastError()).toContain('damaged');
+    expect(service.mutationBlocked()).toBeTrue();
+    expect(window.localStorage.getItem(key)).toBe('{"version":1,"archive":"broken"}');
+  });
+
   for (const firstWriteSucceeds of [true, false]) {
     it(`saves a newer edit made while an older save ${firstWriteSucceeds ? 'succeeds' : 'fails'}`, async () => {
       let finishFirstWrite!: () => void;
@@ -168,21 +213,29 @@ describe('OfflineSyncService', () => {
     });
   }
 
-  it('retains unsaved match data, blocks sign out, and saves it when device storage recovers', async () => {
+  it('keeps an unsaved action out of the projection, blocks later mutations, and retries it exactly once', async () => {
     online.and.returnValue(false);
     const setItem = spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
 
-    expect(() => service.queueMatchEvent(event('unsaved-event', 'unsaved-match', 'matchStarted', '2026-09-17T10:00:00.000Z'))).not.toThrow();
-    expect(service.getMatchEvents('unsaved-match').length).toBe(1);
-    expect(service.lastError()).toContain('Device save failed');
+    const failed = service.queueMatchEvent(event('unsaved-event', 'unsaved-match', 'matchStarted', '2026-09-17T10:00:00.000Z'));
+    const blocked = service.queueMatchEvent(event('blocked-event', 'unsaved-match', 'opponentPoint', '2026-09-17T10:01:00.000Z'));
+
+    expect(failed.ok).toBeFalse();
+    expect(blocked.ok).toBeFalse();
+    expect(service.getMatchEvents('unsaved-match')).toEqual([]);
+    expect(service.pendingCount()).toBe(0);
+    expect(service.mutationBlocked()).toBeTrue();
+    expect(service.lastError()).toContain('was not recorded');
     expect(await service.prepareForSignOut()).toBeFalse();
 
     setItem.and.callThrough();
-    await service.retryNow();
+    const retried = await service.retryNow();
     const restored = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
+    expect(retried.ok).toBeTrue();
     expect(restored.getMatchEvents('unsaved-match').map((entry) => entry.id)).toEqual(['unsaved-event']);
     expect(restored.pendingCount()).toBe(1);
     expect(service.lastError()).toBeNull();
+    expect(service.mutationBlocked()).toBeFalse();
   });
 
   it('keeps the device-save warning after cloud sync succeeds until local saving recovers', async () => {
@@ -194,7 +247,7 @@ describe('OfflineSyncService', () => {
     await waitForIdle();
 
     expect(service.pendingCount()).toBe(0);
-    expect(service.lastError()).toContain('Device save failed');
+    expect(service.lastError()).toContain('was not recorded');
     expect(await service.prepareForSignOut()).toBeFalse();
 
     setItem.and.callThrough();

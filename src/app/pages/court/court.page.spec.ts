@@ -111,13 +111,12 @@ describe('CourtPage', () => {
     expect(text).toContain('Undo');
   });
 
-  it('updates last-action feedback after an immediate scoring tap', () => {
+  it('attributes an ace to P1 without requiring a selected player', () => {
     startMatchWithLineup();
-    component.activePlayer = 2;
 
     component.recordStandardOutcome('ace');
 
-    expect(component.getLastEventText()).toContain('Last: Ace · Starter 2');
+    expect(component.getLastEventText()).toContain('Last: Ace · Starter 1');
     expect(component.getLastEventText()).toContain('· R1');
   });
 
@@ -171,7 +170,6 @@ describe('CourtPage', () => {
     const server = teamRoster.players()[0];
     teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
     matchEngine.startMatch('team');
-    component.activePlayer = 1;
     const before = matchState.state().opponentPoints;
 
     component.recordStandardOutcome('service-error');
@@ -192,6 +190,7 @@ describe('CourtPage', () => {
     const passer = teamRoster.players()[2];
     teamRoster.players().forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
     matchEngine.startMatch('team');
+    component.recordOpponentPoint();
     component.activePlayer = 3;
     const before = matchState.state().opponentPoints;
 
@@ -200,6 +199,24 @@ describe('CourtPage', () => {
     expect(matchState.state().opponentPoints).toBe(before + 1);
     expect(component.liveStore.getPlayerStats(passer.id).receiveErrors).toBe(1);
     expect(component.getLastEventText()).toContain('Last: Receive Error · Player 3');
+  });
+
+  it('enables serve-specific actions only for the serving side', () => {
+    startMatchWithLineup();
+    fixture.detectChanges();
+
+    const disabled = (label: string) => ([...fixture.nativeElement.querySelectorAll('ion-button')]
+      .find((button: Element) => button.textContent?.trim() === label) as HTMLIonButtonElement).disabled;
+    expect(disabled('Ace')).toBeFalse();
+    expect(disabled('Service Error')).toBeFalse();
+    expect(disabled('Receive Error')).toBeTrue();
+
+    component.recordOpponentPoint();
+    component.activePlayer = 3;
+    fixture.detectChanges();
+    expect(disabled('Ace')).toBeTrue();
+    expect(disabled('Service Error')).toBeTrue();
+    expect(disabled('Receive Error')).toBeFalse();
   });
 
   it('tracks dig as a stat tap without changing the score', () => {

@@ -19,10 +19,14 @@ describe('match v2 Firestore adapter', () => {
 
   it('builds a session only from a schema-v2 game with a squad snapshot', () => {
     expect(sessionFromGame(game())).toEqual(
-      jasmine.objectContaining({ id: 'match-1', opponentName: 'Central High', squad }),
+      jasmine.objectContaining({ id: 'match-1', opponentName: 'Central High', matchFormat: 'best-of-3', squad }),
     );
     expect(sessionFromGame({ ...game(), schemaVersion: undefined })).toBeNull();
     expect(sessionFromGame({ ...game(), matchSquad: undefined })).toBeNull();
+  });
+
+  it('reads historical schema-v2 games without a Match Format as Best of 5', () => {
+    expect(sessionFromGame({ ...game(), matchFormat: undefined })?.matchFormat).toBe('best-of-5');
   });
 
   it('replays legacy event fields and converts the projection for existing services', () => {
@@ -132,6 +136,7 @@ describe('match v2 Firestore adapter', () => {
       writerGeneration: 1,
       matchSquad: squad,
       startingLineup: lineup,
+      matchFormat: 'best-of-3',
     };
   }
 

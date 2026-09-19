@@ -407,6 +407,28 @@ tbody th span {
   font-size: 1rem;
 }
 
+.attribution-correction {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--color-text-2);
+  font-size: 0.72rem;
+}
+
+.attribution-correction > span {
+  display: inline;
+}
+
+.attribution-correction select {
+  min-height: 36px;
+  max-width: 220px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  color: var(--color-text-1);
+}
+
 .missing-match {
   padding-top: 80px;
 }

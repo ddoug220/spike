@@ -149,12 +149,12 @@ describe('First-run mobile smoke flow', () => {
     court = harness.routeDebugElement?.componentInstance as CourtPage;
     expect(court.getPlayerForPosition(1)).toEqual(savedStarter);
 
-    for (let set = 1; set <= 3; set += 1) {
+    for (let set = 1; set <= 2; set += 1) {
       for (let point = 0; point < 25; point += 1) {
         court.activePlayer = 1;
         court.recordStandardOutcome('kill');
       }
-      if (set < 3) {
+      if (set < 2) {
         court.nextSetLineup = TestBed.inject(MatchEngineService).getNextSetDefaultLineup();
         court.startNextSet();
       }
@@ -162,7 +162,7 @@ describe('First-run mobile smoke flow', () => {
     harness.detectChanges();
 
     expect(court.isMatchOver).toBeTrue();
-    expect(court.gameState.teamSets).toBe(3);
+    expect(court.gameState.teamSets).toBe(2);
     expect(court.gameState.opponentSets).toBe(0);
 
     await harness.navigateByUrl('/history', HistoryPage);
@@ -173,7 +173,7 @@ describe('First-run mobile smoke flow', () => {
     expect(router.url).toBe('/history');
     expect(recap).toContain('vs Central High');
     expect(recap).toContain('Final');
-    expect(recap).toContain('3–0');
+    expect(recap).toContain('2–0');
     const matchId = TestBed.inject(OfflineSyncService).getActiveMatchId();
     const review = await harness.navigateByUrl(`/review/${matchId}`, ReviewPage);
     await harness.fixture.whenStable();

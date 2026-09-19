@@ -1,16 +1,9 @@
-import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const build = spawnSync(process.execPath, [
-  resolve(projectRoot, 'node_modules/@angular/cli/bin/ng.js'),
-  'build', '--configuration=production,offline-e2e', '--output-path=.angular/offline-e2e',
-], { cwd: projectRoot, stdio: 'inherit' });
-if (build.status !== 0) process.exit(build.status ?? 1);
-
 const buildRoot = resolve(projectRoot, '.angular/offline-e2e/browser');
 const contentTypes = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',

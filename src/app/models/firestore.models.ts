@@ -1,3 +1,5 @@
+import type { MatchFormat } from '../domain/match-v2/match-format';
+
 export type PrimaryPosition = 'S' | 'OH' | 'MB' | 'OPP' | 'L' | 'DS';
 export type TeamSide = 'team' | 'opponent';
 export type GameStatus = 'scheduled' | 'live' | 'final' | 'ended-early';
@@ -56,6 +58,7 @@ export interface Game {
   writerGeneration?: number;
   matchSquad?: GameSquadPlayer[];
   startingLineup?: Array<string | null>;
+  matchFormat?: MatchFormat;
 }
 
 export interface GameSet {
@@ -78,6 +81,7 @@ export interface Roster {
   gameId: string | null;
   lineup: Array<string | null>;
   squadPlayerIds?: string[];
+  matchFormat?: MatchFormat;
   createdAt: string;
   updatedAt: string;
 }
@@ -93,6 +97,7 @@ export type GameEventType =
   | 'substitution'
   | 'timeoutCalled'
   | 'manualRotation'
+  | 'playerAttributionCorrected'
   | 'undo';
 
 export interface GameEvent {
@@ -124,6 +129,7 @@ export interface GameEvent {
   inPlayerId?: string;
   timeoutTeam?: TeamSide;
   targetEventId?: string;
+  replacementPlayerId?: string;
   previousTeamRotation?: number;
   targetTeamRotation?: number;
   inferredServeInServerPlayerId?: string;
@@ -145,6 +151,7 @@ export interface GameEvent {
     | 'serve-corrected'
     | 'rotation-corrected'
     | 'match-ended-early'
+    | 'player-attribution-corrected'
     | 'undo';
   courtPosition?: number;
   setNumber?: number;

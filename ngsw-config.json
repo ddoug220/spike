@@ -9,5 +9,26 @@
         "files": ["/index.html", "/*.css", "/*.js", "/assets/**", "/media/**"]
       }
     }
+  ],
+  "dataGroups": [
+    {
+      "name": "google-font-styles",
+      "urls": ["https://fonts.googleapis.com/**"],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 4,
+        "maxAge": "30d",
+        "timeout": "3s"
+      }
+    },
+    {
+      "name": "google-font-files",
+      "urls": ["https://fonts.gstatic.com/**"],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 16,
+        "maxAge": "365d"
+      }
+    }
   ]
 }

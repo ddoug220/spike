@@ -18,6 +18,7 @@ describe('match v2 reducer', () => {
     ownerId: 'owner-1',
     teamId: 'team-1',
     opponentName: 'Central High',
+    matchFormat: 'best-of-5',
     squad: lineup.map((id, index) => ({
       id,
       name: `Player ${index + 1}`,
@@ -160,6 +161,31 @@ describe('match v2 reducer', () => {
     expect(fifthSet.completedSets[4].teamPoints).toBe(15);
   });
 
+  it('finishes Best of 3 after two set wins and uses 15 points in Set 3', () => {
+    const bestOfThree = { ...session, matchFormat: 'best-of-3' as const };
+    const straightSets: MatchEvent[] = [
+      start(1),
+      ...winSet(2, 'team', 1),
+      { ...eventBase(27), kind: 'set-started', setNumber: 2, lineup, servingTeam: 'team' },
+      ...winSet(28, 'team', 2),
+    ];
+    expect(reduceMatch(bestOfThree, straightSets).status).toBe('final');
+
+    const decidingSet: MatchEvent[] = [
+      start(1),
+      ...winSet(2, 'team', 1),
+      { ...eventBase(27), kind: 'set-started', setNumber: 2, lineup, servingTeam: 'team' },
+      ...winSet(28, 'opponent', 2),
+      { ...eventBase(53), kind: 'set-started', setNumber: 3, lineup, servingTeam: 'team' },
+      ...Array.from({ length: 14 }, (_, index) => rally(54 + index, 'opponent-error', undefined, undefined, undefined, 3)),
+    ];
+    expect(reduceMatch(bestOfThree, decidingSet).status).toBe('live');
+    decidingSet.push(rally(68, 'opponent-error', undefined, undefined, undefined, 3));
+    const final = reduceMatch(bestOfThree, decidingSet);
+    expect(final.status).toBe('final');
+    expect(final.completedSets[2].teamPoints).toBe(15);
+  });
+
   it('reopens a final match when an Undo tombstones the final rally', () => {
     const events: MatchEvent[] = [start(1)];
     let sequence = 2;
@@ -236,6 +262,38 @@ describe('match v2 reducer', () => {
     expect(stats.find((player) => player.playerId === 'p6')).toEqual(
       jasmine.objectContaining({ kills: 0, totalAttacks: 0 }),
     );
+  });
+
+  it('reassigns a player stat append-only, with the latest valid correction winning', () => {
+    const state = reduceMatch(session, [
+      start(1),
+      rally(2, 'kill', 'p1'),
+      { ...eventBase(3), kind: 'player-attribution-corrected', targetEventId: 'event-2', replacementPlayerId: 'p2' },
+      { ...eventBase(4), kind: 'player-attribution-corrected', targetEventId: 'event-2', replacementPlayerId: 'p3' },
+    ]);
+
+    expect(state.teamPoints).toBe(1);
+    expect(state.rallies[0]).toEqual(jasmine.objectContaining({ playerId: 'p3', action: 'kill' }));
+    expect(selectPlayerCountStats(state).find((player) => player.playerId === 'p3')?.kills).toBe(1);
+    expect(selectPlayerCountStats(state).find((player) => player.playerId === 'p1')?.kills).toBe(0);
+  });
+
+  it('ignores corrections for team actions, unknown players, and undone targets', () => {
+    const state = reduceMatch(session, [
+      start(1),
+      rally(2, 'opponent-error'),
+      { ...eventBase(3), kind: 'player-attribution-corrected', targetEventId: 'event-2', replacementPlayerId: 'p2' },
+      rally(4, 'kill', 'p1'),
+      { ...eventBase(5), kind: 'undo', targetEventId: 'event-4' },
+      { ...eventBase(6), kind: 'player-attribution-corrected', targetEventId: 'event-4', replacementPlayerId: 'p2' },
+      { ...eventBase(7), kind: 'player-attribution-corrected', targetEventId: 'event-2', replacementPlayerId: 'outside-squad' },
+    ]);
+
+    expect(state.teamPoints).toBe(1);
+    expect(state.rallies).toEqual([jasmine.objectContaining({ eventId: 'event-2', playerId: undefined })]);
+    expect(state.appliedEventIds).not.toContain('event-3');
+    expect(state.appliedEventIds).not.toContain('event-6');
+    expect(state.appliedEventIds).not.toContain('event-7');
   });
 
   function start(sequence: number, servingTeam: TeamSide = 'team'): MatchEvent {

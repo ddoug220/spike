@@ -200,9 +200,11 @@ for (const width of [1024, 375]) {
   });
 }
 
-test('device storage failure is visible, scoring continues, and Retry preserves the match through refresh', async ({ page }) => {
+test('device storage failure blocks scoring until Retry Save records the intended action once', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await setUpMatch(page);
+  await page.getByRole('button', { name: 'Start Match' }).click();
+  await expect(page).toHaveURL(/\/court$/);
   await page.evaluate(() => {
     const originalSetItem = Storage.prototype.setItem;
     (window as Window & { restoreDeviceStorage?: () => void }).restoreDeviceStorage = () => {
@@ -211,17 +213,17 @@ test('device storage failure is visible, scoring continues, and Retry preserves 
     Storage.prototype.setItem = () => { throw new DOMException('Device storage is full', 'QuotaExceededError'); };
   });
 
-  await page.getByRole('button', { name: 'Start Match' }).click();
-  await expect(page).toHaveURL(/\/court$/);
-  await expect(page.locator('.device-save-error')).toContainText('Unsynced changes may be lost if you refresh');
   await scoreKill(page);
-  await expect(page.locator('.score-side.home .score-points')).toHaveText('1');
+  await expect(page.locator('.device-save-error')).toContainText('was not recorded');
+  await expect(page.locator('.score-side.home .score-points')).toHaveText('0');
+  await expect(page.getByRole('button', { name: 'Kill - awards point' })).toBeDisabled();
 
   await page.evaluate(() => {
     (window as Window & { restoreDeviceStorage?: () => void }).restoreDeviceStorage?.();
   });
   await page.locator('app-equipment-rail').getByRole('button', { name: 'Retry', exact: true }).click();
   await expect(page.locator('.device-save-error')).toHaveCount(0);
+  await expect(page.locator('.score-side.home .score-points')).toHaveText('1');
   await page.reload();
   await expect(page).toHaveURL(/\/court$/);
   await expect(page.locator('.score-side.home .score-points')).toHaveText('1');
@@ -239,6 +241,7 @@ test('a full match preserves roster, substitutions, timeouts, and set stats acro
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.goto('/pre-match');
   await page.getByLabel('Opponent').fill('Central High');
+  await page.getByRole('radio', { name: 'Best of 5' }).click();
   await page.getByRole('button', { name: 'Start Match' }).click();
   await expect(page).toHaveURL(/\/court$/);
   const offlineCachingEnabled = await page.locator('app-court .offline-state').count() > 0;

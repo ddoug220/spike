@@ -54,6 +54,26 @@
           >Opponent</button>
         </div>
       </div>
+
+      <div class="serve-field" role="radiogroup" aria-label="Match format">
+        <span>Match Format</span>
+        <div>
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="matchFormat === 'best-of-3'"
+            [ngClass]="{ active: matchFormat === 'best-of-3' }"
+            (click)="setMatchFormat('best-of-3')"
+          >Best of 3</button>
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="matchFormat === 'best-of-5'"
+            [ngClass]="{ active: matchFormat === 'best-of-5' }"
+            (click)="setMatchFormat('best-of-5')"
+          >Best of 5</button>
+        </div>
+      </div>
     </section>
 
     <div class="setup-grid">

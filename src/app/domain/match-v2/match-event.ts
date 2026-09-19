@@ -1,3 +1,5 @@
+import type { MatchFormat } from './match-format';
+
 export const MATCH_SCHEMA_VERSION = 2 as const;
 
 export type TeamSide = 'team' | 'opponent';
@@ -21,6 +23,7 @@ export interface MatchSession {
   teamId: string;
   teamName?: string;
   opponentName: string;
+  matchFormat: MatchFormat;
   squad: readonly MatchPlayer[];
   createdAt: string;
 }
@@ -103,6 +106,12 @@ export interface MatchEndedEarlyEvent extends MatchEventBase {
   kind: 'match-ended-early';
 }
 
+export interface PlayerAttributionCorrectedEvent extends MatchEventBase {
+  kind: 'player-attribution-corrected';
+  targetEventId: string;
+  replacementPlayerId: string;
+}
+
 export interface UndoEvent extends MatchEventBase {
   kind: 'undo';
   targetEventId: string;
@@ -118,6 +127,7 @@ export type MatchEvent =
   | ServeCorrectedEvent
   | RotationCorrectedEvent
   | MatchEndedEarlyEvent
+  | PlayerAttributionCorrectedEvent
   | UndoEvent;
 
 export function rallyWinner(action: RallyAction): TeamSide {

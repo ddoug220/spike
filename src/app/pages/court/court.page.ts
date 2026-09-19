@@ -149,7 +149,7 @@ export class CourtPage {
 
   @HostListener('document:keydown', ['$event'])
   handleGlobalKeydown(event: KeyboardEvent): void {
-    if (this.isMatchOver) {
+    if (this.isMatchOver || this.scoringBlocked) {
       return;
     }
 
@@ -200,7 +200,11 @@ export class CourtPage {
   }
 
   get canUndo(): boolean {
-    return this.matchEngine.canUndoLastEvent(this.liveStore.events());
+    return !this.scoringBlocked && this.matchEngine.canUndoLastEvent(this.liveStore.events());
+  }
+
+  get scoringBlocked(): boolean {
+    return this.offlineSync.mutationBlocked();
   }
 
   get isSubOverlayOpen(): boolean {
@@ -299,7 +303,7 @@ export class CourtPage {
   }
 
   handleBenchPlayerTap(playerId: string): void {
-    if (!this.isSubOverlayOpen || this.isMatchOver) {
+    if (!this.isSubOverlayOpen || this.isMatchOver || this.scoringBlocked) {
       return;
     }
 
@@ -323,26 +327,27 @@ export class CourtPage {
   }
 
   endMatch(): void {
+    if (this.scoringBlocked) return;
     this.matchEngine.endMatch();
   }
 
   recordAction(action: QuickAction): void {
-    if (this.isMatchOver) {
+    if (this.isMatchOver || this.scoringBlocked) {
       return;
     }
 
-    if (action !== 'opponent-error' && this.activePlayer === null) {
+    if (this.requiresPlayerAttribution(action) && this.activePlayer === null) {
       return;
     }
 
-    const selectedPosition = this.activePlayer ?? 1;
+    const selectedPosition = action === 'ace' || action === 'service-error' ? 1 : this.activePlayer ?? 1;
     this.matchEngine.recordPlayerAction(selectedPosition, action);
     this.activePlayer = null;
     this.prepareNextSetDraft();
   }
 
   recordOpponentPoint(): void {
-    if (this.isMatchOver) {
+    if (this.isMatchOver || this.scoringBlocked) {
       return;
     }
 
@@ -352,6 +357,7 @@ export class CourtPage {
   }
 
   undoLastAction(): void {
+    if (this.scoringBlocked) return;
     this.matchEngine.undoLastEvent(this.liveStore.events());
     this.activePlayer = null;
   }
@@ -465,7 +471,7 @@ export class CourtPage {
   }
 
   setServingTeam(team: 'team' | 'opponent'): void {
-    if (this.isMatchOver) {
+    if (this.isMatchOver || this.scoringBlocked) {
       return;
     }
 
@@ -473,7 +479,7 @@ export class CourtPage {
   }
 
   callTimeout(team: 'team' | 'opponent'): void {
-    if (this.isMatchOver) {
+    if (this.isMatchOver || this.scoringBlocked) {
       return;
     }
 
@@ -481,7 +487,7 @@ export class CourtPage {
   }
 
   manualRotate(): void {
-    if (this.isMatchOver) {
+    if (this.isMatchOver || this.scoringBlocked) {
       return;
     }
 
@@ -489,7 +495,7 @@ export class CourtPage {
   }
 
   openMatchControls(): void {
-    if (!this.isMatchOver) {
+    if (!this.isMatchOver && !this.scoringBlocked) {
       this.isMatchControlsOpen = true;
     }
   }
@@ -499,10 +505,12 @@ export class CourtPage {
   }
 
   manualRotateTo(rotation: number): void {
+    if (this.scoringBlocked) return;
     this.matchEngine.manualRotateTeamTo(rotation);
   }
 
   endMatchEarly(): void {
+    if (this.scoringBlocked) return;
     const confirmed = typeof window === 'undefined' || window.confirm('End this match early? It will have no final result.');
     if (!confirmed) {
       return;
@@ -640,7 +648,7 @@ export class CourtPage {
 
   get canStartNextSet(): boolean {
     const assigned = this.nextSetLineup.filter((playerId): playerId is string => typeof playerId === 'string');
-    return assigned.length === 6 && new Set(assigned).size === 6;
+    return !this.scoringBlocked && assigned.length === 6 && new Set(assigned).size === 6;
   }
 
   setNextSetPlayer(position: number, playerId: string): void {
@@ -715,8 +723,14 @@ export class CourtPage {
     return 'Record one action. Player selection clears after the tap.';
   }
 
-  requiresPlayerAttribution(action: StandardOutcomeAction): boolean {
-    return action !== 'opponent-error' && action !== 'opponent-point';
+  requiresPlayerAttribution(action: StatsAction | 'opponent-point'): boolean {
+    return action !== 'opponent-error' && action !== 'opponent-point' && action !== 'ace' && action !== 'service-error';
+  }
+
+  isActionAvailableForServe(action: StandardOutcomeAction): boolean {
+    if (action === 'ace' || action === 'service-error') return this.gameState.servingTeam === 'team';
+    if (action === 'receive-error') return this.gameState.servingTeam === 'opponent';
+    return true;
   }
 
   get rotationIndicatorText(): string {

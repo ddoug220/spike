@@ -9,6 +9,7 @@ import {
   type TeamSide,
   rallyWinner,
 } from './match-event';
+import { setPointTarget, setsToWin } from './match-format';
 
 export type MatchStatus = 'scheduled' | 'live' | 'set-break' | 'final' | 'ended-early';
 
@@ -186,6 +187,24 @@ function applyEvent(state: MatchProjection, event: Exclude<MatchEvent, { kind: '
     case 'match-ended-early':
       if (state.status !== 'live' && state.status !== 'set-break') return state;
       return applied(state, event.id, { status: 'ended-early' });
+    case 'player-attribution-corrected': {
+      if (!state.session.squad.some((player) => player.id === event.replacementPlayerId)) return state;
+      const rally = state.rallies.find((item) => item.eventId === event.targetEventId && item.playerId);
+      const observation = state.observations.find((item) => item.eventId === event.targetEventId);
+      if (!rally && !observation) return state;
+      return applied(state, event.id, {
+        rallies: rally
+          ? state.rallies.map((item) => item.eventId === event.targetEventId
+            ? { ...item, playerId: event.replacementPlayerId }
+            : item)
+          : state.rallies,
+        observations: observation
+          ? state.observations.map((item) => item.eventId === event.targetEventId
+            ? { ...item, playerId: event.replacementPlayerId }
+            : item)
+          : state.observations,
+      });
+    }
   }
 }
 
@@ -224,14 +243,16 @@ function applyRally(state: MatchProjection, event: RallyOutcomeEvent): MatchProj
     rallies: [...state.rallies, rally],
   });
 
-  if (!hasSetWinner(state.currentSet, teamPoints, opponentPoints)) return next;
+  if (!hasSetWinner(state.session.matchFormat, state.currentSet, teamPoints, opponentPoints)) return next;
 
   const setWinner: TeamSide = teamPoints > opponentPoints ? 'team' : 'opponent';
   const teamSets = state.teamSets + (setWinner === 'team' ? 1 : 0);
   const opponentSets = state.opponentSets + (setWinner === 'opponent' ? 1 : 0);
   return {
     ...next,
-    status: teamSets === 3 || opponentSets === 3 ? 'final' : 'set-break',
+    status: teamSets === setsToWin(state.session.matchFormat) || opponentSets === setsToWin(state.session.matchFormat)
+      ? 'final'
+      : 'set-break',
     teamSets,
     opponentSets,
     completedSets: [
@@ -249,8 +270,13 @@ function applied(
   return { ...state, ...changes, appliedEventIds: [...state.appliedEventIds, eventId] };
 }
 
-function hasSetWinner(setNumber: number, teamPoints: number, opponentPoints: number): boolean {
-  const target = setNumber === 5 ? 15 : 25;
+function hasSetWinner(
+  format: MatchSession['matchFormat'],
+  setNumber: number,
+  teamPoints: number,
+  opponentPoints: number,
+): boolean {
+  const target = setPointTarget(format, setNumber);
   return Math.max(teamPoints, opponentPoints) >= target && Math.abs(teamPoints - opponentPoints) >= 2;
 }
 

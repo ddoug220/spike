@@ -15,6 +15,7 @@ import { MatchEngineService } from '../../services/match-engine.service';
 import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { PrimaryPosition, RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
+import type { MatchFormat } from '../../domain/match-v2';
 
 interface CourtSlot {
   position: number;
@@ -141,10 +142,21 @@ export class PreMatchPage {
   }
 
   get canStartMatch(): boolean {
-    return this.hasOpponent && this.isLineupReady;
+    return this.hasOpponent && this.isLineupReady && !this.offlineSync.mutationBlocked();
+  }
+
+  get matchFormat(): MatchFormat {
+    return this.teamRoster.matchDefaults().matchFormat;
+  }
+
+  setMatchFormat(matchFormat: MatchFormat): void {
+    this.teamRoster.setMatchFormat(matchFormat);
   }
 
   get startMatchDisabledReason(): string {
+    if (this.offlineSync.mutationBlocked()) {
+      return 'Retry the device save before starting the match';
+    }
     if (!this.hasOpponent) {
       return 'Enter the opponent name';
     }
@@ -358,7 +370,13 @@ export class PreMatchPage {
       return;
     }
 
-    this.matchEngine.startMatch(this.firstServeTeam, { opponentName: this.opponentName.trim() });
+    const result = this.matchEngine.startMatch(this.firstServeTeam, {
+      opponentName: this.opponentName.trim(),
+      matchFormat: this.matchFormat,
+    });
+    if (!result.ok) {
+      return;
+    }
     await this.router.navigate(['/court']);
   }
 }

@@ -49,10 +49,9 @@
           <span>R{{ rotation.rotation }}</span>
           <strong>{{ formatRate(rotation.rate) }}</strong>
           <small>{{ rotation.wins }}/{{ rotation.rallies }} rallies won</small>
-          <em *ngIf="rotation.comparison">{{ rotation.comparison }}</em>
         </div>
       </div>
-      <p class="threshold-note">Strongest and weakest labels require at least 5 rallies in two rotations.</p>
+      <p class="threshold-note">Match-wide across sets and submitted lineups; each rotation can contain different players.</p>
     </section>
 
     <section *ngIf="match.leaders.length > 0" aria-labelledby="leaders-title">
@@ -92,6 +91,12 @@
             <span>
               <strong>{{ event.title }}</strong>
               <small>{{ event.context }}</small>
+              <label *ngIf="event.correctable && canCorrectAttribution" class="attribution-correction">
+                <span>Attributed player</span>
+                <select [value]="event.playerId" (change)="correctAttribution(event.id, event.playerId, $event)">
+                  <option *ngFor="let player of projection?.session?.squad" [value]="player.id">#{{ player.jerseyNumber }} {{ player.name }}</option>
+                </select>
+              </label>
             </span>
           </li>
         </ol>

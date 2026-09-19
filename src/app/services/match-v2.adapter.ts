@@ -2,6 +2,7 @@ import type { Game, GameEvent } from '../models/firestore.models';
 import type { MatchScoreState } from './match-state.service';
 import type { PlayerStatLine, SetStatsState, StatsState } from './match-stats.service';
 import {
+  LEGACY_MATCH_FORMAT,
   MATCH_SCHEMA_VERSION,
   type CourtPosition,
   type Lineup,
@@ -30,6 +31,7 @@ export function sessionFromGame(game: Game): MatchSession | null {
     teamId: game.teamId,
     teamName: game.teamName,
     opponentName: game.opponentName,
+    matchFormat: game.matchFormat ?? LEGACY_MATCH_FORMAT,
     squad: game.matchSquad.map((player) => ({ ...player })),
     createdAt: game.createdAt,
   };
@@ -198,6 +200,10 @@ function toDomainEvent(
     }
     case 'match-ended-early':
       return { ...base, kind };
+    case 'player-attribution-corrected':
+      return event.targetEventId && event.replacementPlayerId
+        ? { ...base, kind, targetEventId: event.targetEventId, replacementPlayerId: event.replacementPlayerId }
+        : null;
     case 'undo':
       return event.targetEventId ? { ...base, kind, targetEventId: event.targetEventId } : null;
     default:
@@ -225,6 +231,8 @@ function legacyKind(event: GameEvent): GameEvent['eventKind'] | null {
       return 'rotation-corrected';
     case 'matchEndedEarly':
       return 'match-ended-early';
+    case 'playerAttributionCorrected':
+      return 'player-attribution-corrected';
     case 'undo':
       return 'undo';
     case 'matchEnded':

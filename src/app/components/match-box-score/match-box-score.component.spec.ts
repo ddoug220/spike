@@ -7,7 +7,7 @@ describe('MatchBoxScoreComponent', () => {
     await TestBed.configureTestingModule({ imports: [MatchBoxScoreComponent] }).compileComponents();
     const squad = Array.from({ length: 7 }, (_, index) => ({ id: `p${index + 1}`, name: `Player ${index + 1}`, jerseyNumber: index + 1, primaryPosition: 'OH' as const }));
     const lineup = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'] as const;
-    const session: MatchSession = { schemaVersion: 2, id: 'match', ownerId: 'owner', teamId: 'team', opponentName: 'Central', createdAt: '2026-09-17', squad };
+    const session: MatchSession = { schemaVersion: 2, id: 'match', ownerId: 'owner', teamId: 'team', opponentName: 'Central', matchFormat: 'best-of-3', createdAt: '2026-09-17', squad };
     const events: MatchEvent[] = [];
     const base = (setNumber: 1 | 2 = 1) => ({ schemaVersion: 2 as const, id: `e${events.length + 1}`, matchId: 'match', ownerId: 'owner', sequence: events.length + 1, writerGeneration: 1, occurredAt: '2026-09-17', setNumber });
     events.push({ ...base(), kind: 'match-started', lineup, servingTeam: 'team' });

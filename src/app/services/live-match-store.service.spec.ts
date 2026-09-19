@@ -155,7 +155,10 @@ describe('LiveMatchStoreService', () => {
     }
     const players = teamRoster.players();
     players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
-    const matchId = engine.startMatch('team');
+    const startResult = engine.startMatch('team');
+    expect(startResult.ok).toBeTrue();
+    if (!startResult.ok) throw new Error(startResult.error);
+    const matchId = startResult.value;
     store.syncActiveGame();
     const savedPlayer = offlineSync.getGame(matchId)!.matchSquad![0];
 

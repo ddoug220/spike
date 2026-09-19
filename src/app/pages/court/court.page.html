@@ -167,7 +167,7 @@
               class="action-btn"
               [ngClass]="action.accent"
               (click)="recordStandardOutcome(action.id)"
-              [disabled]="isMatchOver || (requiresPlayerAttribution(action.id) && activePlayer === null)"
+              [disabled]="isMatchOver || scoringBlocked || !isActionAvailableForServe(action.id) || (requiresPlayerAttribution(action.id) && activePlayer === null)"
               [attr.aria-label]="action.label + ' - awards point'"
             >
               <ion-icon [name]="action.icon" slot="start" aria-hidden="true"></ion-icon>
@@ -183,7 +183,7 @@
               class="action-btn stat-only-btn"
               [ngClass]="action.accent"
               (click)="recordAction(action.id)"
-              [disabled]="isMatchOver || activePlayer === null"
+              [disabled]="isMatchOver || scoringBlocked || activePlayer === null"
               [attr.aria-label]="action.label + ' - stat only, no point'"
             >
               <ion-icon [name]="action.icon" slot="start" aria-hidden="true"></ion-icon>
@@ -199,7 +199,7 @@
             class="sub-mode-btn"
             [ngClass]="{ active: isSubOverlayOpen }"
             (click)="toggleSubMode()"
-            [disabled]="isMatchOver"
+            [disabled]="isMatchOver || scoringBlocked"
             [attr.aria-label]="isSubOverlayOpen ? 'Close substitution panel (Escape)' : 'Open substitution panel (S)'"
             [attr.aria-expanded]="isSubOverlayOpen"
             aria-keyshortcuts="s Escape"
@@ -212,7 +212,7 @@
             fill="outline"
             class="controls-btn"
             (click)="openMatchControls()"
-            [disabled]="isMatchOver"
+            [disabled]="isMatchOver || scoringBlocked"
           >
             Match Controls
           </ion-button>
@@ -332,8 +332,8 @@
       <span>{{ gameState.servingTeam === 'team' ? teamDisplayName : opponentName }} serving</span>
     </div>
     <div class="control-options">
-      <button type="button" [class.active]="gameState.servingTeam === 'team'" (click)="setServingTeam('team')">{{ teamDisplayName }}</button>
-      <button type="button" [class.active]="gameState.servingTeam === 'opponent'" (click)="setServingTeam('opponent')">{{ opponentName }}</button>
+      <button type="button" [class.active]="gameState.servingTeam === 'team'" [disabled]="scoringBlocked" (click)="setServingTeam('team')">{{ teamDisplayName }}</button>
+      <button type="button" [class.active]="gameState.servingTeam === 'opponent'" [disabled]="scoringBlocked" (click)="setServingTeam('opponent')">{{ opponentName }}</button>
     </div>
   </div>
 
@@ -347,7 +347,7 @@
         *ngFor="let rotation of rotationChoices"
         type="button"
         [class.active]="rotation === gameState.teamRotation"
-        [disabled]="rotation === gameState.teamRotation"
+        [disabled]="scoringBlocked || rotation === gameState.teamRotation"
         (click)="manualRotateTo(rotation)"
       >R{{ rotation }}</button>
     </div>
@@ -359,12 +359,12 @@
       <span>{{ teamDisplayName }} {{ gameState.teamTimeoutsRemaining }} · {{ opponentName }} {{ gameState.opponentTimeoutsRemaining }}</span>
     </div>
     <div class="control-options">
-      <button type="button" [disabled]="gameState.teamTimeoutsRemaining === 0" (click)="callTimeout('team')">Our timeout</button>
-      <button type="button" [disabled]="gameState.opponentTimeoutsRemaining === 0" (click)="callTimeout('opponent')">Opponent timeout</button>
+      <button type="button" [disabled]="scoringBlocked || gameState.teamTimeoutsRemaining === 0" (click)="callTimeout('team')">Our timeout</button>
+      <button type="button" [disabled]="scoringBlocked || gameState.opponentTimeoutsRemaining === 0" (click)="callTimeout('opponent')">Opponent timeout</button>
     </div>
   </div>
 
-  <button type="button" class="end-early-control" (click)="endMatchEarly()">End Match Early</button>
+  <button type="button" class="end-early-control" [disabled]="scoringBlocked" (click)="endMatchEarly()">End Match Early</button>
 </section>
 
 <ion-action-sheet

@@ -318,13 +318,16 @@ describe('PreMatchPage', () => {
     });
     component.opponentName = ' Central High ';
     component.setFirstServeTeam('opponent');
-    spyOn(matchEngine, 'startMatch').and.returnValue('game-test');
+    spyOn(matchEngine, 'startMatch').and.returnValue({ ok: true, value: 'game-test' });
     spyOn(router, 'navigate').and.resolveTo(true);
 
     await component.startMatch();
     teamRoster.rotateLineupClockwise();
 
-    expect(matchEngine.startMatch).toHaveBeenCalledWith('opponent', { opponentName: 'Central High' });
+    expect(matchEngine.startMatch).toHaveBeenCalledWith('opponent', {
+      opponentName: 'Central High',
+      matchFormat: 'best-of-3',
+    });
     expect(teamRoster.matchDefaults().startingLineup).toEqual(players.map((player) => player.id));
     expect(teamRoster.lineup()[0]).toBe(players[1].id);
   });

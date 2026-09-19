@@ -4,6 +4,7 @@ import { Game, GameEvent } from '../../models/firestore.models';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { FirebaseDbService } from '../../services/firebase-db.service';
 import { ReviewPage } from './review.page';
+import { MatchEngineService } from '../../services/match-engine.service';
 
 describe('ReviewPage', () => {
   let fixture: ComponentFixture<ReviewPage>;
@@ -11,11 +12,14 @@ describe('ReviewPage', () => {
   let writerConflictCount: number;
   let isCurrentScoringDevice: boolean;
   let activeMatchId: string;
+  let localEvents: GameEvent[];
+  let correctPlayerAttribution: jasmine.Spy;
 
   beforeEach(async () => {
     writerConflictCount = 0;
     isCurrentScoringDevice = true;
     activeMatchId = 'match-live';
+    correctPlayerAttribution = jasmine.createSpy('correctPlayerAttribution').and.returnValue({ ok: true, value: 'correction' });
     const game: Game = {
       id: 'match-live', ownerId: 'owner-1', teamId: 'team-1', opponentName: 'Central High', status: 'live',
       servingTeam: 'team', teamPoints: 7, opponentPoints: 5, teamSets: 1, opponentSets: 0, currentSet: 2,
@@ -29,18 +33,20 @@ describe('ReviewPage', () => {
       })),
       startingLineup: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
     };
+    localEvents = [{
+      id: 'start', ownerId: 'owner-1', gameId: 'match-live', type: 'matchStarted', action: 'match-started',
+      eventKind: 'match-started', lineup: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'], servingTeam: 'team',
+      createdAt: '2026-02-10T10:00:00.000Z', isDeleted: false, schemaVersion: 2, sequence: 1, writerGeneration: 1,
+    }];
     const offlineSync = {
       getActiveMatchId: () => activeMatchId, getGame: () => game, getMatchSummaries: () => [],
-      getMatchEvents: () => [{
-        id: 'start', ownerId: 'owner-1', gameId: 'match-live', type: 'matchStarted', action: 'match-started',
-        eventKind: 'match-started', lineup: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'], servingTeam: 'team',
-        createdAt: '2026-02-10T10:00:00.000Z', isDeleted: false, schemaVersion: 2, sequence: 1, writerGeneration: 1,
-      }], getPlayerSetStats: () => [],
+      getMatchEvents: () => localEvents, getPlayerSetStats: () => [],
       isCurrentScoringDevice: () => isCurrentScoringDevice,
       cacheRemoteGame: () => undefined,
       cacheRemoteEvents: () => undefined,
       getWriterConflictCount: () => writerConflictCount,
       takeOverScoring: async () => false,
+      mutationBlocked: () => false,
     };
     const firebaseDb = {
       subscribeGame: (_matchId: string, callback: (value: Game | null) => void) => {
@@ -60,6 +66,7 @@ describe('ReviewPage', () => {
         provideRouter([]),
         { provide: OfflineSyncService, useValue: offlineSync },
         { provide: FirebaseDbService, useValue: firebaseDb },
+        { provide: MatchEngineService, useValue: { correctPlayerAttribution } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ matchId: 'match-live' }) } } },
       ],
     }).compileComponents();
@@ -108,5 +115,24 @@ describe('ReviewPage', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Take over scoring');
+  });
+
+  it('offers an append-only player correction only on the current scoring device', () => {
+    localEvents.push({
+      id: 'point', ownerId: 'owner-1', gameId: 'match-live', type: 'playerAction', action: 'kill',
+      eventKind: 'rally-outcome', playerId: 'p1', rallyId: 'r1', servingTeamBefore: 'team', teamRotationBefore: 1,
+      createdAt: '2026-02-10T10:01:00.000Z', isDeleted: false, schemaVersion: 2, sequence: 2, writerGeneration: 1,
+    });
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('.attribution-correction select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    select.value = 'p2';
+    select.dispatchEvent(new Event('change'));
+    expect(correctPlayerAttribution).toHaveBeenCalledWith('match-live', 'point', 'p2');
+
+    isCurrentScoringDevice = false;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attribution-correction')).toBeNull();
   });
 });

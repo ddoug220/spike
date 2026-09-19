@@ -36,7 +36,7 @@ describe('buildMatchReview', () => {
     expect(review?.leaders[1]).toEqual({ label: 'Digs', count: 1, players: '#1 Player 1' });
   });
 
-  it('labels strongest and weakest rotations only after five rallies each', () => {
+  it('reports factual rotation rates without ranking labels', () => {
     const events: GameEvent[] = [
       event(1, { type: 'matchStarted', action: 'match-started', eventKind: 'match-started', lineup }),
     ];
@@ -50,8 +50,8 @@ describe('buildMatchReview', () => {
 
     const review = buildMatchReview(game(), events);
 
-    expect(review?.rotations[0].comparison).toBe('Strongest');
-    expect(review?.rotations[1].comparison).toBe('Weakest');
+    expect(review?.rotations[0]).toEqual({ rotation: 1, wins: 5, rallies: 5, rate: 1 });
+    expect(review?.rotations[1]).toEqual({ rotation: 2, wins: 0, rallies: 5, rate: 0 });
   });
 
   it('removes an undone rally from every review total', () => {
@@ -64,6 +64,26 @@ describe('buildMatchReview', () => {
     expect(review?.teamPoints).toBe(0);
     expect(review?.boxScore[0].kills).toBe(0);
     expect(review?.timeline.map((item) => item.id)).not.toContain('event-2');
+  });
+
+  it('shows the corrected player while retaining the appended correction in the timeline', () => {
+    const review = buildMatchReview(game(), [
+      event(1, { type: 'matchStarted', action: 'match-started', eventKind: 'match-started', lineup }),
+      event(2, { type: 'playerAction', action: 'kill', eventKind: 'rally-outcome', playerId: 'p1', rallyId: 'r1' }),
+      event(3, {
+        type: 'playerAttributionCorrected', action: 'player-attribution-corrected',
+        eventKind: 'player-attribution-corrected', targetEventId: 'event-2', replacementPlayerId: 'p2',
+      }),
+    ]);
+
+    expect(review?.boxScore.find((row) => row.playerId === 'p1')?.kills).toBe(0);
+    expect(review?.boxScore.find((row) => row.playerId === 'p2')?.kills).toBe(1);
+    expect(review?.timeline.find((item) => item.id === 'event-2')).toEqual(jasmine.objectContaining({
+      title: 'Kill · #2 Player 2',
+      playerId: 'p2',
+      correctable: true,
+    }));
+    expect(review?.timeline.find((item) => item.id === 'event-3')?.title).toBe('Player attribution corrected');
   });
 
   it('keeps non-rally timeline events in the set where they occurred', () => {

@@ -10,6 +10,7 @@ import { MatchReviewData, buildMatchReview } from './review-data';
 import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 import { MatchBoxScoreComponent } from '../../components/match-box-score/match-box-score.component';
 import { projectionFromFirestore } from '../../services/match-v2.adapter';
+import { MatchEngineService } from '../../services/match-engine.service';
 
 @Component({
   selector: 'app-review',
@@ -28,6 +29,7 @@ export class ReviewPage implements OnDestroy {
     route: ActivatedRoute,
     private readonly offlineSync: OfflineSyncService,
     private readonly firebaseDb: FirebaseDbService,
+    private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
     this.matchId = route.snapshot.paramMap.get('matchId') ?? '';
@@ -75,6 +77,18 @@ export class ReviewPage implements OnDestroy {
 
   get writerConflictCount(): number {
     return this.offlineSync.getWriterConflictCount(this.matchId);
+  }
+
+  get canCorrectAttribution(): boolean {
+    return !!this.projection &&
+      this.offlineSync.isCurrentScoringDevice(this.matchId) &&
+      !this.offlineSync.mutationBlocked();
+  }
+
+  correctAttribution(targetEventId: string, currentPlayerId: string | null, domEvent: Event): void {
+    const replacementPlayerId = (domEvent.target as HTMLSelectElement).value;
+    if (!replacementPlayerId || replacementPlayerId === currentPlayerId || !this.canCorrectAttribution) return;
+    this.matchEngine.correctPlayerAttribution(this.matchId, targetEventId, replacementPlayerId);
   }
 
   async takeOver(): Promise<void> {

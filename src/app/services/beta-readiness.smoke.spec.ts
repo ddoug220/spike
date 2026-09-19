@@ -69,7 +69,10 @@ describe('Beta readiness smoke flow', () => {
     teamRoster.players().forEach((player) => teamRoster.setMatchSquadPlayer(player.id, true));
     teamRoster.players().slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
 
-    const matchId = matchEngine.startMatch('team', { opponentName: 'Central High' });
+    const startResult = matchEngine.startMatch('team', { opponentName: 'Central High' });
+    expect(startResult.ok).toBeTrue();
+    if (!startResult.ok) throw new Error(startResult.error);
+    const matchId = startResult.value;
     matchEngine.recordPlayerAction(1, 'kill');
     matchEngine.recordSubstitution(teamRoster.players()[0].id, teamRoster.players()[6].id);
     matchEngine.undoLastEvent();

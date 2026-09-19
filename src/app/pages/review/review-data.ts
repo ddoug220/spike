@@ -13,7 +13,6 @@ export interface ReviewRate {
   wins: number;
   rallies: number;
   rate: number | null;
-  comparison: 'Strongest' | 'Weakest' | null;
 }
 
 export interface ReviewLeader {
@@ -49,6 +48,8 @@ export interface ReviewTimelineItem {
   createdAt: string;
   title: string;
   context: string;
+  playerId: string | null;
+  correctable: boolean;
 }
 
 export interface MatchReviewData {
@@ -133,21 +134,11 @@ function buildBoxScore(match: MatchProjection): ReviewBoxRow[] {
 
 function buildRotationRates(match: MatchProjection): ReviewRate[] {
   const rates = selectRotationRallyWinRates(match);
-  const rows: ReviewRate[] = ([1, 2, 3, 4, 5, 6] as const).map((rotation) => ({
+  return ([1, 2, 3, 4, 5, 6] as const).map((rotation) => ({
     rotation,
     wins: rates[rotation].won,
     rallies: rates[rotation].total,
     rate: ratio(rates[rotation].won, rates[rotation].total),
-    comparison: null,
-  }));
-  const qualified = rows.filter((row) => row.rallies >= 5 && row.rate !== null);
-  const values = qualified.map((row) => row.rate as number);
-  if (qualified.length < 2 || new Set(values).size === 1) return rows;
-  const high = Math.max(...values);
-  const low = Math.min(...values);
-  return rows.map((row) => ({
-    ...row,
-    comparison: row.rallies < 5 ? null : row.rate === high ? 'Strongest' : row.rate === low ? 'Weakest' : null,
   }));
 }
 
@@ -185,6 +176,8 @@ function buildTimeline(match: MatchProjection, events: MatchEvent[]): ReviewTime
           createdAt: event.occurredAt,
           title: actionLabel(rally.action, player ? `#${player.jerseyNumber} ${player.name}` : null),
           context: `Set ${rally.setNumber} · R${rally.teamRotation} · ${rally.servingTeam === 'team' ? 'Team' : 'Opponent'} serving`,
+          playerId: rally.playerId ?? null,
+          correctable: !!rally.playerId,
         };
       }
       const observation = match.observations.find((item) => item.eventId === event.id);
@@ -195,6 +188,8 @@ function buildTimeline(match: MatchProjection, events: MatchEvent[]): ReviewTime
           createdAt: event.occurredAt,
           title: `Dig${player ? ` · #${player.jerseyNumber} ${player.name}` : ''}`,
           context: `Set ${observation.setNumber} · rally in progress`,
+          playerId: observation.playerId,
+          correctable: true,
         };
       }
       return {
@@ -202,6 +197,8 @@ function buildTimeline(match: MatchProjection, events: MatchEvent[]): ReviewTime
         createdAt: event.occurredAt,
         title: eventLabel(event),
         context: `Set ${event.setNumber ?? 1}`,
+        playerId: null,
+        correctable: false,
       };
     });
 }
@@ -215,6 +212,7 @@ function eventLabel(event: MatchEvent): string {
     case 'serve-corrected': return 'Serve corrected';
     case 'rotation-corrected': return `Rotation corrected to R${event.targetRotation}`;
     case 'match-ended-early': return 'Match ended early';
+    case 'player-attribution-corrected': return 'Player attribution corrected';
     case 'rally-outcome':
     case 'stat-observation':
     case 'undo': return 'Event';

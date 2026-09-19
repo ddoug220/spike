@@ -1,11 +1,13 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class OfflineReadinessService {
   readonly enabled = environment.production && typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
-  private readonly readySignal = signal(false);
-  readonly ready = this.readySignal.asReadonly();
+  private readonly shellReadySignal = signal(false);
+  private readonly rosterReadySignal = signal(false);
+  private readonly storageReadySignal = signal(true);
+  readonly ready = computed(() => this.shellReadySignal() && this.rosterReadySignal() && this.storageReadySignal());
 
   constructor() {
     if (this.enabled) {
@@ -18,7 +20,16 @@ export class OfflineReadinessService {
 
   get label(): string {
     if (this.ready()) return 'Ready offline';
+    if (this.shellReadySignal() && (!this.rosterReadySignal() || !this.storageReadySignal())) return 'Offline setup incomplete';
     return typeof navigator !== 'undefined' && !navigator.onLine ? 'Offline' : 'Preparing offline…';
+  }
+
+  setRosterDataReady(ready: boolean): void {
+    this.rosterReadySignal.set(ready);
+  }
+
+  setDeviceStorageReady(ready: boolean): void {
+    this.storageReadySignal.set(ready);
   }
 
   private async prepareCache(): Promise<void> {
@@ -35,7 +46,7 @@ export class OfflineReadinessService {
         if (!(await caches.match(path))) await fetch(path);
         return !!(await caches.match(path));
       }));
-      this.readySignal.set(cached.length > 0 && cached.every(Boolean));
+      this.shellReadySignal.set(cached.length > 0 && cached.every(Boolean));
     } catch {
       // Scoring remains available while offline startup is still being prepared.
     }

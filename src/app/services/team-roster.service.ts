@@ -3,7 +3,13 @@ import { Player, PrimaryPosition, Roster, Team } from '../models/firestore.model
 import { AuthService } from './auth.service';
 import { FirebaseDbService, TeamRosterSnapshot } from './firebase-db.service';
 import { OfflineSyncService } from './offline-sync.service';
+import { OfflineReadinessService } from './offline-readiness.service';
 import { RotationService } from './rotation.service';
+import {
+  DEFAULT_MATCH_FORMAT,
+  type MatchFormat,
+  isMatchFormat,
+} from '../domain/match-v2/match-format';
 
 export type { PrimaryPosition };
 
@@ -38,6 +44,7 @@ export interface LineupSlot {
 export interface MatchDefaults {
   squadPlayerIds: string[];
   startingLineup: Array<string | null>;
+  matchFormat: MatchFormat;
 }
 
 interface PersistedRosterState {
@@ -86,8 +93,10 @@ export class TeamRosterService {
     @Optional() private readonly offlineSync?: OfflineSyncService,
     @Optional() private readonly firebaseDb?: FirebaseDbService,
     @Optional() injector?: Injector,
+    @Optional() private readonly offlineReadiness?: OfflineReadinessService,
   ) {
     this.restore();
+    this.updateOfflineReadiness();
     if (injector) {
       effect(() => {
         const uid = this.auth.user()?.uid ?? null;
@@ -178,6 +187,7 @@ export class TeamRosterService {
         nextDefaults[teamId] = {
           squadPlayerIds: defaults.squadPlayerIds.filter((id) => id !== playerId),
           startingLineup: defaults.startingLineup.map((id) => (id === playerId ? null : id)),
+          matchFormat: defaults.matchFormat,
         };
       }
       return nextDefaults;
@@ -274,7 +284,12 @@ export class TeamRosterService {
     this.setCurrentMatchDefaults({
       squadPlayerIds: [...squad],
       startingLineup: defaults.startingLineup.map((id) => (id === playerId ? null : id)),
+      matchFormat: defaults.matchFormat,
     });
+  }
+
+  setMatchFormat(matchFormat: MatchFormat): void {
+    this.setCurrentMatchDefaults({ ...this.matchDefaults(), matchFormat });
   }
 
   assignMatchStarter(playerId: string, position: number): void {
@@ -335,6 +350,7 @@ export class TeamRosterService {
     this.setCurrentMatchDefaults({
       squadPlayerIds: availableSquadIds,
       startingLineup: reusableLineup,
+      matchFormat: this.matchDefaults().matchFormat,
     });
   }
 
@@ -463,6 +479,7 @@ export class TeamRosterService {
       window.localStorage.setItem(this.ownerKey(), JSON.stringify(state));
     }
     if (syncScope) this.syncToFirebase(syncScope);
+    this.updateOfflineReadiness();
   }
 
   private restore(): void {
@@ -509,10 +526,22 @@ export class TeamRosterService {
     this.matchDefaultsByTeamSignal.set({});
     this.cloudSnapshotSignal.set(null);
     this.restoredLocalState = false;
+    this.updateOfflineReadiness();
   }
 
   private ownerKey(): string {
     return `${TeamRosterService.STORAGE_KEY}:${this.auth.uid ?? 'signed-out'}`;
+  }
+
+  private updateOfflineReadiness(): void {
+    const defaults = this.getMatchDefaults(this.teamSignal().id);
+    const lineup = defaults.startingLineup.filter((playerId): playerId is string => typeof playerId === 'string');
+    this.offlineReadiness?.setRosterDataReady(
+      !!this.auth.user() &&
+      defaults.squadPlayerIds.length >= 6 &&
+      lineup.length === 6 &&
+      new Set(lineup).size === 6,
+    );
   }
 
   switchToTeam(teamId: string): boolean {
@@ -602,6 +631,7 @@ export class TeamRosterService {
               .filter((player) => player.teamId === team.id && player.active)
               .map((player) => player.id),
         startingLineup: [...cloudLineup],
+        matchFormat: isMatchFormat(roster?.matchFormat) ? roster.matchFormat : DEFAULT_MATCH_FORMAT,
       },
     }));
     this.persist(null);
@@ -655,13 +685,18 @@ export class TeamRosterService {
       const startingLineup = Array.isArray(raw.startingLineup) && raw.startingLineup.length === 6
         ? raw.startingLineup.map((id) => (typeof id === 'string' ? id : null))
         : [null, null, null, null, null, null];
-      defaultsByTeam[teamId] = { squadPlayerIds, startingLineup };
+      defaultsByTeam[teamId] = {
+        squadPlayerIds,
+        startingLineup,
+        matchFormat: isMatchFormat(raw.matchFormat) ? raw.matchFormat : DEFAULT_MATCH_FORMAT,
+      };
     }
 
     if (!defaultsByTeam[currentTeamId]) {
       defaultsByTeam[currentTeamId] = {
         squadPlayerIds: players.map((player) => player.id),
         startingLineup: legacyLineup.map((id) => (typeof id === 'string' && playerIds.has(id) ? id : null)),
+        matchFormat: DEFAULT_MATCH_FORMAT,
       };
     }
 
@@ -672,6 +707,7 @@ export class TeamRosterService {
     return this.matchDefaultsByTeamSignal()[teamId] ?? {
       squadPlayerIds: [],
       startingLineup: [null, null, null, null, null, null],
+      matchFormat: DEFAULT_MATCH_FORMAT,
     };
   }
 
@@ -681,6 +717,7 @@ export class TeamRosterService {
       [this.teamSignal().id]: {
         squadPlayerIds: [...defaults.squadPlayerIds],
         startingLineup: [...defaults.startingLineup],
+        matchFormat: defaults.matchFormat,
       },
     }));
     this.persist('roster');
@@ -778,6 +815,7 @@ export class TeamRosterService {
       gameId: null,
       squadPlayerIds: [...defaults.squadPlayerIds],
       lineup: [...(hasSavedLineup ? savedLineup : this.lineupSignal())],
+      matchFormat: defaults.matchFormat,
       createdAt: this.teamSignal().createdAt,
       updatedAt: timestamp,
     };

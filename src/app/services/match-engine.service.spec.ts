@@ -1,4 +1,4 @@
-import { MatchEngineService } from './match-engine.service';
+import { MatchEngineService, MatchMutationResult } from './match-engine.service';
 import { MatchStateService } from './match-state.service';
 import { MatchStatsService } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
@@ -40,12 +40,25 @@ describe('MatchEngineService', () => {
 
   it('starts a new match with a new durable match id', () => {
     const first = offlineSync.getActiveMatchId();
-    const second = service.startMatch('team');
+    const second = expectStarted(service.startMatch('team'));
 
     expect(second).not.toBe(first);
     expect(offlineSync.getActiveMatchId()).toBe(second);
     expect(matchState.state().teamPoints).toBe(0);
     expect(matchState.state().opponentPoints).toBe(0);
+  });
+
+  it('does not expose a new match when its first durable write fails', () => {
+    const before = matchState.state();
+    spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+    const result = service.startMatch('opponent', { opponentName: 'Central High' });
+
+    expect(result.ok).toBeFalse();
+    expect(offlineSync.getActiveMatchId()).toBe('local-match');
+    expect(offlineSync.getMatchSummaries()).toEqual([]);
+    expect(matchState.state()).toEqual(before);
+    expect(offlineSync.mutationBlocked()).toBeTrue();
   });
 
   it('keeps match team identity when the saved team changes and scoring resumes after restart', () => {
@@ -96,6 +109,26 @@ describe('MatchEngineService', () => {
     expect(offlineSync.getMatchEvents(matchId).filter((event) => event.type === 'undo').length).toBe(2);
   });
 
+  it('corrects player attribution by appending an event without changing the rally result', () => {
+    startWithLineup();
+    const matchId = offlineSync.getActiveMatchId();
+    const players = teamRoster.players();
+    const action = service.recordPlayerAction(1, 'kill');
+
+    const result = service.correctPlayerAttribution(matchId, action.eventId, players[1].id);
+    const projection = projectionFromFirestore(offlineSync.getGame(matchId)!, offlineSync.getMatchEvents(matchId))!;
+
+    expect(result.ok).toBeTrue();
+    expect(projection.teamPoints).toBe(1);
+    expect(projection.rallies[0].playerId).toBe(players[1].id);
+    expect(offlineSync.getMatchEvents(matchId).find((event) => event.type === 'playerAction')?.playerId).toBe(players[0].id);
+    expect(offlineSync.getMatchEvents(matchId)).toContain(jasmine.objectContaining({
+      type: 'playerAttributionCorrected',
+      targetEventId: action.eventId,
+      replacementPlayerId: players[1].id,
+    }));
+  });
+
   it('treats an ended-early match as terminal for canUndo and undo', () => {
     startWithLineup();
     service.recordPlayerAction(1, 'kill');
@@ -121,7 +154,7 @@ describe('MatchEngineService', () => {
   });
 
   it('persists opponent name into the active game snapshot', () => {
-    const matchId = service.startMatch('team', { opponentName: 'Central High' });
+    const matchId = expectStarted(service.startMatch('team', { opponentName: 'Central High' }));
 
     expect(offlineSync.getGame(matchId)?.opponentName).toBe('Central High');
     expect(offlineSync.getMatchSummaries()[0].opponentName).toBe('Central High');
@@ -130,7 +163,7 @@ describe('MatchEngineService', () => {
   it('attaches the saved team id to new game snapshots', () => {
     teamRoster.updateTeamName('North High');
 
-    const matchId = service.startMatch('team');
+    const matchId = expectStarted(service.startMatch('team'));
 
     expect(offlineSync.getGame(matchId)?.teamId).toBe(teamRoster.team().id);
   });
@@ -141,7 +174,7 @@ describe('MatchEngineService', () => {
     }
     const players = teamRoster.players();
     players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
-    const matchId = service.startMatch('team');
+    const matchId = expectStarted(service.startMatch('team'));
     const originalGame = offlineSync.getGame(matchId)!;
 
     teamRoster.updatePlayer(players[0].id, { name: 'Renamed later', jerseyNumber: 99, primaryPosition: 'S' });
@@ -178,7 +211,7 @@ describe('MatchEngineService', () => {
     players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
     players.slice(0, 7).forEach((player) => teamRoster.setMatchSquadPlayer(player.id, true));
     teamRoster.setMatchSquadPlayer(players[7].id, false);
-    const matchId = service.startMatch('team');
+    const matchId = expectStarted(service.startMatch('team'));
 
     expect(service.recordSubstitution(players[0].id, players[7].id)).toBeFalse();
     expect(offlineSync.getMatchEvents(matchId).some((event) => event.type === 'substitution')).toBeFalse();
@@ -274,7 +307,7 @@ describe('MatchEngineService', () => {
     }
     const players = teamRoster.players();
     players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
-    const matchId = service.startMatch('team');
+    const matchId = expectStarted(service.startMatch('team'));
 
     service.recordPlayerAction(1, 'kill');
     expect(matchStats.getPlayerStats(players[0].id).kills).toBe(1);
@@ -304,7 +337,7 @@ describe('MatchEngineService', () => {
     const players = teamRoster.players();
     players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
     const initialLineup = [...teamRoster.lineup()];
-    const matchId = service.startMatch('team');
+    const matchId = expectStarted(service.startMatch('team'));
     service.setServingTeam('opponent');
 
     service.recordPlayerAction(1, 'kill');
@@ -368,7 +401,7 @@ describe('MatchEngineService', () => {
   });
 
   it('preserves the original start time when a resumed match queues a new game snapshot', () => {
-    const matchId = service.startMatch('team');
+    const matchId = expectStarted(service.startMatch('team'));
     const startedAt = offlineSync.getGame(matchId)?.startedAt;
     expect(startedAt).toBeTruthy();
 
@@ -399,7 +432,7 @@ describe('MatchEngineService', () => {
     }
     const players = teamRoster.players();
     players.forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
-    const matchId = service.startMatch('team');
+    const matchId = expectStarted(service.startMatch('team'));
 
     service.recordPlayerAction(4, 'dig');
     const refreshedSync = new OfflineSyncService(
@@ -465,6 +498,12 @@ describe('MatchEngineService', () => {
     const game = offlineSync.getGame(matchId);
     if (!game) return [];
     return projectionFromFirestore(game, offlineSync.getMatchEvents(matchId))?.lineup ?? [];
+  }
+
+  function expectStarted(result: MatchMutationResult<string>): string {
+    expect(result.ok).toBeTrue();
+    if (!result.ok) throw new Error(result.error);
+    return result.value;
   }
 
   function startWithLineup(): void {

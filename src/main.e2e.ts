@@ -2,6 +2,8 @@ import { Provider, signal } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { RouteReuseStrategy, provideRouter, withPreloading, PreloadAllModules } from '@angular/router';
 import { IonicRouteStrategy, provideIonicAngular } from '@ionic/angular/standalone';
+import { provideServiceWorker } from '@angular/service-worker';
+import { environment } from './environments/environment';
 import type { User } from 'firebase/auth';
 import type { Unsubscribe } from 'firebase/firestore';
 
@@ -87,6 +89,7 @@ bootstrapApplication(AppComponent, {
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     provideIonicAngular(),
     provideRouter(routes, withPreloading(PreloadAllModules)),
+    provideServiceWorker('ngsw-worker.js', { enabled: environment.production, registrationStrategy: 'registerImmediately' }),
     ...e2eProviders,
   ],
 });

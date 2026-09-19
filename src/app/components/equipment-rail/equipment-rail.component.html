@@ -17,11 +17,11 @@
         <a routerLink="/history" routerLinkActive="active">History</a>
       </nav>
 
-      <div class="rail-state" [class.attention]="syncNeedsAttention" [attr.aria-label]="syncLabel" [title]="syncLabel">
+      <div class="rail-state" [class.attention]="syncNeedsAttention" [class.offline-state]="offlineReadiness.enabled" [attr.aria-label]="syncLabel" [title]="syncLabel">
         <span class="state-light" aria-hidden="true"></span>
         <span class="state-copy">
           <strong>{{ syncLabel }}</strong>
-          <small [title]="accountLabel">{{ accountLabel }}</small>
+          <small [title]="accountLabel">{{ offlineReadiness.enabled ? offlineReadiness.label : accountLabel }}</small>
         </span>
         @if (hasSyncError) { <button type="button" class="sync-retry" (click)="retrySync()">Retry</button> }
       </div>
@@ -29,4 +29,7 @@
       <div class="rail-action"><ng-content select="[rail-action]" /></div>
     </div>
   </ion-toolbar>
+  @if (deviceSaveError) {
+    <p class="device-save-error" role="alert">{{ deviceSaveError }}</p>
+  }
 </ion-header>

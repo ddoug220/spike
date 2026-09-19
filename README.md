@@ -49,12 +49,19 @@ Think of the app as three steps:
 - **Undo** removes the most recent tracked action.
 - **Substitute** opens the bench panel. Pick the player coming out, then tap the bench player going in.
 - **Exit** leaves the court. After a finished match, use **Set Up Next Match** to confirm the next opponent and match details.
+- **Team & Stats** opens the full Match Squad box score, including bench players, jersey numbers, positions, every recorded player stat, and team totals. Choose **Entire match** or an individual set. Close the panel to return to scoring.
 
 Live Court prioritizes a 1024 × 768 landscape tablet. The court and scoring controls remain visible together without page scrolling at that size. On narrower portrait screens, Live Court uses one vertical column that you can scroll without horizontal overflow.
 
 ## Cloud save
 
 Spike writes locally first, then queues cloud sync. The Home and Team & Lineup screens show whether changes are synced, waiting, or need a retry. If Firebase is unavailable, you can keep using the app and retry sync later.
+
+Reopening Spike restores the saved Team Roster, Match Setup lineup, active match, substitutions, timeouts, and recorded statistics. Pending cloud saves retry automatically when the app restarts online or reconnects. Previously loaded saved teams remain available on this device. Each match keeps its team name and player details, so later Team Roster edits do not rewrite old box scores. Match History retains earlier matches when you start the next one.
+
+Open the deployed HTTPS app while connected before arriving courtside. When the save indicator shows **Ready offline**, the app's screens are cached and can reopen offline, including the active match and saved reviews. Offline startup is enabled in production builds; the development server does not cache the app.
+
+If device storage fails, Spike displays a warning and **Retry**. Keep the app open until Retry succeeds; changes that have not reached device storage or the cloud cannot survive closing it.
 
 ## Useful commands
 
@@ -64,6 +71,7 @@ npm run build
 npm test
 npm run lint
 npm run test:e2e
+npm run test:e2e:offline
 ```
 
 For a fast TypeScript check without launching the browser test runner:
@@ -72,7 +80,9 @@ For a fast TypeScript check without launching the browser test runner:
 ./node_modules/.bin/tsc -p tsconfig.spec.json --noEmit
 ```
 
-The end-to-end command starts an isolated app configuration with deterministic local authentication and no network access. It verifies the Match Setup and Live Court workflows in Chromium.
+The end-to-end command starts an isolated app with test authentication and does not write to Firebase. It verifies the Match Setup and Live Court workflows in Chromium.
+
+`test:e2e:offline` uses the optimized production build with the same test authentication. Its full-match journey also refreshes offline and reopens the court in a new tab before checking resumed stats, a completed match, and the next match. These checks do not write to the real Firebase project.
 
 ## Project structure
 

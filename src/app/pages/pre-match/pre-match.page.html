@@ -2,31 +2,37 @@
 
 <ion-content [fullscreen]="true">
   <main class="setup-shell">
-    <section class="match-card" aria-label="Match setup progress">
+    <section class="match-card" aria-label="Match setup">
     <section class="setup-intro">
       <div>
         <span class="team-name">{{ teamRoster.team().name }}</span>
-        <h1>Set this match.</h1>
-        <p>Choose the opponent, match squad, starting six, and first serve. Your saved team stays unchanged.</p>
-      </div>
-      <div class="setup-counts" aria-label="Match setup progress">
-        <div><strong>{{ squadCount }}</strong><span>Squad</span></div>
-        <div><strong>{{ assignedStarterCount }}/6</strong><span>Starters</span></div>
+        <h1>Match Setup</h1>
+        <p>Confirm the match, then arrange your starting six.</p>
       </div>
     </section>
 
     <section class="match-strip" aria-label="Match details">
       <label class="opponent-field">
-        <span>Opponent</span>
+        <span id="opponent-label">Opponent</span>
         <input
           type="text"
           name="opponentName"
+          aria-labelledby="opponent-label"
           [(ngModel)]="opponentName"
+          #opponentInput="ngModel"
           placeholder="Required"
           autocomplete="off"
           required
-          [attr.aria-invalid]="!hasOpponent"
+          [class.invalid]="!hasOpponent && opponentInput.touched"
+          [attr.aria-invalid]="!hasOpponent && opponentInput.touched"
+          [attr.aria-describedby]="!hasOpponent && opponentInput.touched ? 'opponent-error' : null"
         />
+        @if (!hasOpponent && opponentInput.touched) {
+          <span id="opponent-error" class="field-error">
+            <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+            Enter the opponent name.
+          </span>
+        }
       </label>
 
       <div class="serve-field" role="radiogroup" aria-label="First serve">
@@ -54,58 +60,98 @@
       <section class="court-panel">
         <header class="section-head">
           <div>
-            <h2>Starting Six</h2>
-            <p class="desktop-lineup-instruction">{{ selectedPlayerText }}</p>
-            <p class="compact-lineup-instruction">Tap a court position to choose its player.</p>
+            <span class="section-kicker">Starting Six</span>
+            <h2>Lineup &amp; rotation</h2>
+            <p class="lineup-instruction" role="status">{{ selectedPlayerText }}</p>
           </div>
-          <span class="step-state" [ngClass]="{ ready: isLineupReady }">
-            <ion-icon [name]="isLineupReady ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
-            {{ isLineupReady ? 'Ready' : assignedStarterCount + '/6 set' }}
-          </span>
+          <span class="lineup-count">{{ assignedStarterCount }}<span> / 6 set</span></span>
         </header>
 
         <div class="lineup-court" [ngClass]="{ empty: !hasAssignedStarters }">
           <div class="court-lines" aria-hidden="true"></div>
+          <span class="court-row-label" aria-hidden="true">Front row · Net</span>
           @for (slot of courtSlots; track slot.position) {
             <button
               type="button"
               class="court-slot"
+              [attr.data-position]="slot.position"
               [ngClass]="{
                 'front-row': slot.row === 'front',
+                assigned: !!getSlotPlayer(slot.position),
+                'swap-target': !!selectedPlayerId && !!getSlotPlayer(slot.position) && getSlotPlayer(slot.position)?.id !== selectedPlayerId,
+                active: editingPosition === slot.position || (!!selectedPlayerId && getSlotPlayer(slot.position)?.id === selectedPlayerId),
+                invalid: hasAssignedStarters && !getSlotPlayer(slot.position),
                 'server-spot': slot.isServerSpot && firstServeTeam === 'team'
               }"
-              [style.top]="slot.top"
-              [style.left]="slot.left"
               [attr.title]="getSlotPlayer(slot.position)?.name || slot.roleLabel"
-              [attr.aria-label]="getCourtSlotAriaLabel(slot.position)"
+              [attr.aria-invalid]="hasAssignedStarters && !getSlotPlayer(slot.position)"
+              [attr.aria-label]="getCourtSlotAriaLabel(slot.position) + (slot.isServerSpot && firstServeTeam === 'team' && getSlotPlayer(slot.position) ? '. Serves first' : '')"
               (click)="handleCourtPositionClick(slot.position, $event)"
+              [draggable]="!!getSlotPlayer(slot.position)"
+              (dragstart)="onDragStart($event, getSlotPlayer(slot.position)?.id)"
+              (dragend)="endDrag()"
+              (keydown.escape)="cancelSelection()"
               (dragover)="allowDrop($event)"
               (drop)="dropOnPosition($event, slot.position)"
             >
-              <span class="slot-position">P{{ slot.position }}</span>
+              <span class="slot-head">
+                <span class="slot-position">P{{ slot.position }}</span>
+                <span class="slot-location">{{ slot.roleLabel }}</span>
+              </span>
               @if (getSlotPlayer(slot.position); as player) {
-                <strong [title]="player.name">{{ player.name }}</strong>
-                <span class="slot-meta">#{{ player.jerseyNumber }} · {{ player.primaryPosition }}</span>
-                <span class="clear-slot">Tap to remove</span>
+                <span class="slot-identity">
+                  <span class="slot-jersey">#{{ player.jerseyNumber }}</span>
+                  <span class="slot-player">
+                    <strong [title]="player.name">{{ player.name }}</strong>
+                    <span class="slot-playing-position">{{ playingPositionNames[player.primaryPosition] }}</span>
+                  </span>
+                </span>
               } @else {
-                <strong>Open</strong>
-                <span class="slot-meta">{{ slot.roleLabel }}</span>
+                <strong>{{ hasAssignedStarters ? 'Needs player' : 'Open position' }}</strong>
+                @if (hasAssignedStarters) {
+                  <span class="slot-error"><ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>Assign starter</span>
+                }
               }
-              @if (slot.isServerSpot) {
-                <span class="server-label">{{ firstServeTeam === 'team' ? 'First server' : 'P1' }}</span>
+              <span class="slot-roles">
+                @if (getSlotPlayer(slot.position)) {
+                  <span class="starter-label">Starter</span>
+                }
+                @if (slot.isServerSpot && firstServeTeam === 'team' && getSlotPlayer(slot.position)) {
+                  <span class="server-label">
+                    <svg class="serve-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 2C8 4 8 9 12 12M20.66 17C21 12 17 10 12 12M3.34 17C7 20 11 17 12 12" />
+                    </svg>
+                    <span>Serves first</span>
+                  </span>
+                }
+              </span>
+              @if (getSlotPlayer(slot.position)) {
+                <span class="slot-action">{{ getCourtSlotAction(slot.position) }}</span>
               }
             </button>
           }
+          <span class="court-row-label back-row-label" aria-hidden="true">{{ firstServeTeam === 'team' ? 'Back row · P1 serves first' : 'Back row' }}</span>
         </div>
+        @if (selectedPlayerId) {
+          <div class="lineup-selection-actions" aria-label="Selected player actions">
+            @if (selectedStarterPosition; as position) {
+              <button type="button" (click)="openPositionPicker(position, $event.currentTarget)">Change player</button>
+              <button type="button" class="remove-starter" (click)="removeSelectedStarter()">Remove starter</button>
+            }
+            <button type="button" (click)="cancelSelection()">Cancel</button>
+          </div>
+        }
+
       </section>
 
       <section class="squad-panel">
         <header class="section-head">
           <div>
             <h2>Match Squad</h2>
-            <p>Select who is available for this match.</p>
+            <p>Choose available players for the lineup and bench.</p>
           </div>
-          <span class="squad-total">{{ squadCount }} selected</span>
+          <span class="squad-total">{{ squadCount }} available</span>
         </header>
 
         @if (players.length === 0) {
@@ -121,6 +167,7 @@
                 class="player-row"
                 [ngClass]="{
                   selected: teamRoster.isInMatchSquad(player.id),
+                  starter: !!getPlayerAssignedPosition(player.id),
                   active: selectedPlayerId === player.id
                 }"
               >
@@ -134,7 +181,14 @@
                   <span class="player-number">#{{ player.jerseyNumber }}</span>
                   <span class="player-copy">
                     <strong [title]="player.name">{{ player.name }}</strong>
-                    <span>{{ player.primaryPosition }}</span>
+                    <span class="player-details">
+                      <span>{{ player.primaryPosition }}</span>
+                      @if (getPlayerAssignedPosition(player.id); as position) {
+                        <span class="starter-label">Starter · P{{ position }}</span>
+                      } @else {
+                        <span class="availability-label">{{ teamRoster.isInMatchSquad(player.id) ? 'Bench' : 'Out' }}</span>
+                      }
+                    </span>
                   </span>
                 </label>
                 <button
@@ -145,22 +199,17 @@
                   (click)="selectPlayer(player.id)"
                   draggable="true"
                   (dragstart)="onDragStart($event, player.id)"
+                  (dragend)="endDrag()"
                 >
-                  @if (getPlayerAssignedPosition(player.id); as position) {
+                  @if (selectedPlayerId === player.id) {
+                    <ion-icon name="checkmark-circle" aria-hidden="true"></ion-icon>
+                    Selected
+                  } @else if (getPlayerAssignedPosition(player.id); as position) {
                     P{{ position }} · Move
                   } @else {
-                    {{ selectedPlayerId === player.id ? 'Selected' : 'Set starter' }}
+                    Set starter
                   }
                 </button>
-                <span class="compact-assignment-status">
-                  @if (getPlayerAssignedPosition(player.id); as position) {
-                    P{{ position }}
-                  } @else if (teamRoster.isInMatchSquad(player.id)) {
-                    Squad
-                  } @else {
-                    Out
-                  }
-                </span>
               </div>
             }
           </div>
@@ -174,8 +223,8 @@
 <ion-modal
   class="position-picker-modal"
   [isOpen]="editingPosition !== null"
-  [initialBreakpoint]="0.72"
-  [breakpoints]="[0, 0.72, 1]"
+  [initialBreakpoint]="1"
+  [breakpoints]="[0, 1]"
   [backdropDismiss]="true"
   [attr.aria-label]="positionPickerTitle"
   (didDismiss)="handlePositionPickerDismiss()"
@@ -229,9 +278,12 @@
 </ion-modal>
 
 <ion-footer class="start-footer">
-  <div class="footer-status" aria-live="polite">
-    <ion-icon [name]="canStartMatch ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
-    <span>{{ canStartMatch ? 'Match setup is ready' : startMatchDisabledReason }}</span>
+  <div class="footer-status" [class.blocked]="!canStartMatch" aria-live="polite">
+    <ion-icon [name]="canStartMatch ? 'checkmark-circle' : 'alert-circle-outline'"></ion-icon>
+    <div>
+      <strong>{{ canStartMatch ? 'Ready to start' : 'Before you start' }}</strong>
+      <span>{{ canStartMatch ? 'Opponent and starting six confirmed.' : startMatchDisabledReason }}</span>
+    </div>
   </div>
   <ion-button
     class="start-button"

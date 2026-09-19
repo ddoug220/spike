@@ -7,6 +7,7 @@ import {
   IonButton,
   IonContent,
   IonIcon,
+  IonModal,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward, star } from 'ionicons/icons';
@@ -18,6 +19,7 @@ import { StatsAction } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { TeamRosterService } from '../../services/team-roster.service';
 import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
+import { MatchBoxScoreComponent } from '../../components/match-box-score/match-box-score.component';
 
 type QuickAction = StatsAction;
 type StandardOutcomeAction =
@@ -65,6 +67,12 @@ interface LiveEventRow {
   label: string;
 }
 
+interface ExitSheetButton {
+  text: string;
+  role?: 'cancel' | 'destructive';
+  data?: { action: ExitAction };
+}
+
 @Component({
   selector: 'app-court',
   templateUrl: './court.page.html',
@@ -81,11 +89,14 @@ interface LiveEventRow {
     IonActionSheet,
     FormsModule,
     EquipmentRailComponent,
+    IonModal,
+    MatchBoxScoreComponent,
   ],
 })
 export class CourtPage {
   readonly rotationChoices = [1, 2, 3, 4, 5, 6];
   isMatchControlsOpen = false;
+  isStatsOpen = false;
   nextSetLineup: Array<string | null> = [];
   nextSetServe: 'team' | 'opponent' = 'team';
   public readonly actionMeta: Record<QuickAction, ActionMeta> = {
@@ -145,7 +156,7 @@ export class CourtPage {
     const target = event.target as HTMLElement;
     const isInputFocused = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-    if (isInputFocused) {
+    if (isInputFocused || this.isStatsOpen) {
       return;
     }
 
@@ -232,35 +243,22 @@ export class CourtPage {
     return 'Match stays live unless you choose End Match.';
   }
 
-  get exitSheetButtons(): Array<{ text: string; role?: 'cancel' | 'destructive'; data?: { action: ExitAction } }> {
-    if (this.isMatchOver) {
-      return [
-        { text: 'Go Home', data: { action: 'home' } },
-        { text: 'Set Up Next Match', data: { action: 'setup-next' } },
-        { text: 'Match History', data: { action: 'history' } },
-        { text: 'Cancel', role: 'cancel' },
-      ];
-    }
+  private readonly finalExitSheetButtons: ExitSheetButton[] = [
+    { text: 'Go Home', data: { action: 'home' } },
+    { text: 'Set Up Next Match', data: { action: 'setup-next' } },
+    { text: 'Match History', data: { action: 'history' } },
+    { text: 'Cancel', role: 'cancel' },
+  ];
 
-    return [
-      {
-        text: 'Go Home',
-        data: { action: 'home' },
-      },
-      {
-        text: 'Match History',
-        data: { action: 'history' },
-      },
-      {
-        text: 'End Match + Go Home',
-        role: 'destructive',
-        data: { action: 'end-home' },
-      },
-      {
-        text: 'Cancel',
-        role: 'cancel',
-      },
-    ];
+  private readonly liveExitSheetButtons: ExitSheetButton[] = [
+    { text: 'Go Home', data: { action: 'home' } },
+    { text: 'Match History', data: { action: 'history' } },
+    { text: 'End Match + Go Home', role: 'destructive', data: { action: 'end-home' } },
+    { text: 'Cancel', role: 'cancel' },
+  ];
+
+  get exitSheetButtons(): ExitSheetButton[] {
+    return this.isMatchOver ? this.finalExitSheetButtons : this.liveExitSheetButtons;
   }
 
   openExitSheet(): void {
@@ -517,8 +515,7 @@ export class CourtPage {
     await this.router.navigate(['/review', this.offlineSync.getActiveMatchId()]);
   }
 
-  get standardOutcomeActions(): StandardOutcomeMeta[] {
-    return [
+  readonly standardOutcomeActions: StandardOutcomeMeta[] = [
       {
         id: 'kill',
         label: this.actionMeta.kill.label,
@@ -568,10 +565,8 @@ export class CourtPage {
         accent: this.actionMeta['receive-error'].accent,
       },
     ];
-  }
 
-  get statOnlyActions(): StatOnlyActionMeta[] {
-    return [
+  readonly statOnlyActions: StatOnlyActionMeta[] = [
       {
         id: 'dig',
         label: this.actionMeta.dig.label,
@@ -579,7 +574,6 @@ export class CourtPage {
         accent: this.actionMeta.dig.accent,
       },
     ];
-  }
 
   recordStandardOutcome(action: StandardOutcomeAction): void {
     if (action === 'opponent-point') {
@@ -677,7 +671,7 @@ export class CourtPage {
   }
 
   get teamDisplayName(): string {
-    return this.teamRoster.team().name.trim() || 'Your Team';
+    return this.liveStore.game()?.teamName?.trim() || this.teamRoster.team().name.trim() || 'Your Team';
   }
 
   get liveCourtSubtitle(): string {
@@ -743,15 +737,15 @@ export class CourtPage {
 
   get teamSetKills(): number {
     const currentSet = this.gameState.currentSet;
-    return this.teamRoster
-      .players()
+    return this.liveStore
+      .matchSquad()
       .reduce((total, player) => total + this.liveStore.getPlayerSetStats(player.id, currentSet).kills, 0);
   }
 
   get teamSetAttackErrors(): number {
     const currentSet = this.gameState.currentSet;
-    return this.teamRoster
-      .players()
+    return this.liveStore
+      .matchSquad()
       .reduce((total, player) => total + this.liveStore.getPlayerSetStats(player.id, currentSet).attackErrors, 0);
   }
 

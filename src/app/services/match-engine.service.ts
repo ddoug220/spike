@@ -632,7 +632,8 @@ export class MatchEngineService {
     this.matchStartedAtByMatchId.set(matchId, startedAt);
     this.opponentNameByMatchId.set(matchId, opponentName);
     return {
-      teamId: this.teamRoster.team().id,
+      teamId: existingGame?.teamId ?? this.teamRoster.team().id,
+      teamName: existingGame?.teamName ?? this.teamRoster.team().name,
       opponentName,
       matchSquad: existingGame?.matchSquad?.map((player) => ({ ...player })) ??
         initialSquad.map((player) => ({

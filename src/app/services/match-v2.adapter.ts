@@ -28,6 +28,7 @@ export function sessionFromGame(game: Game): MatchSession | null {
     id: game.id,
     ownerId: game.ownerId,
     teamId: game.teamId,
+    teamName: game.teamName,
     opponentName: game.opponentName,
     squad: game.matchSquad.map((player) => ({ ...player })),
     createdAt: game.createdAt,

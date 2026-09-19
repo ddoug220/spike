@@ -38,7 +38,7 @@ export function selectRotationRallyWinRates(state: MatchProjection): Readonly<Re
   };
 }
 
-export function selectPlayerCountStats(state: MatchProjection): readonly PlayerCountStats[] {
+export function selectPlayerCountStats(state: MatchProjection, setNumber?: number): readonly PlayerCountStats[] {
   const stats = new Map<string, PlayerCountStats>();
   const get = (playerId: string): PlayerCountStats => {
     const current = stats.get(playerId);
@@ -51,6 +51,7 @@ export function selectPlayerCountStats(state: MatchProjection): readonly PlayerC
   for (const player of state.session.squad) get(player.id);
 
   for (const rally of state.rallies) {
+    if (setNumber !== undefined && rally.setNumber !== setNumber) continue;
     if (rally.playerId) addRallyStat(get(rally.playerId), rally.action);
     if (rally.servingTeam === 'team') {
       const server = get(rally.lineup[0]);
@@ -58,7 +59,9 @@ export function selectPlayerCountStats(state: MatchProjection): readonly PlayerC
       if (rally.action !== 'service-error') server.servesIn += 1;
     }
   }
-  for (const observation of state.observations) get(observation.playerId).digs += 1;
+  for (const observation of state.observations) {
+    if (setNumber === undefined || observation.setNumber === setNumber) get(observation.playerId).digs += 1;
+  }
 
   for (const player of stats.values()) {
     player.serveInPercentage = percentage(player.servesIn, player.serveAttempts);

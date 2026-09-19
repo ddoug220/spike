@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, signal, untracked } from '@angular/core';
 import {
   Game,
   GameEvent,
@@ -75,6 +75,8 @@ export class OfflineSyncService {
   private readonly queueSignal = signal<SyncQueueItem[]>([]);
   private readonly syncingSignal = signal(false);
   private readonly lastErrorSignal = signal<string | null>(null);
+  private readonly storageErrorSignal = signal<string | null>(null);
+  private readonly unsavedLocalWrites = new Map<string, string>();
   private readonly lastSuccessfulSyncAtSignal = signal<string | null>(null);
   private readonly archiveSignal = signal<ArchivedSyncState>({
     games: [],
@@ -85,7 +87,8 @@ export class OfflineSyncService {
 
   readonly pendingCount = computed(() => this.queueSignal().length);
   readonly isSyncing = computed(() => this.syncingSignal());
-  readonly lastError = computed(() => this.lastErrorSignal());
+  readonly storageError = this.storageErrorSignal.asReadonly();
+  readonly lastError = computed(() => this.storageErrorSignal() ?? this.lastErrorSignal());
   readonly lastSuccessfulSyncAt = computed(() => this.lastSuccessfulSyncAtSignal());
   readonly localRevision = this.localRevisionSignal.asReadonly();
 
@@ -97,6 +100,7 @@ export class OfflineSyncService {
     this.restoreQueue();
     this.restoreLastSuccess();
     this.restoreArchive();
+    void this.flushQueue();
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
@@ -111,20 +115,20 @@ export class OfflineSyncService {
     }
 
     const key = this.ownerKey(OfflineSyncService.MATCH_ID_KEY);
-    const existing = window.localStorage.getItem(key);
+    const existing = this.unsavedLocalWrites.get(key) ?? window.localStorage.getItem(key);
     if (existing) {
       return existing;
     }
 
     const next = this.createId('game');
-    window.localStorage.setItem(key, next);
+    untracked(() => this.saveLocalData(key, next));
     return next;
   }
 
   startNewMatch(): string {
     const matchId = this.createId('game');
     if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(this.ownerKey(OfflineSyncService.MATCH_ID_KEY), matchId);
+      this.saveLocalData(this.ownerKey(OfflineSyncService.MATCH_ID_KEY), matchId);
     }
     return matchId;
   }
@@ -256,16 +260,15 @@ export class OfflineSyncService {
         this.lastSuccessfulSyncAtSignal.set(syncedAt);
         this.persistLastSuccess();
       }
+      if (this.queueSignal().length === 0) this.lastErrorSignal.set(null);
     } finally {
       this.syncingSignal.set(false);
     }
   }
 
   async prepareForSignOut(): Promise<boolean> {
-    if (this.queueSignal().length > 0) {
-      await this.flushQueue();
-    }
-    return this.queueSignal().length === 0;
+    await this.retryNow();
+    return this.queueSignal().length === 0 && this.unsavedLocalWrites.size === 0;
   }
 
   clearOwnerLocalData(): void {
@@ -281,6 +284,8 @@ export class OfflineSyncService {
     this.archiveSignal.set({ games: [], events: [], playerSetStats: [] });
     this.lastSuccessfulSyncAtSignal.set(null);
     this.lastErrorSignal.set(null);
+    this.unsavedLocalWrites.clear();
+    this.storageErrorSignal.set(null);
   }
 
   isCurrentScoringDevice(gameId: string): boolean {
@@ -289,6 +294,8 @@ export class OfflineSyncService {
   }
 
   cacheRemoteGame(game: Game): void {
+    const local = this.getGame(game.id);
+    if (local && (local.writerGeneration ?? 1) === (game.writerGeneration ?? 1) && local.updatedAt > game.updatedAt) return;
     this.archive('games', game);
   }
 
@@ -296,6 +303,7 @@ export class OfflineSyncService {
     const byId = new Map(this.archiveSignal().events.map((event) => [event.id, event]));
     events.filter((event) => event.gameId === gameId).forEach((event) => byId.set(event.id, event));
     this.archiveSignal.update((state) => ({ ...state, events: [...byId.values()] }));
+    this.localRevisionSignal.update((revision) => revision + 1);
     this.persistArchive();
   }
 
@@ -354,12 +362,30 @@ export class OfflineSyncService {
 
   private setActiveMatchId(matchId: string): void {
     if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(this.ownerKey(OfflineSyncService.MATCH_ID_KEY), matchId);
+      this.saveLocalData(this.ownerKey(OfflineSyncService.MATCH_ID_KEY), matchId);
     }
   }
 
-  retryNow(): Promise<void> {
-    return this.flushQueue();
+  async retryNow(): Promise<void> {
+    for (const [key, value] of this.unsavedLocalWrites) {
+      this.saveLocalData(key, value);
+    }
+    await this.flushQueue();
+  }
+
+  saveLocalData(key: string, value: string): void {
+    if (typeof window === 'undefined') return;
+
+    try {
+      window.localStorage.setItem(key, value);
+      this.unsavedLocalWrites.delete(key);
+      if (this.unsavedLocalWrites.size === 0 && this.storageErrorSignal() !== null) {
+        this.storageErrorSignal.set(null);
+      }
+    } catch {
+      this.unsavedLocalWrites.set(key, value);
+      this.storageErrorSignal.set('Device save failed. Unsynced changes may be lost if you refresh. Keep this tab open, free device storage or allow browser storage, then Retry.');
+    }
   }
 
   getMatchSummaries(): MatchArchiveSummary[] {
@@ -479,12 +505,7 @@ export class OfflineSyncService {
     }
 
     const next = [...items];
-    next[existingIndex] = {
-      ...next[existingIndex],
-      payload: item.payload,
-      retryCount: 0,
-      lastError: undefined,
-    } as SyncQueueItem;
+    next[existingIndex] = item;
     return next;
   }
 
@@ -509,7 +530,7 @@ export class OfflineSyncService {
     if (typeof window === 'undefined' || !window.localStorage) {
       return;
     }
-    window.localStorage.setItem(this.ownerKey(OfflineSyncService.QUEUE_KEY), JSON.stringify(this.queueSignal()));
+    this.saveLocalData(this.ownerKey(OfflineSyncService.QUEUE_KEY), JSON.stringify(this.queueSignal()));
   }
 
   private restoreQueue(): void {
@@ -547,7 +568,7 @@ export class OfflineSyncService {
       return;
     }
 
-    window.localStorage.setItem(this.ownerKey(OfflineSyncService.LAST_SUCCESS_KEY), value);
+    this.saveLocalData(this.ownerKey(OfflineSyncService.LAST_SUCCESS_KEY), value);
   }
 
   private restoreLastSuccess(): void {
@@ -592,7 +613,7 @@ export class OfflineSyncService {
       return;
     }
 
-    window.localStorage.setItem(this.ownerKey(OfflineSyncService.ARCHIVE_KEY), JSON.stringify(this.archiveSignal()));
+    this.saveLocalData(this.ownerKey(OfflineSyncService.ARCHIVE_KEY), JSON.stringify(this.archiveSignal()));
   }
 
   private restoreArchive(): void {
@@ -643,12 +664,12 @@ export class OfflineSyncService {
       return 'server-device';
     }
     const key = this.ownerKey(OfflineSyncService.DEVICE_ID_KEY);
-    const existing = window.localStorage.getItem(key);
+    const existing = this.unsavedLocalWrites.get(key) ?? window.localStorage.getItem(key);
     if (existing) {
       return existing;
     }
     const id = this.createId('device');
-    window.localStorage.setItem(key, id);
+    untracked(() => this.saveLocalData(key, id));
     return id;
   }
 }

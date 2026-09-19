@@ -1,6 +1,7 @@
 import { Injectable, Optional, signal } from '@angular/core';
 import { GameEvent, PlayerSetStats } from '../models/firestore.models';
 import { AuthService } from './auth.service';
+import { OfflineSyncService } from './offline-sync.service';
 import { purgeLegacyMatchCaches } from './legacy-match-cache';
 
 export type StatsAction =
@@ -42,7 +43,10 @@ export class MatchStatsService {
   private readonly statsSignal = signal<StatsState>({});
   private readonly setStatsSignal = signal<SetStatsState>({});
 
-  constructor(@Optional() private readonly auth?: AuthService) {
+  constructor(
+    @Optional() private readonly auth?: AuthService,
+    @Optional() private readonly offlineSync?: OfflineSyncService,
+  ) {
     purgeLegacyMatchCaches();
     this.restore();
   }
@@ -353,14 +357,14 @@ export class MatchStatsService {
       return;
     }
 
-    window.localStorage.setItem(
-      this.ownerKey(),
-      JSON.stringify({
-        history: this.historySignal(),
-        stats: this.statsSignal(),
-        setStats: this.setStatsSignal(),
-      }),
-    );
+    const value = JSON.stringify({
+      history: this.historySignal(), stats: this.statsSignal(), setStats: this.setStatsSignal(),
+    });
+    if (this.offlineSync) {
+      this.offlineSync.saveLocalData(this.ownerKey(), value);
+    } else {
+      window.localStorage.setItem(this.ownerKey(), value);
+    }
   }
 
   private restore(): void {

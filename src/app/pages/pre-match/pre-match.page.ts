@@ -10,11 +10,11 @@ import {
   IonModal,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play } from 'ionicons/icons';
+import { alertCircleOutline, arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play } from 'ionicons/icons';
 import { MatchEngineService } from '../../services/match-engine.service';
 import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 import { OfflineSyncService } from '../../services/offline-sync.service';
-import { RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
+import { PrimaryPosition, RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
 
 interface CourtSlot {
   position: number;
@@ -45,6 +45,15 @@ type FirstServeTeam = 'team' | 'opponent';
   ],
 })
 export class PreMatchPage {
+  readonly playingPositionNames: Record<PrimaryPosition, string> = {
+    S: 'Setter',
+    OH: 'Outside hitter',
+    MB: 'Middle blocker',
+    OPP: 'Opposite hitter',
+    L: 'Libero',
+    DS: 'Defensive specialist',
+  };
+
   readonly courtSlots: CourtSlot[] = [
     { position: 4, roleLabel: 'Front Left', row: 'front', isServerSpot: false, top: '24%', left: '18%' },
     { position: 3, roleLabel: 'Front Middle', row: 'front', isServerSpot: false, top: '24%', left: '50%' },
@@ -58,6 +67,7 @@ export class PreMatchPage {
   firstServeTeam: FirstServeTeam = 'team';
   selectedPlayerId: string | null = null;
   editingPosition: number | null = null;
+  lineupMessage = '';
   private draggedPlayerId: string | null = null;
   private positionPickerTrigger: HTMLElement | null = null;
 
@@ -68,7 +78,7 @@ export class PreMatchPage {
     private readonly router: Router,
     private readonly route: ActivatedRoute,
   ) {
-    addIcons({ arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play });
+    addIcons({ alertCircleOutline, arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play });
   }
 
   ionViewWillEnter(): void {
@@ -148,11 +158,20 @@ export class PreMatchPage {
     return '';
   }
 
+  get selectedStarterPosition(): number | null {
+    return this.selectedPlayerId ? this.getPlayerAssignedPosition(this.selectedPlayerId) : null;
+  }
+
   get selectedPlayerText(): string {
     const player = this.teamRoster.getPlayerById(this.selectedPlayerId);
-    return player
-      ? `Selected: #${player.jerseyNumber} ${player.name}. Tap a court position.`
-      : 'Select a squad player, then tap a court position.';
+    if (player) {
+      return this.selectedStarterPosition
+        ? `${player.name} selected. Tap another starter to swap, or an open position to move.`
+        : `${player.name} selected. Tap a position to set this starter.`;
+    }
+    return this.lineupMessage || (this.hasAssignedStarters
+      ? 'Tap a starter, then another position to swap.'
+      : 'Select available squad players, then tap an open position to choose a starter.');
   }
 
   get positionPickerTitle(): string {
@@ -160,6 +179,7 @@ export class PreMatchPage {
   }
 
   toggleSquadPlayer(playerId: string, event: Event): void {
+    this.lineupMessage = '';
     const selected = (event.target as HTMLInputElement).checked;
     this.teamRoster.setMatchSquadPlayer(playerId, selected);
     if (!selected && this.selectedPlayerId === playerId) {
@@ -171,15 +191,35 @@ export class PreMatchPage {
     if (!this.teamRoster.isInMatchSquad(playerId)) {
       return;
     }
+    this.lineupMessage = '';
     this.selectedPlayerId = this.selectedPlayerId === playerId ? null : playerId;
   }
 
   handleCourtPositionClick(position: number, event: Event): void {
-    if (window.matchMedia('(max-width: 820px)').matches) {
-      this.openPositionPicker(position, event.currentTarget);
+    if (this.selectedPlayerId) {
+      this.assignSelectedToPosition(position);
       return;
     }
-    this.assignSelectedToPosition(position);
+    const player = this.getSlotPlayer(position);
+    if (player) {
+      this.selectPlayer(player.id);
+    } else {
+      this.openPositionPicker(position, event.currentTarget);
+    }
+  }
+
+  cancelSelection(): void {
+    this.selectedPlayerId = null;
+    this.lineupMessage = '';
+  }
+
+  removeSelectedStarter(): void {
+    const position = this.selectedStarterPosition;
+    if (position === null) return;
+    const player = this.getSlotPlayer(position);
+    this.teamRoster.unassignMatchStarter(position);
+    this.selectedPlayerId = null;
+    this.lineupMessage = `${player?.name} removed from P${position}. Choose a new starter.`;
   }
 
   openPositionPicker(position: number, trigger: EventTarget | null = null): void {
@@ -205,7 +245,8 @@ export class PreMatchPage {
     if (this.editingPosition === null || !this.teamRoster.isInMatchSquad(playerId)) {
       return;
     }
-    this.teamRoster.assignMatchStarter(playerId, this.editingPosition);
+    this.selectedPlayerId = playerId;
+    this.assignSelectedToPosition(this.editingPosition);
     this.closePositionPicker();
   }
 
@@ -213,26 +254,52 @@ export class PreMatchPage {
     if (this.editingPosition === null) {
       return;
     }
+    const player = this.getSlotPlayer(this.editingPosition);
     this.teamRoster.unassignMatchStarter(this.editingPosition);
+    this.selectedPlayerId = null;
+    this.lineupMessage = `${player?.name} removed from P${this.editingPosition}. Choose a new starter.`;
     this.closePositionPicker();
   }
 
   assignSelectedToPosition(position: number): void {
-    if (!this.selectedPlayerId) {
-      if (this.getSlotPlayer(position)) {
-        this.teamRoster.unassignMatchStarter(position);
-      }
+    const player = this.teamRoster.getPlayerById(this.selectedPlayerId);
+    if (!player || !this.teamRoster.isInMatchSquad(player.id)) return;
+    const fromPosition = this.getPlayerAssignedPosition(player.id);
+    const target = this.getSlotPlayer(position);
+    if (fromPosition === position) {
+      this.cancelSelection();
       return;
     }
-    this.teamRoster.assignMatchStarter(this.selectedPlayerId, position);
+    if (fromPosition !== null) {
+      if (!this.teamRoster.moveMatchStarter(fromPosition, position)) return;
+      this.lineupMessage = target
+        ? `Swapped ${player.name} (P${fromPosition}) and ${target.name} (P${position}).`
+        : `${player.name} moved from P${fromPosition} to P${position}.`;
+    } else {
+      this.teamRoster.assignMatchStarter(player.id, position);
+      this.lineupMessage = `${player.name} starts at P${position}.${target ? ' ' + target.name + ' moves to the bench.' : ''}`;
+    }
     this.selectedPlayerId = null;
+  }
+
+  getCourtSlotAction(position: number): string {
+    if (!this.selectedPlayerId) return 'Tap to swap';
+    const fromPosition = this.selectedStarterPosition;
+    if (fromPosition === position) return 'Tap to cancel';
+    return fromPosition !== null ? `Swap with P${fromPosition}` : 'Set starter here';
   }
 
   allowDrop(event: DragEvent): void {
     event.preventDefault();
   }
 
-  onDragStart(event: DragEvent, playerId: string): void {
+  onDragStart(event: DragEvent, playerId: string | undefined): void {
+    if (!playerId || !this.teamRoster.isInMatchSquad(playerId)) {
+      event.preventDefault();
+      return;
+    }
+    this.selectedPlayerId = playerId;
+    this.lineupMessage = '';
     this.draggedPlayerId = playerId;
     event.dataTransfer?.setData('text/player-id', playerId);
     event.dataTransfer?.setData('text/plain', playerId);
@@ -245,8 +312,14 @@ export class PreMatchPage {
       event.dataTransfer?.getData('text/plain') ||
       this.draggedPlayerId;
     if (playerId) {
-      this.teamRoster.assignMatchStarter(playerId, position);
+      this.selectedPlayerId = playerId;
+      this.assignSelectedToPosition(position);
     }
+    this.draggedPlayerId = null;
+    this.selectedPlayerId = null;
+  }
+
+  endDrag(): void {
     this.draggedPlayerId = null;
     this.selectedPlayerId = null;
   }
@@ -267,10 +340,11 @@ export class PreMatchPage {
 
   getCourtSlotAriaLabel(position: number): string {
     const player = this.getSlotPlayer(position);
+    const location = this.courtSlots.find((slot) => slot.position === position)?.roleLabel;
     if (!player) {
-      return `P${position}, open position. Choose player`;
+      return `P${position}, ${location}, ${this.hasAssignedStarters ? 'needs player. Assign starter' : 'open position. Choose player'}`;
     }
-    return `P${position}, #${player.jerseyNumber} ${player.name}, ${player.primaryPosition}. Change player`;
+    return `P${position}, ${location}, starter, #${player.jerseyNumber} ${player.name}, ${this.playingPositionNames[player.primaryPosition]}. ${this.getCourtSlotAction(position)}`;
   }
 
   getPlayerPickerAriaLabel(player: RosterPlayer): string {

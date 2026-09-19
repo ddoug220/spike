@@ -45,6 +45,7 @@ interface PersistedRosterState {
   players: Array<Partial<RosterPlayer>>;
   lineup: Array<string | null>;
   matchDefaultsByTeam?: Record<string, Partial<MatchDefaults>>;
+  savedTeams?: TeamRosterSnapshot;
 }
 
 interface MatchDefaultsRoster extends Roster {
@@ -432,9 +433,20 @@ export class TeamRosterService {
     this.syncToFirebase('all', offlineSync);
   }
 
-  private persist(syncScope: RosterSyncScope): void {
+  private persist(syncScope: RosterSyncScope | null): void {
+    const team = this.teamSignal();
+    const snapshot = this.cloudSnapshotSignal();
+    const rosterUpdatedAt = syncScope
+      ? new Date().toISOString()
+      : snapshot?.rosters.find((entry) => entry.teamId === team.id && entry.gameId === null)?.updatedAt ?? team.updatedAt;
+    this.cloudSnapshotSignal.set({
+      teams: [...(snapshot?.teams ?? []).filter((entry) => entry.id !== team.id), this.toFirestoreTeam(team)],
+      players: [...(snapshot?.players ?? []).filter((entry) => entry.teamId !== team.id), ...this.playersSignal().map((player) => this.toFirestorePlayer(player, team.id))],
+      rosters: [...(snapshot?.rosters ?? []).filter((entry) => entry.teamId !== team.id || entry.gameId !== null), this.toFirestoreRoster(team.id, rosterUpdatedAt)],
+    });
+    this.restoredLocalState = true;
     if (typeof window === 'undefined' || !window.localStorage) {
-      this.syncToFirebase(syncScope);
+      if (syncScope) this.syncToFirebase(syncScope);
       return;
     }
 
@@ -443,9 +455,14 @@ export class TeamRosterService {
       players: this.playersSignal(),
       lineup: this.lineupSignal(),
       matchDefaultsByTeam: this.matchDefaultsByTeamSignal(),
+      savedTeams: this.cloudSnapshotSignal()!,
     };
-    window.localStorage.setItem(this.ownerKey(), JSON.stringify(state));
-    this.syncToFirebase(syncScope);
+    if (this.offlineSync) {
+      this.offlineSync.saveLocalData(this.ownerKey(), JSON.stringify(state));
+    } else {
+      window.localStorage.setItem(this.ownerKey(), JSON.stringify(state));
+    }
+    if (syncScope) this.syncToFirebase(syncScope);
   }
 
   private restore(): void {
@@ -473,6 +490,9 @@ export class TeamRosterService {
       this.matchDefaultsByTeamSignal.set(
         this.normalizeMatchDefaultsByTeam(parsed.matchDefaultsByTeam, normalizedTeam.id, players, lineup),
       );
+      if (Array.isArray(parsed.savedTeams?.teams) && Array.isArray(parsed.savedTeams?.players) && Array.isArray(parsed.savedTeams?.rosters)) {
+        this.cloudSnapshotSignal.set(parsed.savedTeams);
+      }
       this.restoredLocalState = true;
     } catch {
       // Ignore invalid persisted data and continue with defaults.
@@ -486,6 +506,9 @@ export class TeamRosterService {
     this.teamSignal.set(this.createDefaultTeam());
     this.playersSignal.set([]);
     this.lineupSignal.set([null, null, null, null, null, null]);
+    this.matchDefaultsByTeamSignal.set({});
+    this.cloudSnapshotSignal.set(null);
+    this.restoredLocalState = false;
   }
 
   private ownerKey(): string {
@@ -510,20 +533,38 @@ export class TeamRosterService {
       return;
     }
 
-    this.cloudSnapshotSignal.set(result.data);
     this.applyCloudRosterSnapshot(result.data);
   }
 
   private applyCloudRosterSnapshot(snapshot: TeamRosterSnapshot): void {
-    const team = snapshot.teams.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    const team = (this.restoredLocalState ? snapshot.teams.find((entry) => entry.id === this.teamSignal().id) : null) ??
+      snapshot.teams.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
     if (!team) {
       return;
     }
 
-    if (this.restoredLocalState && team.updatedAt < this.teamSignal().updatedAt) {
+    const latestChange = (data: TeamRosterSnapshot, teamId: string): string => [
+      ...data.teams.filter((entry) => entry.id === teamId),
+      ...data.players.filter((entry) => entry.teamId === teamId),
+      ...data.rosters.filter((entry) => entry.teamId === teamId && entry.gameId === null),
+    ].reduce((latest, entry) => entry.updatedAt > latest ? entry.updatedAt : latest, '');
+    const local = this.cloudSnapshotSignal();
+    if (this.restoredLocalState && (
+      team.updatedAt < this.teamSignal().updatedAt ||
+      (local && latestChange(snapshot, team.id) < latestChange(local, this.teamSignal().id))
+    )) {
+      if (local) {
+        this.cloudSnapshotSignal.set({
+          teams: [...snapshot.teams.filter((entry) => entry.id !== this.teamSignal().id), ...local.teams.filter((entry) => entry.id === this.teamSignal().id)],
+          players: [...snapshot.players.filter((entry) => entry.teamId !== this.teamSignal().id), ...local.players.filter((entry) => entry.teamId === this.teamSignal().id)],
+          rosters: [...snapshot.rosters.filter((entry) => entry.teamId !== this.teamSignal().id), ...local.rosters.filter((entry) => entry.teamId === this.teamSignal().id)],
+        });
+        this.persist(null);
+      }
       return;
     }
 
+    this.cloudSnapshotSignal.set(snapshot);
     this.applyTeamFromSnapshot(team.id, snapshot);
   }
 
@@ -537,8 +578,8 @@ export class TeamRosterService {
       .filter((entry) => entry.teamId === team.id && entry.gameId === null)
       .slice()
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] as MatchDefaultsRoster | undefined;
-    const playerIds = new Set(snapshot.players.filter((player) => player.teamId === team.id).map((player) => player.id));
-    const cloudLineup = roster?.lineup.length === 6 ? roster.lineup.map((id) => (typeof id === 'string' && playerIds.has(id) ? id : null)) : this.lineupSignal();
+    const playerIds = new Set(snapshot.players.filter((player) => player.teamId === team.id && player.active).map((player) => player.id));
+    const cloudLineup = roster?.lineup.length === 6 ? roster.lineup.map((id) => (typeof id === 'string' && playerIds.has(id) ? id : null)) : [null, null, null, null, null, null];
 
     this.teamSignal.set({
       id: team.id,
@@ -563,7 +604,7 @@ export class TeamRosterService {
         startingLineup: [...cloudLineup],
       },
     }));
-    this.persist('all');
+    this.persist(null);
     return true;
   }
 

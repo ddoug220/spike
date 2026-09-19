@@ -141,7 +141,7 @@ describe('HomePage', () => {
     expect(fixture.debugElement.query(By.directive(FirstRunCourtComponent))).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Set up the next match');
     expect(fixture.nativeElement.textContent).toContain('Set Up Match');
-    expect(fixture.nativeElement.textContent).toContain('Next-match default');
+    expect(fixture.nativeElement.textContent).toContain('Saved starting six');
     expect(fixture.nativeElement.textContent).toContain('Player 1');
     expect(fixture.nativeElement.textContent).not.toContain('First match guide');
     expect(routeLinks()).toContain('/pre-match');

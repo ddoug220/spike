@@ -5,14 +5,15 @@
     <header class="scoreboard">
       <div class="match-title">
         <span class="status" [class.status-live]="match.status === 'live'">{{ statusLabel(match.status) }}</span>
-        <h1>vs {{ match.opponentName }}</h1>
+        <h1>{{ match.teamName }} vs {{ match.opponentName }}</h1>
         <p>{{ match.startedAt | date:'fullDate' }}</p>
+        <p>Set {{ match.currentSet }} · {{ match.teamPoints }}–{{ match.opponentPoints }} points</p>
       </div>
 
       <div class="match-score" aria-label="Match score">
         <span>
           <strong>{{ match.teamSets }}</strong>
-          <small>Team</small>
+          <small>{{ match.teamName }}</small>
         </span>
         <b aria-hidden="true">–</b>
         <span>
@@ -65,39 +66,8 @@
       </div>
     </section>
 
-    <section aria-labelledby="box-score-title">
-      <h2 id="box-score-title">Box score</h2>
-      <p *ngIf="match.boxScore.length === 0" class="empty">No player totals were saved for this match.</p>
-      <div *ngIf="match.boxScore.length > 0" class="table-scroll" role="region" aria-label="Player box score" tabindex="0">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Player</th>
-              <th scope="col">K</th>
-              <th scope="col">E</th>
-              <th scope="col">Ace</th>
-              <th scope="col">Blk</th>
-              <th scope="col">Dig</th>
-              <th scope="col">SE</th>
-              <th scope="col">RE</th>
-              <th scope="col">Serve in</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let player of match.boxScore">
-              <th scope="row"><span>#{{ player.jerseyNumber ?? '–' }}</span> {{ player.playerName }}</th>
-              <td>{{ player.kills }}</td>
-              <td>{{ player.attackErrors }}</td>
-              <td>{{ player.aces }}</td>
-              <td>{{ player.blocks }}</td>
-              <td>{{ player.digs }}</td>
-              <td>{{ player.serviceErrors }}</td>
-              <td>{{ player.receiveErrors }}</td>
-              <td>{{ serveRate(player.serveAttempts, player.servesIn) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <section aria-label="Box score">
+      <app-match-box-score *ngIf="projection as projectedMatch" [match]="projectedMatch" />
     </section>
 
     <div class="lower-grid">

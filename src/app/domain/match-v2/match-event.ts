@@ -19,6 +19,7 @@ export interface MatchSession {
   id: string;
   ownerId: string;
   teamId: string;
+  teamName?: string;
   opponentName: string;
   squad: readonly MatchPlayer[];
   createdAt: string;

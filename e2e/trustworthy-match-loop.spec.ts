@@ -159,4 +159,173 @@ test('phone setup, scoring, and recovery work through normal vertical scrolling 
   });
   expect(contentOverflow).toBe(true);
   expect(Math.max(...reachedScrollPositions)).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Team & Stats', exact: true }).click();
+  const stats = page.locator('ion-modal.stats-modal');
+  await expect(stats.locator('tbody tr')).toHaveCount(6);
+  await expect.poll(() => stats.locator('.table-scroll').evaluate((element) => element.clientWidth > 0 && element.scrollWidth > element.clientWidth)).toBe(true);
+  const statsOverflow = await stats.locator('.table-scroll').evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return { scrolls: element.scrollWidth > element.clientWidth, right: bounds.right };
+  });
+  expect(statsOverflow.scrolls).toBe(true);
+  expect(statsOverflow.right).toBeLessThanOrEqual(375);
+  await page.getByRole('button', { name: 'Close team and stats' }).click();
+  await expect(stats).toBeHidden();
+});
+
+for (const width of [1024, 375]) {
+  test(`direct starter swaps preserve a ready lineup at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 375 ? 667 : 768 });
+    await setUpMatch(page);
+    const position = (number: number) => page.locator(`.court-slot[data-position="${number}"]`);
+    await position(1).click();
+    await expect(page.locator('ion-modal.position-picker-modal')).toBeHidden();
+    await position(2).click();
+    await expect(position(1)).toContainText('Player 2');
+    await expect(position(2)).toContainText('Player 1');
+    await expect(page.locator('.lineup-count')).toContainText('6');
+    await expect(page.getByRole('button', { name: 'Start Match' })).toBeEnabled();
+    await expect(position(1)).toContainText('Serves first');
+    await expect(page.locator('.lineup-instruction')).toContainText('Swapped Player 1 (P1) and Player 2 (P2)');
+
+    if (width === 1024) {
+      await position(1).press('Enter');
+      await position(2).press('Enter');
+      await expect(position(1)).toContainText('Player 1');
+      await position(1).dragTo(position(4));
+      await expect(position(1)).toContainText('Player 4');
+      await expect(position(4)).toContainText('Player 1');
+      await expect(page.getByRole('button', { name: 'Start Match' })).toBeEnabled();
+    }
+  });
+}
+
+test('device storage failure is visible, scoring continues, and Retry preserves the match through refresh', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await setUpMatch(page);
+  await page.evaluate(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    (window as Window & { restoreDeviceStorage?: () => void }).restoreDeviceStorage = () => {
+      Storage.prototype.setItem = originalSetItem;
+    };
+    Storage.prototype.setItem = () => { throw new DOMException('Device storage is full', 'QuotaExceededError'); };
+  });
+
+  await page.getByRole('button', { name: 'Start Match' }).click();
+  await expect(page).toHaveURL(/\/court$/);
+  await expect(page.locator('.device-save-error')).toContainText('Unsynced changes may be lost if you refresh');
+  await scoreKill(page);
+  await expect(page.locator('.score-side.home .score-points')).toHaveText('1');
+
+  await page.evaluate(() => {
+    (window as Window & { restoreDeviceStorage?: () => void }).restoreDeviceStorage?.();
+  });
+  await page.locator('app-equipment-rail').getByRole('button', { name: 'Retry', exact: true }).click();
+  await expect(page.locator('.device-save-error')).toHaveCount(0);
+  await page.reload();
+  await expect(page).toHaveURL(/\/court$/);
+  await expect(page.locator('.score-side.home .score-points')).toHaveText('1');
+  await expect(page.locator('.last-action')).toContainText('Kill · Player 1');
+});
+
+test('a full match preserves roster, substitutions, timeouts, and set stats across new browser sessions', async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await setUpMatch(page);
+  await page.locator('.player-row').filter({ hasText: 'Player 7' }).getByRole('checkbox').check();
+  const appOrigin = new URL(page.url()).origin;
+  await page.goto('/team');
+  await page.getByLabel('Team Name').fill('North High');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.goto('/pre-match');
+  await page.getByLabel('Opponent').fill('Central High');
+  await page.getByRole('button', { name: 'Start Match' }).click();
+  await expect(page).toHaveURL(/\/court$/);
+  const offlineCachingEnabled = await page.locator('app-court .offline-state').count() > 0;
+  if (offlineCachingEnabled) {
+    await expect(page.locator('app-court').getByText('Ready offline', { exact: true })).toBeVisible();
+  }
+  await page.context().setOffline(true);
+  await scoreKill(page);
+  await page.locator('.player-chip[data-position="2"]').click();
+  await page.getByRole('button', { name: 'Dig - stat only, no point' }).click();
+  await page.getByRole('button', { name: 'Match Controls', exact: true }).click();
+  await page.getByRole('button', { name: 'Our timeout' }).click();
+  await page.getByRole('button', { name: 'Close match controls' }).click();
+  await page.locator('.player-chip[data-position="1"]').click();
+  await page.getByRole('button', { name: 'Open substitution panel (S)' }).click();
+  await page.getByRole('option', { name: /Substitute in Player 7/ }).click();
+  await scoreKill(page);
+
+  if (offlineCachingEnabled) {
+    await page.reload();
+    await expect(page.locator('.score-side.home .score-points')).toHaveText('2');
+    const reopened = await page.context().newPage();
+    await page.close();
+    await reopened.goto(appOrigin + '/court');
+    await expect(reopened.locator('.score-side.home .score-points')).toHaveText('2');
+    page = reopened;
+  }
+
+  const saved = await page.context().storageState();
+  await page.close();
+  const resumedContext = await browser.newContext({ storageState: saved, viewport: { width: 1024, height: 768 } });
+  const resumed = await resumedContext.newPage();
+  try {
+    await resumed.goto(appOrigin + '/court');
+    await expect(resumed).toHaveURL(/\/court$/);
+    await expect(resumed.locator('.score-side.home .score-team-name')).toHaveText('North High');
+    await expect(resumed.locator('.score-side.home .score-points')).toHaveText('2');
+    await expect(resumed.locator('.player-chip[data-position="1"]')).toContainText('Player 7');
+    await resumed.getByRole('button', { name: 'Match Controls', exact: true }).click();
+    await expect(resumed.getByRole('dialog', { name: 'Match Controls' })).toContainText('North High 1');
+    await resumed.getByRole('button', { name: 'Close match controls' }).click();
+    await resumed.getByRole('button', { name: 'Team & Stats', exact: true }).click();
+    const panel = resumed.locator('ion-modal.stats-modal');
+    await expect(panel.locator('tbody tr')).toHaveCount(7);
+    await expect(panel.locator('tbody tr').filter({ hasText: 'Player 1' }).locator('td').nth(0)).toHaveText('OH');
+    await expect(panel.locator('tbody tr').filter({ hasText: 'Player 1' }).locator('td').nth(1)).toHaveText('Bench');
+    await expect(panel.locator('tbody tr').filter({ hasText: 'Player 2' }).locator('td').nth(7)).toHaveText('1');
+    await expect(panel.locator('tfoot td').nth(0)).toHaveText('2');
+    await resumed.getByRole('button', { name: 'Close team and stats' }).click();
+    await resumed.getByRole('button', { name: 'Undo last action (Ctrl+Z)' }).click();
+    await expect(resumed.locator('.score-side.home .score-points')).toHaveText('1');
+
+    for (let point = 1; point < 25; point += 1) await scoreKill(resumed);
+    await expect(resumed.getByRole('heading', { name: 'Set up Set 2' })).toBeVisible();
+    await resumed.reload();
+    await expect(resumed.getByRole('heading', { name: 'Set up Set 2' })).toBeVisible();
+    await resumed.getByRole('button', { name: 'Start Set 2', exact: true }).click();
+    await scoreKill(resumed);
+    await resumed.getByRole('button', { name: 'Team & Stats', exact: true }).click();
+    await panel.getByLabel('Stats scope').selectOption('2');
+    await expect(panel.locator('tfoot td').nth(0)).toHaveText('1');
+    await panel.getByLabel('Stats scope').selectOption('1');
+    await expect(panel.locator('tfoot td').nth(0)).toHaveText('25');
+    await resumed.getByRole('button', { name: 'Close team and stats' }).click();
+    for (let point = 1; point < 25; point += 1) await scoreKill(resumed);
+    await resumed.getByRole('button', { name: 'Start Set 3', exact: true }).click();
+    for (let point = 0; point < 25; point += 1) await scoreKill(resumed);
+    await expect(resumed.locator('.match-over-banner')).toContainText('Match final.');
+    await resumed.getByRole('button', { name: 'Review Match', exact: true }).click();
+    await expect(resumed).toHaveURL(/\/review\//);
+    const reviewUrl = resumed.url();
+    await resumed.reload();
+    await expect(resumed.getByRole('heading', { name: 'North High vs Central High' })).toBeVisible();
+    await expect(resumed.locator('app-match-box-score tfoot td').nth(0)).toHaveText('75');
+    await expect(resumed.locator('.set-list li')).toHaveCount(3);
+    await resumed.goto(appOrigin + '/pre-match?newMatch=1');
+    await resumed.getByLabel('Opponent').fill('West High');
+    await resumed.getByRole('button', { name: 'Start Match' }).click();
+    await expect(resumed.locator('.score-side.home .score-points')).toHaveText('0');
+    await resumed.goto(reviewUrl);
+    await expect(resumed.locator('app-match-box-score tfoot td').nth(0)).toHaveText('75');
+    await resumed.goto(appOrigin + '/team');
+    await expect(resumed.locator('.roster-row')).toHaveCount(7);
+    await expect(resumed.getByLabel('Team Name')).toHaveValue('North High');
+    await resumed.goto(appOrigin + '/history');
+    await expect(resumed.locator('.match-row')).toHaveCount(2);
+  } finally {
+    await resumedContext.close();
+  }
 });

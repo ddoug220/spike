@@ -20,12 +20,15 @@
         </div>
 
         <div class="lineup-preview" aria-label="Saved starting lineup preview">
-          <div class="preview-head"><span>Next-match default</span><strong>{{ assignedDefaultCount }}/6</strong></div>
+          <div class="preview-head"><span>Saved starting six</span><strong>{{ assignedDefaultCount }}/6</strong></div>
           <div class="mini-court">
             <div *ngFor="let slot of defaultLineup" class="mini-player" [ngClass]="'p' + slot.position" [title]="slot.player?.name || 'Open position'">
-              <span>P{{ slot.position }}</span>
-              <strong>{{ slot.player ? '#' + slot.player.jerseyNumber : '—' }}</strong>
-              <small>{{ slot.player?.name || 'Open' }}</small>
+              <div class="player-meta">
+                <span class="player-jersey">{{ slot.player ? '#' + slot.player.jerseyNumber : '—' }}</span>
+                <span>{{ slot.player?.primaryPosition }}</span>
+              </div>
+              <strong>{{ slot.player?.name || 'Open' }}</strong>
+              <small>P{{ slot.position }}</small>
             </div>
           </div>
         </div>

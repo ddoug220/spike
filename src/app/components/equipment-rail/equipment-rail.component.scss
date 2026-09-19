@@ -30,6 +30,16 @@ ion-toolbar {
   border-inline-end: 1px solid var(--spike-line);
 }
 
+.device-save-error {
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--spike-warning);
+  background: var(--spike-frame);
+  color: var(--spike-ink);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .rail-brand {
   display: flex;
   align-items: center;
@@ -134,6 +144,7 @@ ion-toolbar {
 .state-copy { display: grid; min-width: 0; gap: 1px; }
 .state-copy strong { font-family: var(--font-display); font-size: 0.82rem; letter-spacing: 0.025em; }
 .state-copy small { overflow: hidden; max-width: 18ch; text-overflow: ellipsis; white-space: nowrap; }
+.rail-state.offline-state .state-copy small { display: block; font-size: 0.65rem; }
 
 .sync-retry {
   min-height: 44px;

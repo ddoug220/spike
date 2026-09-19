@@ -41,6 +41,7 @@
           },
           "configurations": {
             "production": {
+              "serviceWorker": "ngsw-config.json",
               "budgets": [
                 {
                   "type": "initial",
@@ -82,6 +83,13 @@
             },
             "ci": {
               "progress": false
+            },
+            "offline-e2e": {
+              "tsConfig": "tsconfig.e2e.app.json",
+              "fileReplacements": [
+                { "replace": "src/main.ts", "with": "src/main.e2e.ts" },
+                { "replace": "src/environments/environment.ts", "with": "src/environments/environment.prod.ts" }
+              ]
             }
           },
           "defaultConfiguration": "production"

@@ -8,13 +8,15 @@ import { FirebaseDbService } from '../../services/firebase-db.service';
 import { Game, GameEvent } from '../../models/firestore.models';
 import { MatchReviewData, buildMatchReview } from './review-data';
 import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
+import { MatchBoxScoreComponent } from '../../components/match-box-score/match-box-score.component';
+import { projectionFromFirestore } from '../../services/match-v2.adapter';
 
 @Component({
   selector: 'app-review',
   templateUrl: './review.page.html',
   styleUrls: ['./review.page.scss'],
   standalone: true,
-  imports: [IonContent, NgFor, NgIf, RouterLink, DatePipe, EquipmentRailComponent],
+  imports: [IonContent, NgFor, NgIf, RouterLink, DatePipe, EquipmentRailComponent, MatchBoxScoreComponent],
 })
 export class ReviewPage implements OnDestroy {
   readonly matchId: string;
@@ -49,9 +51,14 @@ export class ReviewPage implements OnDestroy {
 
   get review(): MatchReviewData | null {
     return buildMatchReview(
-      this.cloudGame() ?? this.offlineSync.getGame(this.matchId),
+      this.offlineSync.getGame(this.matchId) ?? this.cloudGame(),
       this.mergedEvents(),
     );
+  }
+
+  get projection() {
+    const game = this.offlineSync.getGame(this.matchId) ?? this.cloudGame();
+    return game ? projectionFromFirestore(game, this.mergedEvents()) : null;
   }
 
   get canResume(): boolean {
@@ -94,7 +101,9 @@ export class ReviewPage implements OnDestroy {
   private mergedEvents(): GameEvent[] {
     const events = new Map<string, GameEvent>();
     this.offlineSync.getMatchEvents(this.matchId).forEach((event) => events.set(event.id, event));
-    this.cloudEvents().forEach((event) => events.set(event.id, event));
+    this.cloudEvents().forEach((event) => {
+      if (!events.has(event.id)) events.set(event.id, event);
+    });
     return [...events.values()];
   }
 }

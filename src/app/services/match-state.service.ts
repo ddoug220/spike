@@ -1,5 +1,6 @@
 import { Injectable, Optional, computed, signal } from '@angular/core';
 import { AuthService } from './auth.service';
+import { OfflineSyncService } from './offline-sync.service';
 import { purgeLegacyMatchCaches } from './legacy-match-cache';
 
 export interface MatchScoreState {
@@ -38,7 +39,10 @@ export class MatchStateService {
 
   readonly state = computed(() => this.stateSignal());
 
-  constructor(@Optional() private readonly auth?: AuthService) {
+  constructor(
+    @Optional() private readonly auth?: AuthService,
+    @Optional() private readonly offlineSync?: OfflineSyncService,
+  ) {
     purgeLegacyMatchCaches();
     this.restore();
   }
@@ -227,13 +231,12 @@ export class MatchStateService {
       return;
     }
 
-    window.localStorage.setItem(
-      this.ownerKey(),
-      JSON.stringify({
-        state: this.stateSignal(),
-        history: this.historySignal(),
-      }),
-    );
+    const value = JSON.stringify({ state: this.stateSignal(), history: this.historySignal() });
+    if (this.offlineSync) {
+      this.offlineSync.saveLocalData(this.ownerKey(), value);
+    } else {
+      window.localStorage.setItem(this.ownerKey(), value);
+    }
   }
 
   private restore(): void {

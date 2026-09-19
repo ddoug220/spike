@@ -33,6 +33,7 @@ export interface Game {
   id: string;
   ownerId: string;
   teamId: string;
+  teamName?: string;
   opponentName: string;
   status: GameStatus;
   servingTeam: TeamSide;

@@ -67,6 +67,7 @@ class FakeFirebaseDbService {
 describe('OfflineSyncService', () => {
   let service: OfflineSyncService;
   let firebaseDb: FakeFirebaseDbService;
+  let online: jasmine.Spy;
 
   const event = (id: string, gameId: string, type: GameEvent['type'], createdAt: string): GameEvent => ({
     id,
@@ -103,7 +104,7 @@ describe('OfflineSyncService', () => {
 
   beforeEach(() => {
     window.localStorage.clear();
-    spyOnProperty(window.navigator, 'onLine', 'get').and.returnValue(true);
+    online = spyOnProperty(window.navigator, 'onLine', 'get').and.returnValue(true);
     firebaseDb = new FakeFirebaseDbService();
     service = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
   });
@@ -117,12 +118,89 @@ describe('OfflineSyncService', () => {
     }
   };
 
+  it('retries pending cloud saves automatically when restarted online', async () => {
+    online.and.returnValue(false);
+    service.queueTeam({ id: 'team-restart', ownerId: 'owner-1', name: 'North High', createdAt: '2026-09-17', updatedAt: '2026-09-17' });
+    expect(service.pendingCount()).toBe(1);
+
+    online.and.returnValue(true);
+    service = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
+    await waitForIdle();
+
+    expect(service.pendingCount()).toBe(0);
+    expect(firebaseDb.documents.get('teams/team-restart')).toEqual(jasmine.objectContaining({ name: 'North High' }));
+  });
+
   it('records last successful sync timestamp', async () => {
     service.queueMatchEvent(event('evt-1', 'm-1', 'matchStarted', '2026-02-10T10:00:00.000Z'));
     await waitForIdle();
 
     expect(service.pendingCount()).toBe(0);
     expect(service.lastSuccessfulSyncAt()).not.toBeNull();
+  });
+
+  for (const firstWriteSucceeds of [true, false]) {
+    it(`saves a newer edit made while an older save ${firstWriteSucceeds ? 'succeeds' : 'fails'}`, async () => {
+      let finishFirstWrite!: () => void;
+      const firstWrite = new Promise<void>((resolve) => finishFirstWrite = resolve);
+      const writeDocument = firebaseDb.writeDocument.bind(firebaseDb);
+      let writesStarted = 0;
+      spyOn(firebaseDb, 'writeDocument').and.callFake(async (collection, id, payload) => {
+        if (++writesStarted === 1) {
+          await firstWrite;
+          if (!firstWriteSucceeds) return { ok: false, error: 'Older save failed' };
+        }
+        return writeDocument(collection, id, payload);
+      });
+      const team: Team = {
+        id: 'team-edited', ownerId: 'owner-1', name: 'Before edit',
+        createdAt: '2026-09-17T10:00:00.000Z', updatedAt: '2026-09-17T10:00:00.000Z',
+      };
+
+      service.queueTeam(team);
+      service.queueTeam({ ...team, name: 'After edit' });
+      finishFirstWrite();
+      await waitForIdle();
+
+      expect(firebaseDb.documents.get('teams/team-edited')).toEqual(jasmine.objectContaining({ name: 'After edit' }));
+      expect(service.pendingCount()).toBe(0);
+      expect(service.lastError()).toBeNull();
+    });
+  }
+
+  it('retains unsaved match data, blocks sign out, and saves it when device storage recovers', async () => {
+    online.and.returnValue(false);
+    const setItem = spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+    expect(() => service.queueMatchEvent(event('unsaved-event', 'unsaved-match', 'matchStarted', '2026-09-17T10:00:00.000Z'))).not.toThrow();
+    expect(service.getMatchEvents('unsaved-match').length).toBe(1);
+    expect(service.lastError()).toContain('Device save failed');
+    expect(await service.prepareForSignOut()).toBeFalse();
+
+    setItem.and.callThrough();
+    await service.retryNow();
+    const restored = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
+    expect(restored.getMatchEvents('unsaved-match').map((entry) => entry.id)).toEqual(['unsaved-event']);
+    expect(restored.pendingCount()).toBe(1);
+    expect(service.lastError()).toBeNull();
+  });
+
+  it('keeps the device-save warning after cloud sync succeeds until local saving recovers', async () => {
+    const setItem = spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+    service.queueTeam({
+      id: 'cloud-saved-team', ownerId: 'owner-1', name: 'North High',
+      createdAt: '2026-09-17T10:00:00.000Z', updatedAt: '2026-09-17T10:00:00.000Z',
+    });
+    await waitForIdle();
+
+    expect(service.pendingCount()).toBe(0);
+    expect(service.lastError()).toContain('Device save failed');
+    expect(await service.prepareForSignOut()).toBeFalse();
+
+    setItem.and.callThrough();
+    await service.retryNow();
+    expect(service.lastError()).toBeNull();
+    expect(await service.prepareForSignOut()).toBeTrue();
   });
 
   it('pushes teams, players, and roster documents through the retry queue', async () => {

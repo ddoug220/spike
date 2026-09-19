@@ -10,6 +10,10 @@ class FakeOfflineSyncService {
   readonly players: Player[] = [];
   readonly rosters: Roster[] = [];
 
+  saveLocalData(key: string, value: string): void {
+    window.localStorage.setItem(key, value);
+  }
+
   queueTeam(team: Team): void {
     this.teams.push(team);
   }
@@ -302,5 +306,25 @@ describe('TeamRosterService', () => {
     expect(service.team().name).toBe('Cloud High');
     expect(service.players().map((player) => player.name)).toEqual(['Ava Johnson']);
     expect(service.lineup()[0]).toBe('p-cloud-1');
+
+    service.updatePlayer('p-cloud-1', { name: 'Ava Updated', jerseyNumber: 14, primaryPosition: 'S' });
+    const otherTeam = { ...snapshot.teams[0], id: 'team-other', name: 'Other High', updatedAt: '2026-02-09T10:00:00.000Z' };
+    snapshot.teams.push(otherTeam);
+    snapshot.players.push({ ...snapshot.players[0], id: 'p-other', teamId: otherTeam.id, name: 'Other Player' });
+    // Reload the stale cloud snapshot; saved player edits must survive it.
+    service = new TeamRosterService(new RotationService(), new FakeAuthService() as unknown as AuthService, undefined, new FakeFirebaseDbService(snapshot) as unknown as FirebaseDbService);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(service.players()[0].name).toBe('Ava Updated');
+    expect(service.cloudTeams().length).toBe(2);
+
+    const restarted = new TeamRosterService(new RotationService(), new FakeAuthService() as unknown as AuthService);
+    expect(restarted.switchToTeam(otherTeam.id)).toBeTrue();
+    expect(restarted.players()[0].name).toBe('Other Player');
+    expect(restarted.lineup()).toEqual([null, null, null, null, null, null]);
+    expect(restarted.switchToTeam('team-cloud')).toBeTrue();
+    expect(restarted.players()[0].name).toBe('Ava Updated');
+    restarted.clearOwnerLocalData();
+    expect(restarted.cloudTeams()).toEqual([]);
+    expect(restarted.matchDefaults().squadPlayerIds).toEqual([]);
   });
 });

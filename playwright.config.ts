@@ -15,7 +15,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run start:e2e',
+    command: process.env['SPIKE_E2E_OFFLINE'] === '1' ? 'npm run start:e2e:offline' : 'npm run start:e2e',
     url: 'http://127.0.0.1:4201',
     reuseExistingServer: false,
     timeout: 120_000,

@@ -136,7 +136,7 @@ export class HomePage {
   async signOut(): Promise<void> {
     this.signOutError = null;
     if (!(await this.offlineSync.prepareForSignOut())) {
-      this.signOutError = 'Sign out is blocked until saved changes reach the cloud. Reconnect, then try again.';
+      this.signOutError = this.offlineSync.storageError() ?? 'Sign out is blocked until saved changes reach the cloud. Reconnect, then try again.';
       return;
     }
     this.offlineSync.clearOwnerLocalData();

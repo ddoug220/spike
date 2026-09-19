@@ -48,6 +48,33 @@ describe('MatchEngineService', () => {
     expect(matchState.state().opponentPoints).toBe(0);
   });
 
+  it('keeps match team identity when the saved team changes and scoring resumes after restart', () => {
+    teamRoster.updateTeamName('North High');
+    startWithLineup();
+    const matchId = offlineSync.getActiveMatchId();
+    const originalTeamId = offlineSync.getGame(matchId)!.teamId;
+    service.recordPlayerAction(1, 'kill');
+    teamRoster.updateTeamName('Renamed team');
+
+    const auth = new FakeAuthService() as unknown as AuthService;
+    const firebase = new FakeFirebaseDbService() as unknown as FirebaseDbService;
+    const restartedSync = new OfflineSyncService(firebase, auth);
+    const restartedRoster = new TeamRosterService(new RotationService(), auth);
+    const restartedEngine = new MatchEngineService(new MatchStateService(), new MatchStatsService(), restartedRoster, restartedSync);
+    restartedEngine.recordPlayerAction(1, 'dig');
+    const game = restartedSync.getGame(matchId)!;
+    const projection = projectionFromFirestore(game, restartedSync.getMatchEvents(matchId))!;
+
+    expect(restartedSync.getActiveMatchId()).toBe(matchId);
+    expect(game.teamId).toBe(originalTeamId);
+    expect(game.teamName).toBe('North High');
+    expect(projection.teamPoints).toBe(1);
+    expect(projection.observations.length).toBe(1);
+    expect(restartedRoster.team().name).toBe('Renamed team');
+    restartedEngine.undoLastEvent();
+    expect(projectionFromFirestore(restartedSync.getGame(matchId)!, restartedSync.getMatchEvents(matchId))!.observations.length).toBe(0);
+  });
+
   it('stops undo at match start and walks backward through consecutive actions', () => {
     startWithLineup();
     const matchId = offlineSync.getActiveMatchId();

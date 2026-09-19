@@ -54,6 +54,8 @@ export interface ReviewTimelineItem {
 export interface MatchReviewData {
   status: 'live' | 'final' | 'ended-early';
   opponentName: string;
+  teamName: string;
+  currentSet: number;
   startedAt: string;
   teamSets: number;
   opponentSets: number;
@@ -80,6 +82,8 @@ export function buildMatchReview(game: Game | null, storedEvents: GameEvent[]): 
   return {
     status: match.status === 'ended-early' ? 'ended-early' : match.status === 'final' ? 'final' : 'live',
     opponentName: match.session.opponentName,
+    teamName: match.session.teamName ?? 'Team',
+    currentSet: match.currentSet,
     startedAt: match.session.createdAt,
     teamSets: match.teamSets,
     opponentSets: match.opponentSets,

@@ -162,6 +162,153 @@ describe('PreMatchPage', () => {
     expect(component.getCourtSlotAriaLabel(5)).toContain('open position');
   });
 
+  it('shows player identity and full playing position separately from court location after a swap', () => {
+    teamRoster.addPlayer({ name: 'Alexandra Martinez-Williams', jerseyNumber: 12, primaryPosition: 'S' });
+    teamRoster.addPlayer({ name: 'Jordan Chen', jerseyNumber: 8, primaryPosition: 'DS' });
+    teamRoster.players().forEach((player, index) => {
+      teamRoster.setMatchSquadPlayer(player.id, true);
+      teamRoster.assignMatchStarter(player.id, index + 1);
+    });
+    fixture.detectChanges();
+    const page: HTMLElement = fixture.nativeElement;
+    const p1 = page.querySelector<HTMLButtonElement>('.court-slot[data-position="1"]')!;
+    const p2 = page.querySelector<HTMLButtonElement>('.court-slot[data-position="2"]')!;
+    expect(p1.querySelector('strong')?.textContent).toBe('Alexandra Martinez-Williams');
+    expect(p1.querySelector('.slot-jersey')?.textContent).toBe('#12');
+    expect(p1.querySelector('.slot-playing-position')?.textContent).toBe('Setter');
+    expect(p1.querySelector('.slot-location')?.textContent).toBe('Back Right');
+    p1.click();
+    fixture.detectChanges();
+    p2.click();
+    fixture.detectChanges();
+    expect(p1.querySelector('.slot-playing-position')?.textContent).toBe('Defensive specialist');
+    expect(p1.querySelector('.slot-location')?.textContent).toBe('Back Right');
+    expect(p2.querySelector('.slot-playing-position')?.textContent).toBe('Setter');
+    expect(p2.getAttribute('aria-label')).toContain('Front Right, starter, #12 Alexandra Martinez-Williams, Setter');
+  });
+
+  it('swaps two starters directly without losing squad members or match readiness', () => {
+    addSixPlayers();
+    const players = teamRoster.players();
+    players.forEach((player, index) => {
+      teamRoster.setMatchSquadPlayer(player.id, true);
+      teamRoster.assignMatchStarter(player.id, index + 1);
+    });
+    component.opponentName = 'Central High';
+    fixture.detectChanges();
+    const page: HTMLElement = fixture.nativeElement;
+    const positions = Array.from(page.querySelectorAll<HTMLButtonElement>('.court-slot'));
+    positions.find((button) => button.textContent!.includes('P1'))!.click();
+    fixture.detectChanges();
+    expect(teamRoster.matchDefaults().startingLineup).toEqual(players.map((player) => player.id));
+    expect(component.selectedPlayerId).toBe(players[0].id);
+
+    positions.find((button) => button.textContent!.includes('P2'))!.click();
+    fixture.detectChanges();
+    expect(teamRoster.matchDefaults().startingLineup).toEqual([
+      players[1].id, players[0].id, ...players.slice(2).map((player) => player.id),
+    ]);
+    expect(teamRoster.getMatchSquadPlayers().length).toBe(6);
+    expect(component.canStartMatch).toBeTrue();
+    expect(component.selectedPlayerId).toBeNull();
+    expect(page.querySelector('.lineup-instruction')?.textContent).toContain('Swapped Player 1 (P1) and Player 2 (P2)');
+    expect(page.querySelector('.server-label')?.closest('button')?.textContent).toContain('Player 2');
+  });
+
+  it('cancels a court selection without clearing a starter and removes only through the explicit action', () => {
+    addSixPlayers();
+    const player = teamRoster.players()[0];
+    teamRoster.setMatchSquadPlayer(player.id, true);
+    teamRoster.assignMatchStarter(player.id, 4);
+    const lineup = [...teamRoster.matchDefaults().startingLineup];
+    fixture.detectChanges();
+    const page: HTMLElement = fixture.nativeElement;
+    const position = Array.from(page.querySelectorAll<HTMLButtonElement>('.court-slot'))
+      .find((button) => button.textContent!.includes('P4'))!;
+    position.click();
+    fixture.detectChanges();
+    position.click();
+    fixture.detectChanges();
+    expect(teamRoster.matchDefaults().startingLineup).toEqual(lineup);
+    expect(component.selectedPlayerId).toBeNull();
+
+    position.click();
+    fixture.detectChanges();
+    page.querySelector<HTMLButtonElement>('.remove-starter')!.click();
+    fixture.detectChanges();
+    expect(teamRoster.matchDefaults().startingLineup[3]).toBeNull();
+    expect(teamRoster.isInMatchSquad(player.id)).toBeTrue();
+  });
+
+  it('swaps occupied positions on drop and clears selection when a drag is cancelled', () => {
+    addSixPlayers();
+    const players = teamRoster.players();
+    players.forEach((player, index) => {
+      teamRoster.setMatchSquadPlayer(player.id, true);
+      teamRoster.assignMatchStarter(player.id, index + 1);
+    });
+    component.onDragStart(new DragEvent('dragstart'), players[0].id);
+    component.dropOnPosition(new DragEvent('drop'), 3);
+    expect(teamRoster.matchDefaults().startingLineup[0]).toBe(players[2].id);
+    expect(teamRoster.matchDefaults().startingLineup[2]).toBe(players[0].id);
+    expect(component.isLineupReady).toBeTrue();
+
+    const lineup = [...teamRoster.matchDefaults().startingLineup];
+    component.onDragStart(new DragEvent('dragstart'), players[1].id);
+    component.endDrag();
+    expect(component.selectedPlayerId).toBeNull();
+    expect(teamRoster.matchDefaults().startingLineup).toEqual(lineup);
+  });
+
+  it('distinguishes selection and starter roles, then identifies a missing starter when availability changes', () => {
+    addSixPlayers();
+    teamRoster.players().forEach((player, index) => {
+      teamRoster.setMatchSquadPlayer(player.id, true);
+      teamRoster.assignMatchStarter(player.id, index + 1);
+    });
+    component.opponentName = 'Central High';
+    fixture.detectChanges();
+    const page: HTMLElement = fixture.nativeElement;
+    expect(page.querySelectorAll('.court-slot .starter-label').length).toBe(6);
+    expect(page.querySelector('.server-label')?.textContent).toContain('Serves first');
+
+    const selection = page.querySelector<HTMLButtonElement>('.assign-player')!;
+    selection.click();
+    fixture.detectChanges();
+    expect(selection.getAttribute('aria-pressed')).toBe('true');
+    expect(selection.textContent).toContain('Selected');
+
+    page.querySelector<HTMLInputElement>('.squad-check input')!.click();
+    fixture.detectChanges();
+    const missing = page.querySelector('.court-slot[aria-invalid="true"]')!;
+    expect(missing.textContent).toContain('Needs player');
+    expect(missing.getAttribute('aria-label')).toContain('Assign starter');
+    expect(page.querySelectorAll('.court-slot .starter-label').length).toBe(5);
+    expect(page.querySelector('.server-label')).toBeNull();
+    expect(selection.getAttribute('aria-pressed')).toBe('false');
+    expect(component.canStartMatch).toBeFalse();
+  });
+
+  it('explains an empty opponent after blur and clears the error when an opponent is entered', async () => {
+    const page: HTMLElement = fixture.nativeElement;
+    const input = page.querySelector<HTMLInputElement>('.opponent-field input')!;
+    expect(input.getAttribute('aria-invalid')).toBe('false');
+    expect(page.querySelector('#opponent-error')).toBeNull();
+
+    input.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toBe('opponent-error');
+    expect(page.querySelector('#opponent-error')?.textContent).toContain('Enter the opponent name');
+
+    input.value = 'Central High';
+    input.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(input.getAttribute('aria-invalid')).toBe('false');
+    expect(page.querySelector('#opponent-error')).toBeNull();
+  });
+
   it('starts from saved match defaults without changing them during live lineup updates', async () => {
     addSixPlayers();
     const players = teamRoster.players();

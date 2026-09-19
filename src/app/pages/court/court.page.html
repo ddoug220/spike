@@ -1,4 +1,5 @@
 <app-equipment-rail task="Live court" [context]="teamDisplayName + ' vs ' + opponentName">
+  <ion-button rail-action (click)="isStatsOpen = true">Team & Stats</ion-button>
   <ion-button rail-action class="exit-link" (click)="openExitSheet()">Exit</ion-button>
 </app-equipment-rail>
 
@@ -75,14 +76,10 @@
       <section class="court-section">
         <div class="section-head">
           <h2>Live Court</h2>
-          <p>{{ liveCourtSubtitle }}</p>
+          <p *ngIf="isMatchOver">{{ liveCourtSubtitle }}</p>
         </div>
 
         <div class="court-context-row" aria-label="Live match context">
-          <div class="court-context-card selected-player-instrument">
-            <span>Selected</span>
-            <strong [title]="selectedPlayerDetail">{{ selectedPlayerDetail }}</strong>
-          </div>
           <div class="court-context-card">
             <span>Serve</span>
             <strong [title]="gameState.servingTeam === 'team' ? teamDisplayName : opponentName">{{ gameState.servingTeam === 'team' ? teamDisplayName : opponentName }}</strong>
@@ -114,7 +111,6 @@
             [ngClass]="{
               selected: player.id === activePlayer,
               'current-server': player.id === 1 && gameState.servingTeam === 'team',
-              dimmed: player.id !== activePlayer,
               'sub-out-selected': isSelectedOutPlayer(player.id)
             }"
             [style.top]="player.top"
@@ -123,7 +119,7 @@
             [attr.title]="getPlayerForPosition(player.id)?.name || player.label"
             [attr.aria-pressed]="player.id === activePlayer"
             [attr.data-position]="player.id"
-            [tabindex]="player.id === activePlayer ? 0 : -1"
+            [tabindex]="player.id === (activePlayer ?? 1) ? 0 : -1"
             (click)="handleCourtPlayerTap(player.id)"
             (keydown)="handleCourtKeydown($event, player.id)"
           >
@@ -154,7 +150,7 @@
       <aside class="action-section" [class.substitution-open]="isSubOverlayOpen">
         <div class="section-head">
           <h2>Score the Point</h2>
-          <p class="selected-player-line" [title]="selectedPlayerDetail">{{ selectedPlayerDetail }}</p>
+          <p *ngIf="activePlayer !== null" class="selected-player-line" [title]="selectedPlayerDetail">{{ selectedPlayerDetail }}</p>
           <p class="score-line">Side-out: {{ formatRate(teamSideOutRate) }}</p>
         </div>
 
@@ -304,6 +300,21 @@
 
   </ng-container>
 </ion-content>
+
+<ion-modal class="stats-modal" [isOpen]="isStatsOpen" (didDismiss)="isStatsOpen = false">
+  <ng-template>
+    <header class="stats-panel-header">
+      <div><h1>Team & Stats</h1><p>{{ teamDisplayName }} vs {{ opponentName }} · Set {{ gameState.currentSet }} · {{ gameState.teamPoints }}–{{ gameState.opponentPoints }}</p></div>
+      <button type="button" (click)="isStatsOpen = false" aria-label="Close team and stats">Close</button>
+    </header>
+    <ion-content>
+      <div class="stats-panel-body" *ngIf="liveStore.projection() as match">
+        <app-match-box-score [match]="match" />
+        <ion-button fill="outline" (click)="isStatsOpen = false; openMatchReview()">Full Match Review</ion-button>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
 
 <div class="controls-backdrop" *ngIf="isMatchControlsOpen" (click)="closeMatchControls()"></div>
 <section class="match-controls-sheet" *ngIf="isMatchControlsOpen" role="dialog" aria-modal="true" aria-labelledby="match-controls-title">

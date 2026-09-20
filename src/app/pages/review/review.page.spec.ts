@@ -5,6 +5,7 @@ import { OfflineSyncService } from '../../services/offline-sync.service';
 import { FirebaseDbService } from '../../services/firebase-db.service';
 import { ReviewPage } from './review.page';
 import { MatchEngineService } from '../../services/match-engine.service';
+import { ReviewInsightService } from '../../services/review-insight.service';
 
 describe('ReviewPage', () => {
   let fixture: ComponentFixture<ReviewPage>;
@@ -14,12 +15,14 @@ describe('ReviewPage', () => {
   let activeMatchId: string;
   let localEvents: GameEvent[];
   let correctPlayerAttribution: jasmine.Spy;
+  let prioritizeReviewInsights: jasmine.Spy;
 
   beforeEach(async () => {
     writerConflictCount = 0;
     isCurrentScoringDevice = true;
     activeMatchId = 'match-live';
     correctPlayerAttribution = jasmine.createSpy('correctPlayerAttribution').and.returnValue({ ok: true, value: 'correction' });
+    prioritizeReviewInsights = jasmine.createSpy('prioritize').and.resolveTo([]);
     const game: Game = {
       id: 'match-live', ownerId: 'owner-1', teamId: 'team-1', opponentName: 'Central High', status: 'live',
       servingTeam: 'team', teamPoints: 7, opponentPoints: 5, teamSets: 1, opponentSets: 0, currentSet: 2,
@@ -67,6 +70,7 @@ describe('ReviewPage', () => {
         { provide: OfflineSyncService, useValue: offlineSync },
         { provide: FirebaseDbService, useValue: firebaseDb },
         { provide: MatchEngineService, useValue: { correctPlayerAttribution } },
+        { provide: ReviewInsightService, useValue: { prioritize: prioritizeReviewInsights } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ matchId: 'match-live' }) } } },
       ],
     }).compileComponents();
@@ -134,5 +138,37 @@ describe('ReviewPage', () => {
     isCurrentScoringDevice = false;
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.attribution-correction')).toBeNull();
+  });
+
+  it('shows prioritized factual review cards returned by the insight service', async () => {
+    localEvents[0] = { ...localEvents[0], servingTeam: 'opponent' };
+    localEvents.push(
+      {
+        id: 'kill', ownerId: 'owner-1', gameId: 'match-live', type: 'playerAction', action: 'kill',
+        eventKind: 'rally-outcome', playerId: 'p1', rallyId: 'r1', servingTeamBefore: 'opponent', teamRotationBefore: 1,
+        createdAt: '2026-02-10T10:01:00.000Z', isDeleted: false, schemaVersion: 2, sequence: 2, writerGeneration: 1,
+      },
+      {
+        id: 'loss', ownerId: 'owner-1', gameId: 'match-live', type: 'opponentPoint', action: 'opponent-point',
+        eventKind: 'rally-outcome', rallyId: 'r2', servingTeamBefore: 'team', teamRotationBefore: 2,
+        createdAt: '2026-02-10T10:02:00.000Z', isDeleted: false, schemaVersion: 2, sequence: 3, writerGeneration: 1,
+      },
+    );
+    prioritizeReviewInsights.and.callFake(async (_review: unknown, candidates: Array<{ id: string }>) =>
+      candidates.map((candidate, index) => ({
+        id: candidate.id,
+        score: index === 0 ? 2.8 : 1.8,
+        confidence: 0.8,
+      })),
+    );
+
+    await fixture.componentInstance.refreshReviewInsights();
+    fixture.detectChanges();
+
+    const focus = fixture.nativeElement.querySelector('.review-focus').textContent;
+    expect(prioritizeReviewInsights).toHaveBeenCalled();
+    expect(focus).toContain('Review focus');
+    expect(focus).toContain('side-out opportunities');
+    expect(focus).toContain('event history');
   });
 });

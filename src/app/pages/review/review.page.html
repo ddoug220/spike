@@ -31,6 +31,45 @@
       <p>{{ writerConflictCount }} event{{ writerConflictCount === 1 ? '' : 's' }} from an older scoring device remain quarantined and were not added to this match.</p>
     </section>
 
+    <section class="review-focus" aria-labelledby="review-focus-title" aria-live="polite" [attr.aria-busy]="reviewInsightStatus() === 'loading'">
+      <div class="review-focus-heading">
+        <div>
+          <span class="section-kicker">Prioritized review</span>
+          <h2 id="review-focus-title">Review focus</h2>
+          <p>{{ reviewInsightNotice() }}</p>
+        </div>
+        <button
+          *ngIf="reviewInsightStatus() === 'ready'"
+          class="refresh-focus"
+          type="button"
+          [disabled]="reviewInsightStatus() === 'loading'"
+          (click)="refreshReviewInsights()"
+        >Refresh</button>
+      </div>
+
+      <div *ngIf="reviewInsightStatus() === 'loading'" class="focus-loading" role="status">
+        <span></span><span></span><span></span>
+      </div>
+
+      <ol *ngIf="reviewInsightStatus() === 'ready'" class="focus-list">
+        <li *ngFor="let insight of reviewInsights(); let rank = index">
+          <span class="focus-rank">{{ rank + 1 }}</span>
+          <span class="focus-copy">
+            <strong>{{ insight.title }}</strong>
+            <span>{{ insight.statement }}</span>
+            <small>{{ insight.evidence }}</small>
+          </span>
+        </li>
+      </ol>
+
+      <button
+        *ngIf="reviewInsightStatus() === 'unavailable' || reviewInsightStatus() === 'empty'"
+        class="retry-focus"
+        type="button"
+        (click)="refreshReviewInsights()"
+      >{{ reviewInsightStatus() === 'empty' ? 'Check again' : 'Try again' }}</button>
+    </section>
+
     <section class="rates-section" aria-labelledby="team-performance-title">
       <div class="section-heading">
         <div>

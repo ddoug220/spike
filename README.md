@@ -63,12 +63,26 @@ Open the deployed HTTPS app while connected before arriving courtside. When the 
 
 If device storage fails, Spike displays a warning and **Retry**. Keep the app open until Retry succeeds; changes that have not reached device storage or the cloud cannot survive closing it.
 
+## Match Review focus
+
+Match Review can use TypeSafe Jev to prioritize up to three recorded facts for a coach to inspect first. Spike builds every displayed sentence and figure from the match event history. Jev only scores those candidate facts; it does not generate statistics or change match data. The rest of Match Review remains available when this optional online request fails.
+
+The integration runs in the `prioritizeMatchReviewInsights` Firebase callable function so the TypeSafe credential never reaches the browser. Configure and deploy it with:
+
+```bash
+firebase functions:secrets:set TYPESAFE_API_KEY
+npm run build:functions
+firebase deploy --only functions:prioritizeMatchReviewInsights
+```
+
 ## Useful commands
 
 ```bash
 npm start
 npm run build
+npm run build:functions
 npm test
+npm run test:functions
 npm run lint
 npm run test:e2e
 npm run test:e2e:offline

@@ -158,8 +158,10 @@ export class MatchEngineService {
     });
     if (!result.ok) return;
     this.queueGameSnapshot(matchId, projection, createdAt);
-    this.queuePlayerStats(matchId);
-    this.matchEndedEventQueuedForMatchId = matchId;
+    const statsQueueResult = this.queuePlayerStats(matchId);
+    if (statsQueueResult.ok) {
+      this.matchEndedEventQueuedForMatchId = matchId;
+    }
   }
 
   endMatchEarly(): void {
@@ -326,7 +328,10 @@ export class MatchEngineService {
 
     const next = this.replayAndProject(matchId);
     if (next?.status === 'final') {
-      this.queuePlayerStats(matchId);
+      const statsQueueResult = this.queuePlayerStats(matchId);
+      if (!statsQueueResult.ok) {
+        return { ...event, impactedScore: false, impactedStats: false, rotatedClockwise: false };
+      }
     }
 
     return event;
@@ -375,7 +380,10 @@ export class MatchEngineService {
 
     const next = this.replayAndProject(matchId);
     if (next?.status === 'final') {
-      this.queuePlayerStats(matchId);
+      const statsQueueResult = this.queuePlayerStats(matchId);
+      if (!statsQueueResult.ok) {
+        return { ...event, impactedScore: false, impactedStats: false };
+      }
     }
 
     return event;
@@ -567,7 +575,10 @@ export class MatchEngineService {
 
     this.boxScoreQueuedForMatchId = null;
     const next = this.replayAndProject(matchId);
-    if (next?.status === 'final' || next?.status === 'ended-early') this.queuePlayerStats(matchId);
+    if (next?.status === 'final' || next?.status === 'ended-early') {
+      const statsQueueResult = this.queuePlayerStats(matchId);
+      if (!statsQueueResult.ok) return statsQueueResult;
+    }
     return { ok: true, value: eventId };
   }
 
@@ -590,13 +601,13 @@ export class MatchEngineService {
     return projectionFromFirestore(game, this.offlineSync.getMatchEvents(matchId))?.lineup ?? null;
   }
 
-  private queuePlayerStats(matchId: string): void {
+  private queuePlayerStats(matchId: string): MatchMutationResult {
     if (this.boxScoreQueuedForMatchId === matchId) {
-      return;
+      return { ok: true, value: undefined };
     }
 
     const projection = this.currentProjection();
-    if (!projection) return;
+    if (!projection) return { ok: true, value: undefined };
     const projectedStats = statsStateFromProjection(projection);
     const rows = projection.session.squad
       .slice()
@@ -622,8 +633,8 @@ export class MatchEngineService {
       });
 
     const updatedAt = new Date().toISOString();
-    rows.forEach((row) => {
-      this.offlineSync.queuePlayerSetStats({
+    for (const row of rows) {
+      const result = this.offlineSync.queuePlayerSetStats({
         id: `${matchId}-${row.playerId}-match`,
         gameId: matchId,
         playerId: row.playerId,
@@ -644,8 +655,10 @@ export class MatchEngineService {
         createdAt: updatedAt,
         updatedAt,
       });
-    });
+      if (!result.ok) return result;
+    }
     this.boxScoreQueuedForMatchId = matchId;
+    return { ok: true, value: undefined };
   }
 
   private buildMatchBootstrap(matchId: string, servingTeam: PointSide, timestamp: string): Omit<Game, 'ownerId'> {

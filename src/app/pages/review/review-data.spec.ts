@@ -113,7 +113,7 @@ describe('buildMatchReview', () => {
       isMatchOver: false, teamTimeoutsRemaining: 2, opponentTimeoutsRemaining: 2, teamRotation: 1,
       startedAt: '2026-02-10T10:00:00.000Z', endedAt: null, createdAt: '2026-02-10T10:00:00.000Z',
       updatedAt: '2026-02-10T10:10:00.000Z', schemaVersion: 2, writerGeneration: 1,
-      matchSquad: squad, startingLineup: lineup,
+      matchSquad: squad, startingLineup: lineup, matchFormat: 'best-of-3',
     };
   }
 

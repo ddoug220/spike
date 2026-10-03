@@ -53,6 +53,7 @@ describe('review insights', () => {
       status: 'final',
       opponentName: 'Central High',
       teamName: 'North High',
+      matchFormat: 'best-of-5',
       currentSet: 4,
       startedAt: '2026-09-20T12:00:00.000Z',
       teamSets: 3,

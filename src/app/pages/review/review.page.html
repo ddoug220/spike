@@ -7,7 +7,7 @@
         <span class="status" [class.status-live]="match.status === 'live'">{{ statusLabel(match.status) }}</span>
         <h1>{{ match.teamName }} vs {{ match.opponentName }}</h1>
         <p>{{ match.startedAt | date:'fullDate' }}</p>
-        <p>Set {{ match.currentSet }} · {{ match.teamPoints }}–{{ match.opponentPoints }} points</p>
+        <p>{{ match.matchFormat === 'best-of-3' ? 'Best of 3' : 'Best of 5' }} · Set {{ match.currentSet }} · {{ match.teamPoints }}–{{ match.opponentPoints }} points</p>
       </div>
 
       <div class="match-score" aria-label="Match score">

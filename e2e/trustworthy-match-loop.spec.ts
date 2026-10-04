@@ -332,3 +332,52 @@ test('a full match preserves roster, substitutions, timeouts, and set stats acro
     await resumedContext.close();
   }
 });
+
+test('correction changes player attribution without affecting score or later events', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await setUpMatch(page);
+  await page.getByRole('button', { name: 'Start Match' }).click();
+
+  await page.locator('.player-chip[data-position="1"]').click();
+  await page.getByRole('button', { name: 'Kill - awards point' }).click();
+  await page.locator('.player-chip[data-position="2"]').click();
+  await page.getByRole('button', { name: 'Attack Error - awards point' }).click();
+  
+  await expect(page.locator('.score-side.home .score-points')).toHaveText('1');
+  await expect(page.locator('.score-side.away .score-points')).toHaveText('1');
+
+  await page.getByRole('button', { name: 'Team & Stats', exact: true }).click();
+  const stats = page.locator('ion-modal.stats-modal');
+  await expect(stats.locator('tbody tr').filter({ hasText: 'Player 1' }).locator('td').nth(2)).toHaveText('1');
+  await expect(stats.locator('tbody tr').filter({ hasText: 'Player 2' }).locator('td').nth(3)).toHaveText('1');
+  await page.getByRole('button', { name: 'Close team and stats' }).click();
+
+  const matchIdMatch = page.url().match(/\/court$/);
+  await page.evaluate(() => {
+    const matchId = window.localStorage.getItem('spike.activeMatchId');
+    if (matchId) window.location.href = `/review/${matchId}`;
+  });
+  await expect(page).toHaveURL(/\/review\//);
+
+  const firstKill = page.locator('.timeline-list li').filter({ hasText: 'Kill' }).first();
+  await expect(firstKill).toContainText('Player 1');
+  const correctionSelect = firstKill.locator('select');
+  await correctionSelect.selectOption({ label: '#2 Player 2' });
+  
+  await page.waitForTimeout(500);
+  await expect(firstKill).toContainText('Player 2');
+  
+  await expect(page.locator('.score-side.home').first()).toContainText('1');
+  await expect(page.locator('.score-side.away').first()).toContainText('1');
+  
+  await page.locator('app-match-box-score tbody tr').filter({ hasText: 'Player 1' }).locator('td').nth(2).then(async (cell) => {
+    await expect(cell).toHaveText('0');
+  });
+  await page.locator('app-match-box-score tbody tr').filter({ hasText: 'Player 2' }).locator('td').nth(2).then(async (cell) => {
+    await expect(cell).toHaveText('1');
+  });
+
+  await page.reload();
+  await expect(firstKill).toContainText('Player 2');
+  await expect(page.locator('.score-side.home').first()).toContainText('1');
+});

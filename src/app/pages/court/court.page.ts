@@ -724,7 +724,7 @@ export class CourtPage {
   }
 
   requiresPlayerAttribution(action: StatsAction | 'opponent-point'): boolean {
-    return action !== 'opponent-error' && action !== 'opponent-point' && action !== 'ace' && action !== 'service-error';
+    return action !== 'opponent-error' && action !== 'opponent-point' && action !== 'ace' && action !== 'service-error' && action !== 'receive-error';
   }
 
   isActionAvailableForServe(action: StandardOutcomeAction): boolean {

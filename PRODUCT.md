@@ -36,7 +36,7 @@ Spike centers match tracking on volleyball's court positions and the operator's 
 - **One source for match facts.** Ordered, versioned events determine match state and Match Review. Saved game summaries support listing and synchronization; they are not independent scoring authorities.
 - **One scoring device at a time.** Local data is isolated by authenticated user. An explicit online takeover transfers scoring authority; other devices remain read-only. Do not promise automatic merging of offline scoring from multiple devices.
 - **Preserve result meaning.** A Completed Match reaches its configured winning condition. An Ended-early Match preserves recorded facts but has no final win or loss.
-- Use the domain terms in `CONTEXT.md`. The decisions in `docs/adr/` define the confirmed team/match boundaries, event history, device ownership, and tablet priority.
+- Use the domain terms in `GLOSSARY.md`. The decisions in `docs/adr/` define the confirmed team/match boundaries, event history, device ownership, and tablet priority.
 
 ## Brand Commitments
 
@@ -54,7 +54,7 @@ Voice: Direct, economical, zero filler. "Tap player, tap spot" not "Please selec
 
 ## Evidence on Hand
 
-- `CONTEXT.md` records the domain vocabulary; `docs/adr/0001-separate-team-and-match-state.md`, `0002-derive-match-state-from-events.md`, `0003-owner-scoped-offline-and-single-writer.md`, and `0004-prioritize-tablet-landscape-for-live-scoring.md` record accepted constraints.
+- `GLOSSARY.md` records the domain vocabulary; `docs/adr/0001-separate-team-and-match-state.md`, `0002-derive-match-state-from-events.md`, `0003-owner-scoped-offline-and-single-writer.md`, and `0004-prioritize-tablet-landscape-for-live-scoring.md` record accepted constraints.
 - The runnable Ionic/Angular app contains Home, Team Roster, Match Setup, Live Court, History, and Match Review. `README.md` documents local startup and verification commands.
 - `e2e/trustworthy-match-loop.spec.ts` provides repository checks for tablet and phone setup, scoring, and recovery. Match reducer, offline synchronization, and review tests provide additional implementation evidence in `src/app/domain/match-v2/`, `src/app/services/`, and `src/app/pages/review/`. The existence of these tests is not a claim that every check currently passes.
 - **Open: customer validation.** No coach feedback, match footage, usage results, or verified customer claims have been supplied for this record. Test fixtures and demonstrations are not real match evidence. Do not fabricate customers, testimonials, adoption metrics, or measured performance benefits.

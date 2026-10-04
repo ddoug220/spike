@@ -822,8 +822,13 @@ describe('MatchEngineService', () => {
     it('requeues player stats after correction on completed match', () => {
       startWithLineup();
       const players = teamRoster.players();
-      for (let i = 0; i < 25; i++) {
-        service.recordPlayerAction(1, 'kill');
+      for (let set = 1; set <= 3; set++) {
+        if (set > 1) {
+          service.startNextSet(teamRoster.lineup(), 'team');
+        }
+        for (let i = 0; i < 25; i++) {
+          service.recordPlayerAction(1, 'kill');
+        }
       }
       const matchId = offlineSync.getActiveMatchId();
       const lastKill = [...offlineSync.getMatchEvents(matchId)]

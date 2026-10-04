@@ -748,6 +748,175 @@ describe('MatchEngineService', () => {
     return result.value;
   }
 
+  describe('player attribution corrections', () => {
+    it('changes player attribution without affecting score, serve, or rotation', () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      service.recordPlayerAction(1, 'kill');
+      const matchId = offlineSync.getActiveMatchId();
+      const projection = getCurrentProjection(matchId);
+      const killEvent = offlineSync.getMatchEvents(matchId).find((e) => e.type === 'playerAction' && e.action === 'kill');
+      
+      const result = service.correctPlayerAttribution(matchId, killEvent!.id, players[2].id);
+      
+      expect(result.ok).toBeTrue();
+      const updated = getCurrentProjection(matchId);
+      expect(updated?.teamPoints).toBe(1);
+      expect(updated?.servingTeam).toBe('team');
+      expect(updated?.teamRotation).toBe(1);
+      expect(updated?.rallies[0].playerId).toBe(players[2].id);
+    });
+
+    it('applies the latest correction when multiple corrections target the same event', () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      service.recordPlayerAction(1, 'kill');
+      const matchId = offlineSync.getActiveMatchId();
+      const killEvent = offlineSync.getMatchEvents(matchId).find((e) => e.type === 'playerAction' && e.action === 'kill');
+      
+      service.correctPlayerAttribution(matchId, killEvent!.id, players[1].id);
+      service.correctPlayerAttribution(matchId, killEvent!.id, players[2].id);
+      
+      const updated = getCurrentProjection(matchId);
+      expect(updated?.rallies[0].playerId).toBe(players[2].id);
+    });
+
+    it('ignores corrections for team-only actions', () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      service.recordPlayerAction(1, 'opponent-error');
+      const matchId = offlineSync.getActiveMatchId();
+      const errorEvent = offlineSync.getMatchEvents(matchId).find((e) => e.type === 'playerAction' && e.action === 'opponent-error');
+      
+      const result = service.correctPlayerAttribution(matchId, errorEvent!.id, players[2].id);
+      
+      expect(result.ok).toBeFalse();
+    });
+
+    it('ignores corrections for undone events', () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      service.recordPlayerAction(1, 'kill');
+      const matchId = offlineSync.getActiveMatchId();
+      const killEvent = offlineSync.getMatchEvents(matchId).find((e) => e.type === 'playerAction' && e.action === 'kill');
+      service.undoLastEvent();
+      
+      const result = service.correctPlayerAttribution(matchId, killEvent!.id, players[2].id);
+      
+      expect(result.ok).toBeFalse();
+    });
+
+    it('updates player totals after correction', () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      service.recordPlayerAction(1, 'kill');
+      const matchId = offlineSync.getActiveMatchId();
+      const killEvent = offlineSync.getMatchEvents(matchId).find((e) => e.type === 'playerAction' && e.action === 'kill');
+      
+      service.correctPlayerAttribution(matchId, killEvent!.id, players[2].id);
+      
+      expect(matchStats.getPlayerStats(players[0].id).kills).toBe(0);
+      expect(matchStats.getPlayerStats(players[2].id).kills).toBe(1);
+    });
+
+    it('requeues player stats after correction on completed match', () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      for (let i = 0; i < 25; i++) {
+        service.recordPlayerAction(1, 'kill');
+      }
+      const matchId = offlineSync.getActiveMatchId();
+      const lastKill = [...offlineSync.getMatchEvents(matchId)]
+        .reverse()
+        .find((e) => e.type === 'playerAction' && e.action === 'kill');
+      
+      service.correctPlayerAttribution(matchId, lastKill!.id, players[2].id);
+      
+      const updated = getCurrentProjection(matchId);
+      expect(updated?.status).toBe('final');
+      expect(updated?.rallies.filter((r) => r.playerId === players[2].id).length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('serve-based action availability', () => {
+    it('records ace attributed to P1 server when team is serving', () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      
+      const event = service.recordPlayerAction(1, 'ace');
+      
+      expect(event.impactedScore).toBeTrue();
+      expect(event.kind).toBe('player-action');
+      if (event.kind === 'player-action') {
+        expect(event.playerId).toBe(players[0].id);
+      }
+      expect(matchState.state().teamPoints).toBe(1);
+    });
+
+    it('records service error attributed to P1 server when team is serving', () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      
+      const event = service.recordPlayerAction(1, 'service-error');
+      
+      expect(event.impactedScore).toBeTrue();
+      expect(event.kind).toBe('player-action');
+      if (event.kind === 'player-action') {
+        expect(event.playerId).toBe(players[0].id);
+      }
+      expect(matchState.state().opponentPoints).toBe(1);
+    });
+
+    it('blocks ace when opponent is serving', () => {
+      startWithLineup();
+      service.recordOpponentPoint();
+      
+      const event = service.recordPlayerAction(1, 'ace');
+      
+      expect(event.impactedScore).toBeFalse();
+      expect(matchState.state().teamPoints).toBe(0);
+    });
+
+    it('blocks service error when opponent is serving', () => {
+      startWithLineup();
+      service.recordOpponentPoint();
+      
+      const event = service.recordPlayerAction(1, 'service-error');
+      
+      expect(event.impactedScore).toBeFalse();
+      expect(matchState.state().opponentPoints).toBe(1);
+    });
+
+    it('blocks receive error when team is serving', () => {
+      startWithLineup();
+      
+      const event = service.recordPlayerAction(3, 'receive-error');
+      
+      expect(event.impactedScore).toBeFalse();
+      expect(matchState.state().opponentPoints).toBe(0);
+    });
+
+    it('records receive error when opponent is serving', () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      service.recordOpponentPoint();
+      
+      const event = service.recordPlayerAction(3, 'receive-error');
+      
+      expect(event.impactedScore).toBeTrue();
+      expect(event.kind).toBe('player-action');
+      if (event.kind === 'player-action') {
+        expect(event.playerId).toBe(players[2].id);
+      }
+      expect(matchState.state().opponentPoints).toBe(2);
+    });
+  });
+
+  function getCurrentProjection(matchId: string) {
+    const game = offlineSync.getGame(matchId);
+    return game ? projectionFromFirestore(game, offlineSync.getMatchEvents(matchId)) : null;
+  }
+
   function startWithLineup(): void {
     for (let i = 1; i <= 6; i += 1) {
       teamRoster.addPlayer({ name: `Starter ${i}`, jerseyNumber: i, primaryPosition: 'OH' });

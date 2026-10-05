@@ -13,7 +13,21 @@ const canActivateAuth: CanActivateFn = () => {
   return toObservable(auth.user).pipe(
     filter((user) => user !== undefined),
     take(1),
-    map((user) => (user ? true : router.createUrlTree(['/login']))),
+    map((user) => {
+      if (user) return true;
+      
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const hasPersistedAuth = typeof localStorage !== 'undefined' && 
+          Object.keys(localStorage).some(key => 
+            key.startsWith('firebase:authUser:') || key.includes('spike-durable-match-record')
+          );
+        if (hasPersistedAuth) {
+          return true;
+        }
+      }
+      
+      return router.createUrlTree(['/login']);
+    }),
   );
 };
 

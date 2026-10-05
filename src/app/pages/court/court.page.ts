@@ -1,5 +1,5 @@
 import { DatePipe, NgClass, NgFor, NgIf } from '@angular/common';
-import { Component, HostListener } from '@angular/core';
+import { Component, HostListener, Optional } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -17,6 +17,8 @@ import { MatchEngineService } from '../../services/match-engine.service';
 import { MatchScoreState } from '../../services/match-state.service';
 import { StatsAction } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
+import { OfflineReadinessService } from '../../services/offline-readiness.service';
+import { SwUpdateManagerService } from '../../services/sw-update-manager.service';
 import { TeamRosterService } from '../../services/team-roster.service';
 import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 import { MatchBoxScoreComponent } from '../../components/match-box-score/match-box-score.component';
@@ -139,6 +141,8 @@ export class CourtPage {
     public readonly teamRoster: TeamRosterService,
     public readonly liveStore: LiveMatchStoreService,
     public readonly offlineSync: OfflineSyncService,
+    @Optional() public readonly offlineReadiness: OfflineReadinessService | null,
+    @Optional() private readonly swUpdateManager: SwUpdateManagerService | null,
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {

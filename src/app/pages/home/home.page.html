@@ -17,6 +17,30 @@
           <p>{{ nextDetail }}</p>
           <ion-button size="large" [routerLink]="nextActionRoute" [queryParams]="nextActionQueryParams">{{ nextActionLabel }}</ion-button>
           <ion-button *ngIf="hasReviewableMatch" fill="clear" [routerLink]="reviewLastMatchRoute">Review Last Match</ion-button>
+          
+          @if (showsOfflineStatus) {
+            <div class="offline-readiness" role="status">
+              <h2>Offline readiness</h2>
+              <ul>
+                <li [class.ready]="offlineStatus.isInstalled">
+                  <strong>{{ offlineStatus.isInstalled ? '✓' : '○' }}</strong>
+                  <span>{{ offlineStatus.isInstalled ? 'Installed on Home Screen' : 'Not installed - use Share → Add to Home Screen' }}</span>
+                </li>
+                <li [class.ready]="offlineStatus.hasServiceWorker">
+                  <strong>{{ offlineStatus.hasServiceWorker ? '✓' : '○' }}</strong>
+                  <span>{{ offlineStatus.hasServiceWorker ? 'Service worker active' : 'Service worker loading' }}</span>
+                </li>
+                <li [class.ready]="offlineStatus.hasStorageAccess">
+                  <strong>{{ offlineStatus.hasStorageAccess ? '✓' : '○' }}</strong>
+                  <span>{{ offlineStatus.hasStorageAccess ? 'Device storage ready' : 'Storage probe failed' }}</span>
+                </li>
+                <li [class.ready]="offlineStatus.hasRosterData && assignedDefaultCount === 6">
+                  <strong>{{ offlineStatus.hasRosterData && assignedDefaultCount === 6 ? '✓' : '○' }}</strong>
+                  <span>{{ offlineStatus.hasRosterData && assignedDefaultCount === 6 ? 'Team Roster and Starting Lineup ready' : 'Team setup incomplete' }}</span>
+                </li>
+              </ul>
+            </div>
+          }
         </div>
 
         <div class="lineup-preview" aria-label="Saved starting lineup preview">

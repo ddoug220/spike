@@ -4,6 +4,9 @@
 </app-equipment-rail>
 
 <ion-content [fullscreen]="true">
+  <div class="offline-state" *ngIf="offlineReadiness?.enabled">
+    <span>{{ offlineReadiness?.label }}</span>
+  </div>
   <section class="scoreboard-banner">
     <div class="match-over-banner" *ngIf="isMatchOver">
       <strong>{{ isEndedEarly ? 'Match ended early. No final result.' : 'Match final.' }}</strong>

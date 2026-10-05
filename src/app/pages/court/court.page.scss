@@ -515,3 +515,18 @@ select:focus-visible { outline: 3px solid var(--spike-focus); outline-offset: 2p
 }
 
 .stats-panel-body { padding: 16px; }
+
+.offline-state {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 6px 12px;
+  background: var(--spike-frame);
+  border-bottom: 1px solid var(--ion-color-step-200);
+  color: var(--spike-ink-muted);
+  font-size: 0.75rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}

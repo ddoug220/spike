@@ -9,6 +9,8 @@ import { EquipmentRailComponent } from '../../components/equipment-rail/equipmen
 import { MatchStateService } from '../../services/match-state.service';
 import { MatchStatsService } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
+import { OfflineReadinessService } from '../../services/offline-readiness.service';
+import { SwUpdateManagerService } from '../../services/sw-update-manager.service';
 import { TeamRosterService } from '../../services/team-roster.service';
 import { FirstRunCourtComponent } from './first-run-court/first-run-court.component';
 
@@ -42,6 +44,8 @@ export class HomePage {
     public readonly teamRoster: TeamRosterService,
     public readonly matchState: MatchStateService,
     public readonly offlineSync: OfflineSyncService,
+    public readonly offlineReadiness: OfflineReadinessService,
+    public readonly swUpdateManager: SwUpdateManagerService,
     private readonly matchStats: MatchStatsService,
     private readonly auth: AuthService,
     private readonly router: Router,
@@ -131,6 +135,14 @@ export class HomePage {
 
   get hasSyncAttention(): boolean {
     return this.offlineSync.pendingCount() > 0 || !!this.offlineSync.lastError();
+  }
+
+  get offlineStatus() {
+    return this.offlineReadiness.getDetailedStatus();
+  }
+
+  get showsOfflineStatus(): boolean {
+    return this.offlineReadiness.enabled && !this.showsFirstRunCourt;
   }
 
   async signOut(): Promise<void> {

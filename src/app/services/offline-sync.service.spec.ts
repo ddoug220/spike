@@ -340,6 +340,25 @@ describe('OfflineSyncService', () => {
     expect(service.lastError()).toBe('forced event failure');
   });
 
+  it('preserves statistics creation time when recalculating the same document after restart', () => {
+    online.and.returnValue(false);
+    service.queuePlayerSetStats(playerStats('stats-stable', 'match-stable', '2026-10-03T12:00:00.000Z'));
+    const restarted = new OfflineSyncService(firebaseDb as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
+
+    restarted.queuePlayerSetStats({
+      ...playerStats('stats-stable', 'match-stable', '2026-10-03T12:01:00.000Z'),
+      digs: 1,
+    });
+
+    expect(restarted.getPlayerSetStats('match-stable')).toEqual([
+      jasmine.objectContaining({
+        createdAt: '2026-10-03T12:00:00.000Z',
+        updatedAt: '2026-10-03T12:01:00.000Z',
+        digs: 1,
+      }),
+    ]);
+  });
+
   it('stores match archive summaries for review flows', () => {
     service.queueMatchEvent(event('evt-start', 'm-archive', 'matchStarted', '2026-02-10T10:00:00.000Z'));
     service.queueMatchEvent({

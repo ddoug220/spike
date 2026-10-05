@@ -30,6 +30,11 @@
             "inlineStyleLanguage": "scss",
             "assets": [
               {
+                "glob": "_headers",
+                "input": "src",
+                "output": "/"
+              },
+              {
                 "glob": "**/*",
                 "input": "src/assets",
                 "output": "assets"

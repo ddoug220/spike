@@ -33,6 +33,7 @@ log.txt
 
 # Node
 /node_modules
+/.pnpm-store
 /functions/node_modules
 /functions/lib
 npm-debug.log
@@ -59,6 +60,7 @@ yarn-error.log
 
 # Miscellaneous
 /.angular
+/.wrangler
 /.angular/cache
 .sass-cache/
 /.nx

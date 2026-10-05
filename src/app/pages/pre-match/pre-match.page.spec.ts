@@ -173,17 +173,17 @@ describe('PreMatchPage', () => {
     const page: HTMLElement = fixture.nativeElement;
     const p1 = page.querySelector<HTMLButtonElement>('.court-slot[data-position="1"]')!;
     const p2 = page.querySelector<HTMLButtonElement>('.court-slot[data-position="2"]')!;
-    expect(p1.querySelector('strong')?.textContent).toBe('Alexandra Martinez-Williams');
-    expect(p1.querySelector('.slot-jersey')?.textContent).toBe('#12');
-    expect(p1.querySelector('.slot-playing-position')?.textContent).toBe('Setter');
-    expect(p1.querySelector('.slot-location')?.textContent).toBe('Back Right');
+    expect(p1.querySelector('.court-player-name')?.textContent).toBe('Alexandra Martinez-Williams');
+    expect(p1.querySelector('.court-player-meta strong')?.textContent).toBe('#12');
+    expect(p1.querySelector('.court-player-detail')?.textContent).toBe('Setter');
+    expect(p1.getAttribute('aria-label')).toContain('Back Right');
     p1.click();
     fixture.detectChanges();
     p2.click();
     fixture.detectChanges();
-    expect(p1.querySelector('.slot-playing-position')?.textContent).toBe('Defensive specialist');
-    expect(p1.querySelector('.slot-location')?.textContent).toBe('Back Right');
-    expect(p2.querySelector('.slot-playing-position')?.textContent).toBe('Setter');
+    expect(p1.querySelector('.court-player-detail')?.textContent).toBe('Defensive specialist');
+    expect(p1.getAttribute('aria-label')).toContain('Back Right');
+    expect(p2.querySelector('.court-player-detail')?.textContent).toBe('Setter');
     expect(p2.getAttribute('aria-label')).toContain('Front Right, starter, #12 Alexandra Martinez-Williams, Setter');
   });
 
@@ -269,7 +269,7 @@ describe('PreMatchPage', () => {
     component.opponentName = 'Central High';
     fixture.detectChanges();
     const page: HTMLElement = fixture.nativeElement;
-    expect(page.querySelectorAll('.court-slot .starter-label').length).toBe(6);
+    expect(page.querySelectorAll('.court-slot.assigned').length).toBe(6);
     expect(page.querySelector('.server-label')?.textContent).toContain('Serves first');
 
     const selection = page.querySelector<HTMLButtonElement>('.assign-player')!;
@@ -283,7 +283,7 @@ describe('PreMatchPage', () => {
     const missing = page.querySelector('.court-slot[aria-invalid="true"]')!;
     expect(missing.textContent).toContain('Needs player');
     expect(missing.getAttribute('aria-label')).toContain('Assign starter');
-    expect(page.querySelectorAll('.court-slot .starter-label').length).toBe(5);
+    expect(page.querySelectorAll('.court-slot.assigned').length).toBe(5);
     expect(page.querySelector('.server-label')).toBeNull();
     expect(selection.getAttribute('aria-pressed')).toBe('false');
     expect(component.canStartMatch).toBeFalse();

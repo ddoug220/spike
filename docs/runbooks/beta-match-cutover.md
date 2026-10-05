@@ -51,7 +51,7 @@ npm run cutover:beta-match -- \
 
 The tool counts first, waits for a complete managed Firestore export, recursively deletes the allowlisted data, recounts, and fails unless every target count is zero and every protected count is unchanged. Keep the terminal output and exact export URI with the release record.
 
-Deploy the application and `firestore.rules` in the same closed-access release window. This repository has no Firebase Hosting target, so use the application's real release command and `firebase deploy --only firestore:rules --project YOUR_PROJECT`; do not reopen access unless both deploys succeed. Restore normal write rules only as part of that coordinated release.
+Deploy the application and `firestore.rules` in the same closed-access release window. Follow the [web release runbook](web-release.md) for the application's Cloudflare Pages command, and use `firebase deploy --only firestore:rules --project YOUR_PROJECT` for the rules; do not reopen access unless both deploys succeed. Restore normal write rules only as part of that coordinated release.
 
 Repeat the full staging smoke path against the deployed release.
 

@@ -1,4 +1,5 @@
 import { Component, ElementRef, Input, QueryList, ViewChild, ViewChildren, inject } from '@angular/core';
+import { CourtPlayerComponent, VolleyballCourtComponent } from '../../../components/volleyball-court/volleyball-court.component';
 import { FormsModule, NgForm } from '@angular/forms';
 import type { CourtPosition } from '../../../domain/match-v2/match-event';
 import {
@@ -24,7 +25,7 @@ const COURT_ZONES: Record<CourtPosition, string> = {
   templateUrl: './first-run-court.component.html',
   styleUrls: ['./first-run-court.component.scss'],
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, CourtPlayerComponent, VolleyballCourtComponent],
 })
 export class FirstRunCourtComponent {
   @Input({ required: true }) teamName = 'My Team';

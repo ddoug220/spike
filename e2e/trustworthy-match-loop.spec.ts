@@ -1,8 +1,8 @@
-import { expect, Locator, Page, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 
 const players = Array.from({ length: 7 }, (_, index) => ({
-  name: `Player ${index + 1}`,
-  jersey: index + 1,
+  name: index === 5 ? 'Jordan Review' : `Player ${index + 1}`,
+  jersey: index === 5 ? 12 : index + 1,
 }));
 
 async function setUpMatch(page: Page): Promise<void> {
@@ -30,12 +30,14 @@ async function setUpMatch(page: Page): Promise<void> {
       await courtPosition.click();
     }
   }
+  await page.getByRole('button', { name: 'Enter opponent name', exact: true }).click();
+  await expect(page.getByLabel('Opponent')).toBeFocused();
   await page.getByLabel('Opponent').fill('Central High');
 }
 
 async function scoreKill(page: Page): Promise<void> {
   await page.locator('.player-chip[data-position="1"]').click();
-  await page.getByRole('button', { name: 'Kill - awards point' }).click();
+  await page.getByRole('button', { name: /^Kill - awards point to / }).click();
 }
 
 async function expectTabletScoringLoopToFit(page: Page): Promise<void> {
@@ -62,19 +64,23 @@ async function expectTabletScoringLoopToFit(page: Page): Promise<void> {
   }
 }
 
-async function expectReachableByScrolling(page: Page, locator: Locator): Promise<number> {
-  await locator.scrollIntoViewIfNeeded();
-  const bounds = await locator.boundingBox();
-  const content = page.locator('ion-content').last();
+async function expectPhoneScoringLoopToFit(page: Page): Promise<void> {
+  const content = page.locator('app-court > ion-content');
   const viewport = await content.evaluate(async (element) => {
-    const scrollElement = await (element as HTMLIonContentElement).getScrollElement();
-    const bounds = scrollElement.getBoundingClientRect();
-    return { top: bounds.top, bottom: bounds.bottom, scrollTop: scrollElement.scrollTop };
+    const scroll = await (element as HTMLIonContentElement).getScrollElement();
+    const bounds = scroll.getBoundingClientRect();
+    return { top: bounds.top, bottom: bounds.bottom, scrollTop: scroll.scrollTop, scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight };
   });
-  expect(bounds).not.toBeNull();
-  expect(bounds!.y).toBeGreaterThanOrEqual(viewport.top - 1);
-  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.bottom + 1);
-  return viewport.scrollTop;
+  expect(viewport.scrollTop).toBe(0);
+  expect(viewport.scrollHeight, JSON.stringify(viewport)).toBeLessThanOrEqual(viewport.clientHeight + 1);
+  const controls = page.locator('app-court .player-chip, app-court .outcome-column ion-button, app-court .stat-only-btn, app-court .last-action, app-court .receipt-undo');
+  for (const control of await controls.all()) {
+    const box = await control.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(viewport.top);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.bottom);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  }
 }
 
 test('tablet setup and scoring loop fit, undo repeatedly, and honor the Match Squad', async ({ page }) => {
@@ -98,7 +104,7 @@ test('tablet setup and scoring loop fit, undo repeatedly, and honor the Match Sq
   await page.locator('.player-chip[data-position="2"]').click();
   await page.getByRole('button', { name: 'Dig - stat only, no point' }).click();
   await page.getByRole('button', { name: 'Undo last action (Ctrl+Z)' }).click();
-  await expect(page.locator('.last-action')).toContainText('Kill · Player 1');
+  await expect(page.locator('.last-action')).toContainText('Player 1 · Kill');
   await page.getByRole('button', { name: 'Undo last action (Ctrl+Z)' }).click();
   await expect(page.locator('.last-action')).toContainText('No actions yet');
 
@@ -115,65 +121,111 @@ test('tablet setup and scoring loop fit, undo repeatedly, and honor the Match Sq
   }
 });
 
-test('phone setup, scoring, and recovery work through normal vertical scrolling without overflow', async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 667 });
+test('phone records ten rallies without scrolling and confirms attribution and recovery', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await setUpMatch(page);
-
   await page.getByRole('button', { name: 'Start Match' }).click();
   await expect(page).toHaveURL(/\/court$/);
-
-  await page.locator('.player-chip[data-position="1"]').click();
-  const pointOutcomes = [
-    'Kill - awards point',
-    'Attack Error - awards point',
-    'Block - awards point',
-    'Ace - awards point',
-    'Service Error - awards point',
-    'Opponent Error - awards point',
-    'Opponent Winner - awards point',
-    'Receive Error - awards point',
-  ];
-  const reachedScrollPositions: number[] = [];
-  for (const name of pointOutcomes) {
-    reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name })));
+  const outcomes = ['Ace', 'Service Error', 'Receive Error', 'Kill', 'Opponent Winner', 'Block', 'Opponent Error', 'Attack Error', 'Kill', 'Ace'];
+  let rounds = 0;
+  for (const viewport of [{ width: 390, height: 844 }, { width: 375, height: 667 }, { width: 320, height: 568 }]) {
+    await page.setViewportSize(viewport);
+    await expectPhoneScoringLoopToFit(page);
+    for (const [index, action] of outcomes.entries()) {
+      const player = page.locator('.player-chip[data-position="3"]');
+      await player.click();
+      const selectedName = await player.locator('.court-player-name').innerText();
+      await expect(page.getByRole('heading', { name: /Record for #/ })).toContainText(selectedName);
+      await expect(player.locator('.selection-check')).toBeVisible();
+      if (rounds === 0 && index === 0) await page.screenshot({ path: 'output/playwright/scoring-redesign/selected-player.png' });
+      await expectPhoneScoringLoopToFit(page);
+      if (index === 3) {
+        await page.getByRole('button', { name: 'Dig - stat only, no point' }).click();
+        await expect(page.locator('.last-action')).toContainText(selectedName + ' · Dig · Score unchanged');
+        await page.getByRole('button', { name: 'Undo last action (Ctrl+Z)' }).click();
+        await player.click();
+      }
+      const serverName = await page.locator('.player-chip[data-position="1"] .court-player-name').innerText();
+      await page.getByRole('button', { name: new RegExp('^' + action + ' - awards point to ') }).click();
+      await expect(page.locator('.last-action')).toContainText(action);
+      if (action !== 'Opponent Error' && action !== 'Opponent Winner') {
+        await expect(page.locator('.last-action')).toContainText((action === 'Ace' || action === 'Service Error' ? serverName : selectedName) + ' · ' + action);
+      }
+      await expect(page.getByRole('heading', { name: 'Select a player for individual stats' })).toBeVisible();
+      await expectPhoneScoringLoopToFit(page);
+    }
+    rounds += 1;
+    await expect(page.locator('.score-side.home .score-points')).toHaveText(String(rounds * 6));
+    await expect(page.locator('.score-side.away .score-points')).toHaveText(String(rounds * 4));
+    await page.screenshot({ path: `output/playwright/scoring-redesign/phone-${viewport.width}.png` });
   }
-  reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Dig - stat only, no point' })));
-  reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Open substitution panel (S)' })));
-  await page.getByRole('button', { name: 'Open substitution panel (S)' }).click();
-  await expect(page.getByRole('region', { name: 'Substitution bench rail' })).toBeVisible();
-  await page.getByRole('button', { name: 'Close substitution panel', exact: true }).click();
 
-  reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Match Controls' })));
-  await page.getByRole('button', { name: 'Match Controls' }).click();
-  await expect(page.getByRole('dialog', { name: 'Match Controls' })).toBeVisible();
-  await page.getByRole('button', { name: 'Close match controls' }).click();
-
-  await scoreKill(page);
-  reachedScrollPositions.push(await expectReachableByScrolling(page, page.getByRole('button', { name: 'Undo last action (Ctrl+Z)' })));
-  await page.getByRole('button', { name: 'Undo last action (Ctrl+Z)' }).click();
-  await expect(page.locator('.last-action')).toContainText('No actions yet');
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  const contentOverflow = await page.locator('ion-content').last().evaluate(async (element) => {
-    const scrollElement = await (element as HTMLIonContentElement).getScrollElement();
-    return scrollElement.scrollWidth <= scrollElement.clientWidth + 1;
-  });
-  expect(contentOverflow).toBe(true);
-  expect(Math.max(...reachedScrollPositions)).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Team & Stats', exact: true }).click();
-  const stats = page.locator('ion-modal.stats-modal');
-  await expect(stats.locator('tbody tr')).toHaveCount(6);
-  await expect.poll(() => stats.locator('.table-scroll').evaluate((element) => element.clientWidth > 0 && element.scrollWidth > element.clientWidth)).toBe(true);
-  const statsOverflow = await stats.locator('.table-scroll').evaluate((element) => {
-    const bounds = element.getBoundingClientRect();
-    return { scrolls: element.scrollWidth > element.clientWidth, right: bounds.right };
-  });
-  expect(statsOverflow.scrolls).toBe(true);
-  expect(statsOverflow.right).toBeLessThanOrEqual(375);
-  await page.getByRole('button', { name: 'Close team and stats' }).click();
-  await expect(stats).toBeHidden();
 });
 
-for (const width of [1024, 375]) {
+test('keyboard selection and focus follow the visible phone court', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setUpMatch(page);
+  await page.getByRole('button', { name: 'Start Match' }).click();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.player-chip[data-position="3"]').focus();
+  await page.locator('.player-chip[data-position="3"]').press('ArrowRight');
+  await expect(page.locator('.player-chip[data-position="2"]')).toHaveAttribute('aria-pressed', 'true');
+  await expectPhoneScoringLoopToFit(page);
+  await page.screenshot({ path: 'output/playwright/scoring-redesign/dark-selected.png' });
+
+  await expect(page.locator('.player-chip[data-position="2"]')).toBeFocused();
+  await page.locator('.player-chip[data-position="2"]').press('ArrowDown');
+  await expect(page.locator('.player-chip[data-position="1"]')).toBeFocused();
+  await expect(page.locator('.player-chip[data-position="1"]')).toHaveAttribute('aria-pressed', 'true');
+  await expectPhoneScoringLoopToFit(page);
+  await page.screenshot({ path: 'output/playwright/scoring-redesign/dark-selected.png' });
+});
+
+test('phone panels and Home restore the current match', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setUpMatch(page);
+  await page.getByRole('button', { name: 'Start Match' }).click();
+  await page.setViewportSize({ width: 320, height: 568 });
+  await scoreKill(page);
+  await page.getByRole('button', { name: 'Undo last action (Ctrl+Z)' }).click();
+  await expect(page.locator('.score-side.home .score-points')).toHaveText('0');
+  await expectPhoneScoringLoopToFit(page);
+  await page.locator('.player-chip[data-position="3"]').click();
+  await page.getByRole('button', { name: 'Open match tools' }).click();
+  await page.getByRole('button', { name: 'Substitute', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Substitution bench rail' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close substitution panel', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Substitution bench rail' })).toBeHidden();
+  await expectPhoneScoringLoopToFit(page);
+  await page.getByRole('button', { name: 'Open match tools' }).click();
+  await page.getByRole('button', { name: 'Expanded court', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'On-court Lineup' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close expanded court', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'On-court Lineup' })).toBeHidden();
+  await expectPhoneScoringLoopToFit(page);
+  await page.getByRole('button', { name: 'Open match tools' }).click();
+  await page.getByRole('button', { name: 'Match Controls', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Match Controls' })).toBeVisible();
+  await page.getByRole('button', { name: 'R2', exact: true }).click();
+  await page.getByRole('button', { name: 'Close match controls', exact: true }).click();
+  await expectPhoneScoringLoopToFit(page);
+  await page.getByRole('button', { name: 'Open match tools' }).click();
+  const currentServer = await page.locator('.player-chip[data-position="1"] .court-player-name').innerText();
+  await page.getByRole('link', { name: 'Home', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Match tools', exact: true })).toBeHidden();
+  await expect(page.locator('app-court')).toBeHidden();
+  await expect(page.getByRole('link', { name: 'Resume Match' })).toBeVisible();
+  await expect(page.locator('.active-match-score')).toContainText('0–0');
+  await expect(page.locator('.preview-head')).toContainText('Current lineup');
+  await expect(page.locator('.mini-player[data-position="1"]')).toContainText(currentServer);
+  await page.screenshot({ path: 'output/playwright/scoring-redesign/home.png' });
+  await page.getByRole('link', { name: 'Resume Match' }).click();
+  await expect(page.locator('app-home')).toBeHidden();
+  await expectPhoneScoringLoopToFit(page);
+});
+
+for (const width of [375, 1024]) {
   test(`direct starter swaps preserve a ready lineup at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 375 ? 667 : 768 });
     await setUpMatch(page);
@@ -216,7 +268,7 @@ test('device storage failure blocks scoring until Retry Save records the intende
   await scoreKill(page);
   await expect(page.locator('.device-save-error')).toContainText('was not recorded');
   await expect(page.locator('.score-side.home .score-points')).toHaveText('0');
-  await expect(page.getByRole('button', { name: 'Kill - awards point' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Kill - awards point to / })).toBeDisabled();
 
   await page.evaluate(() => {
     (window as Window & { restoreDeviceStorage?: () => void }).restoreDeviceStorage?.();
@@ -227,7 +279,7 @@ test('device storage failure blocks scoring until Retry Save records the intende
   await page.reload();
   await expect(page).toHaveURL(/\/court$/);
   await expect(page.locator('.score-side.home .score-points')).toHaveText('1');
-  await expect(page.locator('.last-action')).toContainText('Kill · Player 1');
+  await expect(page.locator('.last-action')).toContainText('Player 1 · Kill');
 });
 
 test('a full match preserves roster, substitutions, timeouts, and set stats across new browser sessions', async ({ page, browser }) => {
@@ -240,6 +292,8 @@ test('a full match preserves roster, substitutions, timeouts, and set stats acro
   await page.getByLabel('Team Name').fill('North High');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.goto('/pre-match');
+  await page.getByRole('button', { name: 'Enter opponent name', exact: true }).click();
+  await expect(page.getByLabel('Opponent')).toBeFocused();
   await page.getByLabel('Opponent').fill('Central High');
   await page.getByRole('radio', { name: 'Best of 5' }).click();
   await page.getByRole('button', { name: 'Start Match' }).click();

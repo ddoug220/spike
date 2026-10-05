@@ -1,5 +1,5 @@
 import { NgClass } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, ElementRef, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
@@ -12,6 +12,7 @@ import {
 import { addIcons } from 'ionicons';
 import { alertCircleOutline, arrowBack, checkmarkCircle, ellipseOutline, peopleOutline, play } from 'ionicons/icons';
 import { MatchEngineService } from '../../services/match-engine.service';
+import { CourtPlayerComponent, VolleyballCourtComponent } from '../../components/volleyball-court/volleyball-court.component';
 import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { PrimaryPosition, RosterPlayer, TeamRosterService } from '../../services/team-roster.service';
@@ -43,9 +44,19 @@ type FirstServeTeam = 'team' | 'opponent';
     FormsModule,
     RouterLink,
     EquipmentRailComponent,
+    CourtPlayerComponent,
+    VolleyballCourtComponent,
   ],
 })
 export class PreMatchPage {
+  @ViewChild('opponentField') private opponentField?: ElementRef<HTMLInputElement>;
+
+  focusOpponent(): void {
+    const field = this.opponentField?.nativeElement;
+    field?.scrollIntoView({ block: 'center' });
+    field?.focus({ preventScroll: true });
+  }
+
   readonly playingPositionNames: Record<PrimaryPosition, string> = {
     S: 'Setter',
     OH: 'Outside hitter',
@@ -75,7 +86,7 @@ export class PreMatchPage {
   constructor(
     public readonly teamRoster: TeamRosterService,
     private readonly matchEngine: MatchEngineService,
-    private readonly offlineSync: OfflineSyncService,
+    public readonly offlineSync: OfflineSyncService,
     private readonly router: Router,
     private readonly route: ActivatedRoute,
   ) {

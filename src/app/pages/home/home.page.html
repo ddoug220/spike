@@ -10,27 +10,28 @@
     @if (showsFirstRunCourt) {
       <app-first-run-court [teamName]="teamRoster.team().name" />
     } @else {
-      <section class="next-step" aria-labelledby="next-title">
+      <section class="next-step" [class.active-match]="hasLiveMatch" aria-labelledby="next-title">
         <div class="next-copy">
           <span class="team-name">{{ teamRoster.team().name }}</span>
-          <h1 id="next-title">{{ nextTitle }}</h1>
-          <p>{{ nextDetail }}</p>
+          @if (hasLiveMatch) {
+            <h1 id="next-title">vs {{ activeGame?.opponentName || 'Opponent' }}</h1>
+            <div class="active-match-score"><strong>{{ currentScore.teamPoints }}–{{ currentScore.opponentPoints }}</strong><span>Set {{ currentScore.currentSet }}</span></div>
+            <p>{{ currentScore.isSetBreak ? 'Set complete · Confirm the next lineup and first serve.' : servingTeamName + ' serving' }}</p>
+          } @else {
+            <h1 id="next-title">{{ nextTitle }}</h1><p>{{ nextDetail }}</p>
+          }
           <ion-button size="large" [routerLink]="nextActionRoute" [queryParams]="nextActionQueryParams">{{ nextActionLabel }}</ion-button>
           <ion-button *ngIf="hasReviewableMatch" fill="clear" [routerLink]="reviewLastMatchRoute">Review Last Match</ion-button>
         </div>
 
-        <div class="lineup-preview" aria-label="Saved starting lineup preview">
-          <div class="preview-head"><span>Saved starting six</span><strong>{{ assignedDefaultCount }}/6</strong></div>
-          <div class="mini-court">
-            <div *ngFor="let slot of defaultLineup" class="mini-player" [ngClass]="'p' + slot.position" [title]="slot.player?.name || 'Open position'">
-              <div class="player-meta">
-                <span class="player-jersey">{{ slot.player ? '#' + slot.player.jerseyNumber : '—' }}</span>
-                <span>{{ slot.player?.primaryPosition }}</span>
-              </div>
-              <strong>{{ slot.player?.name || 'Open' }}</strong>
-              <small>P{{ slot.position }}</small>
+        <div class="lineup-preview" [attr.aria-label]="hasLiveMatch ? 'On-court Lineup preview' : 'Saved Starting Lineup preview'">
+          <div class="preview-head"><span>{{ hasLiveMatch ? 'Current lineup' : 'Starting lineup' }}</span><strong *ngIf="!hasLiveMatch">{{ assignedDefaultCount }}/6</strong></div>
+          <app-volleyball-court variant="compact">
+            <div *ngFor="let slot of displayedLineup" class="mini-player" [attr.data-position]="slot.position">
+              <app-court-player [player]="slot.player" [position]="slot.position"
+                [servingLabel]="hasLiveMatch && slot.position === 1 && currentScore.servingTeam === 'team' ? 'Serving' : ''" />
             </div>
-          </div>
+          </app-volleyball-court>
         </div>
       </section>
     }

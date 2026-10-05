@@ -1,5 +1,5 @@
-import { DatePipe, NgClass, NgFor, NgIf } from '@angular/common';
-import { Component, HostListener } from '@angular/core';
+import { DatePipe, NgClass, NgFor, NgIf, NgTemplateOutlet } from '@angular/common';
+import { Component, HostListener, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -10,8 +10,8 @@ import {
   IonModal,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { addCircle, arrowUndo, baseball, closeCircle, flash, handLeft, playForward, star } from 'ionicons/icons';
-import { MatchPlayer, selectTeamSideOut } from '../../domain/match-v2';
+import { arrowUndo } from 'ionicons/icons';
+import { MatchPlayer, rallyWinner, selectTeamSideOut } from '../../domain/match-v2';
 import { LiveEventReceipt, LiveMatchStoreService } from '../../services/live-match-store.service';
 import { MatchEngineService } from '../../services/match-engine.service';
 import { MatchScoreState } from '../../services/match-state.service';
@@ -19,6 +19,7 @@ import { StatsAction } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { TeamRosterService } from '../../services/team-roster.service';
 import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
+import { CourtPlayerComponent, VolleyballCourtComponent } from '../../components/volleyball-court/volleyball-court.component';
 import { MatchBoxScoreComponent } from '../../components/match-box-score/match-box-score.component';
 
 type QuickAction = StatsAction;
@@ -31,34 +32,20 @@ type StandardOutcomeAction =
   | 'opponent-error'
   | 'opponent-point'
   | 'receive-error';
-type StatOnlyAction = 'dig';
 type ExitAction = 'home' | 'history' | 'end-home' | 'setup-next';
 
 interface PlayerPosition {
   id: number;
   label: string;
-  top: string;
-  left: string;
 }
 
 interface ActionMeta {
   label: string;
-  icon: string;
-  accent: string;
 }
 
 interface StandardOutcomeMeta {
   id: StandardOutcomeAction;
   label: string;
-  icon: string;
-  accent: string;
-}
-
-interface StatOnlyActionMeta {
-  id: StatOnlyAction;
-  label: string;
-  icon: string;
-  accent: string;
 }
 
 interface LiveEventRow {
@@ -91,48 +78,45 @@ interface ExitSheetButton {
     EquipmentRailComponent,
     IonModal,
     MatchBoxScoreComponent,
+    CourtPlayerComponent,
+    VolleyballCourtComponent,
+    NgTemplateOutlet,
   ],
 })
 export class CourtPage {
+  @ViewChild('toolsModal') private toolsModal?: IonModal;
+
+  async navigateHomeFromTools(event: MouseEvent): Promise<void> {
+    event.preventDefault();
+    await this.toolsModal?.dismiss();
+    this.isToolsOpen = false;
+    await this.router.navigate(['/home']);
+  }
   readonly rotationChoices = [1, 2, 3, 4, 5, 6];
   isMatchControlsOpen = false;
   isStatsOpen = false;
+  isToolsOpen = false;
+  isExpandedCourtOpen = false;
   nextSetLineup: Array<string | null> = [];
   nextSetServe: 'team' | 'opponent' = 'team';
   public readonly actionMeta: Record<QuickAction, ActionMeta> = {
-    kill: { label: 'Kill', icon: 'flash', accent: 'action-kill' },
-    'attack-error': {
-      label: 'Attack Error',
-      icon: 'close-circle',
-      accent: 'action-error',
-    },
-    ace: { label: 'Ace', icon: 'baseball', accent: 'action-ace' },
-    'service-error': {
-      label: 'Service Error',
-      icon: 'close-circle',
-      accent: 'action-error',
-    },
-    block: { label: 'Block', icon: 'hand-left', accent: 'action-block' },
-    dig: { label: 'Dig', icon: 'baseball', accent: 'action-dig' },
-    'opponent-error': {
-      label: 'Opponent Error',
-      icon: 'close-circle',
-      accent: 'action-opponent-error',
-    },
-    'receive-error': {
-      label: 'Receive Error',
-      icon: 'close-circle',
-      accent: 'action-receive-error',
-    },
+    kill: { label: 'Kill' },
+    'attack-error': { label: 'Attack Error' },
+    ace: { label: 'Ace' },
+    'service-error': { label: 'Service Error' },
+    block: { label: 'Block' },
+    dig: { label: 'Dig' },
+    'opponent-error': { label: 'Opponent Error' },
+    'receive-error': { label: 'Receive Error' },
   };
 
   public readonly playerPositions: PlayerPosition[] = [
-    { id: 4, label: 'LF', top: '34%', left: '19%' },
-    { id: 3, label: 'MF', top: '34%', left: '50%' },
-    { id: 2, label: 'RF', top: '34%', left: '81%' },
-    { id: 5, label: 'LB', top: '68%', left: '19%' },
-    { id: 6, label: 'MB', top: '68%', left: '50%' },
-    { id: 1, label: 'RB', top: '68%', left: '81%' },
+    { id: 4, label: 'LF' },
+    { id: 3, label: 'MF' },
+    { id: 2, label: 'RF' },
+    { id: 5, label: 'LB' },
+    { id: 6, label: 'MB' },
+    { id: 1, label: 'RB' },
   ];
 
   constructor(
@@ -142,7 +126,7 @@ export class CourtPage {
     private readonly matchEngine: MatchEngineService,
     private readonly router: Router,
   ) {
-    addIcons({'arrowUndo':arrowUndo,flash,'closeCircle':closeCircle,baseball,'handLeft':handLeft,'addCircle':addCircle,'playForward':playForward,star});
+    addIcons({ arrowUndo });
     this.liveStore.syncActiveGame();
     this.prepareNextSetDraft();
   }
@@ -156,7 +140,7 @@ export class CourtPage {
     const target = event.target as HTMLElement;
     const isInputFocused = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-    if (isInputFocused || this.isStatsOpen) {
+    if (isInputFocused || this.isStatsOpen || this.isToolsOpen || this.isExpandedCourtOpen || this.isMatchControlsOpen) {
       return;
     }
 
@@ -323,6 +307,7 @@ export class CourtPage {
     const outPlayer = this.liveStore.getMatchPlayerById(outId);
     this.substitutionStatus = `Substituted: ${inPlayer?.name ?? 'Player'} in for ${outPlayer?.name ?? 'player'}.`;
     this.isSubOverlayOpen = false;
+    this.activePlayer = null;
     this.resetSubSelection();
   }
 
@@ -427,7 +412,10 @@ export class CourtPage {
     if (nextPosition) {
       event.preventDefault();
       this.activePlayer = nextPosition;
-      this.focusPlayerTile(nextPosition);
+      const court = event.currentTarget instanceof Element ? event.currentTarget.closest('app-volleyball-court') : null;
+      requestAnimationFrame(() => {
+        court?.querySelector<HTMLButtonElement>(`[data-position="${nextPosition}"]`)?.focus();
+      });
       return;
     }
 
@@ -441,13 +429,6 @@ export class CourtPage {
       event.preventDefault();
       this.closeSubOverlay('Substitution cancelled.');
     }
-  }
-
-  private focusPlayerTile(position: number): void {
-    requestAnimationFrame(() => {
-      const tile = document.querySelector(`[data-position="${position}"]`) as HTMLElement;
-      tile?.focus();
-    });
   }
 
   getSelectedPlayerText(): string {
@@ -467,7 +448,16 @@ export class CourtPage {
       return 'No actions yet';
     }
 
-    return `Last: ${this.lastEvent.label} · ${this.gameState.teamPoints}–${this.gameState.opponentPoints} · R${this.gameState.teamRotation}`;
+    const event = this.liveStore.events().find((item) => item.id === this.lastEvent?.eventId);
+    const player = this.liveStore.getMatchPlayerById(event?.playerId ?? null);
+    const action = event?.action;
+    const label = this.standardOutcomeActions.find((item) => item.id === action)?.label ??
+      (action === 'dig' ? 'Dig' : this.lastEvent.label);
+    const score = `${this.gameState.teamPoints}–${this.gameState.opponentPoints}`;
+    const result = action === 'dig' ? `Score unchanged ${score}` :
+      this.gameState.teamPoints === this.gameState.opponentPoints ? `Tied ${score}` :
+      `${this.teamDisplayName} ${this.gameState.teamPoints > this.gameState.opponentPoints ? 'leads' : 'trails'} ${score}`;
+    return `${player ? '#' + player.jerseyNumber + ' ' + player.name + ' · ' : ''}${label} · ${result}`;
   }
 
   setServingTeam(team: 'team' | 'opponent'): void {
@@ -492,6 +482,7 @@ export class CourtPage {
     }
 
     this.matchEngine.manualRotateTeam();
+    this.activePlayer = null;
   }
 
   openMatchControls(): void {
@@ -507,6 +498,7 @@ export class CourtPage {
   manualRotateTo(rotation: number): void {
     if (this.scoringBlocked) return;
     this.matchEngine.manualRotateTeamTo(rotation);
+    this.activePlayer = null;
   }
 
   endMatchEarly(): void {
@@ -524,64 +516,30 @@ export class CourtPage {
   }
 
   readonly standardOutcomeActions: StandardOutcomeMeta[] = [
-      {
-        id: 'kill',
-        label: this.actionMeta.kill.label,
-        icon: this.actionMeta.kill.icon,
-        accent: this.actionMeta.kill.accent,
-      },
-      {
-        id: 'attack-error',
-        label: this.actionMeta['attack-error'].label,
-        icon: this.actionMeta['attack-error'].icon,
-        accent: this.actionMeta['attack-error'].accent,
-      },
-      {
-        id: 'block',
-        label: this.actionMeta.block.label,
-        icon: this.actionMeta.block.icon,
-        accent: this.actionMeta.block.accent,
-      },
-      {
-        id: 'ace',
-        label: this.actionMeta.ace.label,
-        icon: this.actionMeta.ace.icon,
-        accent: this.actionMeta.ace.accent,
-      },
-      {
-        id: 'service-error',
-        label: this.actionMeta['service-error'].label,
-        icon: this.actionMeta['service-error'].icon,
-        accent: this.actionMeta['service-error'].accent,
-      },
-      {
-        id: 'opponent-error',
-        label: this.actionMeta['opponent-error'].label,
-        icon: this.actionMeta['opponent-error'].icon,
-        accent: this.actionMeta['opponent-error'].accent,
-      },
-      {
-        id: 'opponent-point',
-        label: 'Opponent Winner',
-        icon: 'add-circle',
-        accent: 'action-opponent-point',
-      },
-      {
-        id: 'receive-error',
-        label: this.actionMeta['receive-error'].label,
-        icon: this.actionMeta['receive-error'].icon,
-        accent: this.actionMeta['receive-error'].accent,
-      },
-    ];
+    ...(['kill', 'block', 'ace', 'opponent-error', 'attack-error', 'service-error', 'receive-error'] as const)
+      .map((id) => ({ id, label: this.actionMeta[id].label })),
+    { id: 'opponent-point', label: 'Opponent Winner' },
+  ];
 
-  readonly statOnlyActions: StatOnlyActionMeta[] = [
-      {
-        id: 'dig',
-        label: this.actionMeta.dig.label,
-        icon: this.actionMeta.dig.icon,
-        accent: this.actionMeta.dig.accent,
-      },
-    ];
+  readonly outcomeGroups = (['team', 'opponent'] as const).map((side) => ({
+    side,
+    actions: this.standardOutcomeActions.filter((action) => this.outcomeSide(action.id) === side),
+  }));
+
+  private outcomeSide(action: StandardOutcomeAction): 'team' | 'opponent' {
+    return rallyWinner(action === 'opponent-point' ? 'opponent-winner' : action);
+  }
+
+  get serverIdentity(): string {
+    const server = this.getPlayerForPosition(1);
+    return server ? `#${server.jerseyNumber} ${server.name}` : 'P1 is empty';
+  }
+
+  outcomeAriaLabel(action: StandardOutcomeMeta): string {
+    const teamPoint = this.outcomeSide(action.id) === 'team';
+    const player = action.id === 'ace' || action.id === 'service-error' ? this.serverIdentity : this.selectedPlayerDetail;
+    return `${action.label} - awards point to ${teamPoint ? this.teamDisplayName : this.opponentName}${action.id === 'opponent-error' || action.id === 'opponent-point' ? '' : ', ' + player}`;
+  }
 
   recordStandardOutcome(action: StandardOutcomeAction): void {
     if (action === 'opponent-point') {
@@ -701,14 +659,14 @@ export class CourtPage {
 
   get selectedPlayerDetail(): string {
     if (this.activePlayer === null) {
-      return 'Select a player for player-specific actions';
+      return 'Select a player for individual stats';
     }
     const selectedPlayer = this.getPlayerForPosition(this.activePlayer);
     if (!selectedPlayer) {
       return `Position ${this.activePlayer} is empty`;
     }
 
-    return `#${selectedPlayer.jerseyNumber} ${selectedPlayer.name} - ${selectedPlayer.primaryPosition}`;
+    return `Record for #${selectedPlayer.jerseyNumber} · ${selectedPlayer.name}`;
   }
 
   get commandInstructionText(): string {
@@ -737,12 +695,12 @@ export class CourtPage {
     const rotation = this.gameState.teamRotation;
     const server = this.getPlayerForPosition(1);
     const serverText = server ? `#${server.jerseyNumber}` : 'P1 Open';
-    return `R${rotation} ${serverText}`;
+    return `Rotation ${rotation} · Server ${serverText}`;
   }
 
   get timeoutIndicatorText(): string {
     const state = this.gameState;
-    return `${state.teamTimeoutsRemaining} / ${state.opponentTimeoutsRemaining}`;
+    return `Timeouts ${this.teamDisplayName} ${state.teamTimeoutsRemaining} · ${this.opponentName} ${state.opponentTimeoutsRemaining}`;
   }
 
   get servePossessionText(): string {
@@ -787,6 +745,7 @@ export class CourtPage {
   }
 
   get syncStatusText(): string {
+    if (this.offlineSync.storageError()) return 'Device save blocked';
     if (this.offlineSync.lastError()) {
       return 'Saved on this device. Cloud sync failed.';
     }
@@ -796,7 +755,7 @@ export class CourtPage {
     if (this.offlineSync.pendingCount() > 0) {
       return 'Pending sync';
     }
-    return 'All changes synced';
+    return this.offlineSync.lastSuccessfulSyncAt() ? 'Synced' : 'Saved on this device';
   }
 
   get lastSyncText(): string {

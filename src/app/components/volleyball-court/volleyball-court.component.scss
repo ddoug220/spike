@@ -1,0 +1,67 @@
+app-volleyball-court { display: block; min-width: 0; }
+.volleyball-court {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto minmax(92px, auto) auto minmax(92px, auto);
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--spike-court-line);
+  border-radius: var(--radius-sm);
+  background: var(--spike-court);
+  color: #fff;
+  .court-row-label { grid-column: 1 / -1; color: #fff; font: 0.8rem var(--font-body); line-height: 1; }
+  .front-label { grid-row: 1; }
+  .back-label { grid-row: 3; padding-top: 6px; border-top: 1px solid var(--spike-court-line); }
+  > [data-position] {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px;
+    border: 2px solid var(--spike-line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--spike-frame);
+    color: var(--spike-ink);
+    text-align: left;
+    font-family: var(--font-body);
+    touch-action: manipulation;
+  }
+  > button { cursor: pointer; }
+  > [data-position='4'], > [data-position='3'], > [data-position='2'] { grid-row: 2; }
+  > [data-position='5'], > [data-position='6'], > [data-position='1'] { grid-row: 4; }
+  > [data-position='4'], > [data-position='5'] { grid-column: 1; }
+  > [data-position='3'], > [data-position='6'] { grid-column: 2; }
+  > [data-position='2'], > [data-position='1'] { grid-column: 3; }
+  > [data-selected='true'] { border-color: var(--spike-stitch); box-shadow: inset 0 0 0 1px var(--spike-stitch); }
+  > button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  app-court-player { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 6px; }
+  .court-player-meta { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .court-player-meta strong { font: 800 1.35rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+  .court-player-position { color: var(--spike-ink-muted); font-size: 0.75rem; }
+  .server-label { margin-left: auto; padding: 2px 3px; border: 1px solid var(--spike-line-strong); font: 700 0.7rem/1 var(--font-body); }
+  .selection-check { margin-left: auto; color: var(--spike-ink); font-weight: 800; }
+  .court-player-name { font: 700 0.95rem/1.15 var(--font-body); overflow-wrap: anywhere; }
+  .court-player-detail { margin-top: auto; color: var(--spike-ink-muted); font-size: 0.8rem; }
+}
+.volleyball-court.compact {
+  grid-template-rows: auto minmax(64px, auto) auto minmax(64px, auto);
+  gap: 4px;
+  padding: 6px;
+}
+@media (max-width: 680px) {
+  .volleyball-court.responsive {
+    grid-template-rows: auto 62px auto 62px;
+    gap: 3px;
+    padding: 4px;
+    > [data-position] { padding: 4px; }
+    app-court-player { gap: 2px; }
+    .court-player-meta strong { font-size: 1rem; }
+    .court-player-name { font-size: 0.8rem; }
+    .court-player-detail { display: none; }
+    .court-row-label { font-size: 0.65rem; }
+    .back-label { padding-top: 3px; }
+    .server-label { padding: 1px; font-size: 0.55rem; }
+    .court-player-position { font-size: 0.6rem; }
+  }
+}

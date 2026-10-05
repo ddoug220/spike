@@ -237,8 +237,10 @@ export class OfflineSyncService {
 
   queuePlayerSetStats(payload: OwnerPayload<PlayerSetStats>): LocalCommitResult {
     const game = this.getGame(payload.gameId);
+    const existing = this.getPlayerSetStats(payload.gameId).find((stats) => stats.id === payload.id);
     return this.enqueue('playerSetStats', this.withOwner<PlayerSetStats>({
       ...payload,
+      createdAt: existing?.createdAt ?? game?.createdAt ?? payload.createdAt,
       writerDeviceId: payload.writerDeviceId ?? game?.writerDeviceId ?? this.getDeviceId(),
       writerGeneration: payload.writerGeneration ?? game?.writerGeneration ?? 1,
     }));

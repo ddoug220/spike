@@ -72,7 +72,7 @@
         <form class="player-form" (ngSubmit)="submitPlayer()">
           <label class="name-field">
             <span>Player Name</span>
-            <input type="text" name="playerName" [(ngModel)]="draft.name" required placeholder="Ava Johnson" />
+            <input #playerNameInput type="text" name="playerName" [(ngModel)]="draft.name" required placeholder="Ava Johnson" />
           </label>
           <label>
             <span>Jersey</span>
@@ -95,6 +95,37 @@
             </ion-button>
           }
         </form>
+
+        <details class="bulk-import">
+          <summary>Paste a roster from a spreadsheet</summary>
+          <p id="bulk-roster-help">
+            Copy rows with jersey number, player name, and optional position. Use tabs or commas between columns.
+            Positions can be S, OH, MB, OPP, L, or DS. Omitted positions default to OH.
+          </p>
+          <label class="bulk-import-label" for="bulk-roster">Player rows</label>
+          <textarea
+            id="bulk-roster"
+            name="bulkRoster"
+            aria-describedby="bulk-roster-help"
+            [(ngModel)]="bulkRosterText"
+            (ngModelChange)="clearBulkImportFeedback()"
+            placeholder="Jersey, Player name, Position&#10;4, Ava Johnson, OH&#10;8, Mia Chen, S"
+            rows="6"
+            spellcheck="false"
+          ></textarea>
+          @if (bulkImportStatus) { <p class="bulk-import-status" role="status">{{ bulkImportStatus }}</p> }
+          @if (bulkImportErrors.length > 0) {
+            <div class="bulk-import-errors" role="alert">
+              <strong>Roster not added. Fix these rows and try again:</strong>
+              <ul>
+                @for (error of bulkImportErrors; track error) { <li>{{ error }}</li> }
+              </ul>
+            </div>
+          }
+          <ion-button type="button" class="local-submit" [disabled]="!bulkRosterText.trim()" (click)="importRoster()">
+            Add roster
+          </ion-button>
+        </details>
       </section>
     </div>
 

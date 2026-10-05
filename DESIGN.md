@@ -136,8 +136,8 @@ The system is designed for coaches and stat keepers working under variable gym l
 
 ## Typography
 
-- **Barlow Condensed** is the equipment face. Use it for scores, jersey numbers, route titles, action labels, and compact identifiers.
-- **Atkinson Hyperlegible** carries instructions, names, form fields, and longer reading. Its open forms protect legibility at a glance.
+- **Barlow Condensed** is the equipment face. Use it for scores, jersey numbers, route titles, and section headings.
+- **Atkinson Hyperlegible** carries action buttons, instructions, names, form fields, and small metadata. Its open forms protect legibility at a glance.
 - Scores and jersey numbers use tabular numerals. Do not use monospace as a technical costume.
 - Route titles use `clamp(2.75rem, 5vw, 4.75rem)` at weight 800; the Home title uses `clamp(3rem, 6vw, 5.75rem)`. Live scores use `clamp(3.4rem, 6vw, 5.25rem)`.
 - Supporting section headings are commonly 1.25–1.4rem. Form labels are 0.875rem; desktop rail links are 0.88rem. Smaller metadata varies by surface and viewport; there is no single enforced modular type scale.
@@ -147,11 +147,12 @@ The system is designed for coaches and stat keepers working under variable gym l
 ## Layout
 
 - The live-match desktop composition is a 58/42 split: one-team six-position court on the left, fixed scorer's control table on the right, joined by a structural scoreboard rail.
-- Landscape tablets preserve simultaneous court, score, action, and Undo visibility. Portrait layouts stack court above a fixed-width action table.
-- Live Court stacks at 980px and below; its phone controls compact further at 680px and 430px. Phones use a sticky compact scoreboard, reduced-height court, and two-column action grid. At 320×568, controlled vertical scrolling is preferable to shrinking controls.
+- Landscape tablets preserve simultaneous court, score, action, and Undo visibility. Phones use a compact scoring view with the player picker directly above the outcome columns.
+- Live Court uses a compact phone scoreboard and player picker at 680px and below. Routine player selection, all eight Rally Outcomes, Dig, the latest-action receipt, and Undo remain visible without scrolling at 320×568, 375×667, and 390×844. More opens secondary panels. Scoring buttons and selectable players retain 44px minimum touch targets.
 - Supporting routes use rails, boards, records, and workbenches—not same-sized card grids.
 - Content containers top out at 1180px; the live court may use the full viewport. Supporting pages normally have 20px outer gutters; compact page gutters vary from 6px to 12px. The spacing entries record recurring values, not existing CSS spacing variables.
 - Equipment navigation changes from one 64px rail to 56px and 38px rows at 760px. Team and Match Setup stack their workbenches at 820px. History switches to two-column records at 900px.
+- Match Setup uses the shared font, color, and radius tokens. Its Starting Lineup retains the three-column, two-row court on phones; compact tags show Court Position, jersey, player name, and first server. The existing position picker shows full player names and playing roles. Match Squad follows the compact court.
 - Match Review uses three rotation columns below 900px and two below 640px. Its box score scrolls horizontally inside the panel, with a fixed 180px player column; the page itself remains within the viewport.
 
 ## Elevation & Depth
@@ -172,18 +173,27 @@ Corners are machined, not soft: 2px for tags, 4px for controls, and 8px for majo
 - **Action receipt:** persistent factual summary of the last operation with adjacent Undo.
 - **Match record:** one desktop row containing opponent, date, result, status, and Review action; compact records put opponent and score first. Keyboard focus is inset 3px so the containing frame does not clip it.
 - **Work bench:** stable editing region beside a roster, squad, or lineup surface. It does not appear as a modal unless focus protection is required.
+- **Player editing:** pressing Edit reveals the existing editor and focuses Player Name without animated scrolling.
 
 - **Buttons and fields:** controls use 4px corners. Team fields are 48px high; the player name spans the form before Jersey, Position, and Add Player. Local-submit buttons use control surfaces and stronger control hover fills. Primary navigation actions use cobalt with white text.
 - **Navigation state:** muted links brighten on hover and active state; the active link carries a 3px optic stitch beneath it. Text labels remain present.
 - **Focus:** the global outline is 3px with a 2px offset; some components use local 2px outlines. Use the semantic focus color when extending the system.
-- **Current implementation exception:** the compact landscape layout (width at least 981px, height at most 800px) reduces outcome buttons to 46px, some commands to 42px, and Undo to 38px. This falls below the product's 44px touch-target requirement for some controls; it is observed drift, not a new system minimum.
+- **Compact landscape:** at widths of at least 981px and heights of at most 800px, scoring and match commands use 44px controls; Undo retains the shared 44px minimum.
 
 ## Do's and Don'ts
 
-- Do make the court and match state visible before controls.
+- Do keep match state, player selection, scoring controls, and Undo visible together during routine scoring.
 - Do preserve 44px touch targets, keyboard focus, reduced motion, and full accessible names.
 - Do use real volleyball geometry and the user's six-player rotation.
 
 - Don't use photoreal court imagery, extra opponent players, invented match data, marketing slogans, decorative gradients, glass, neon glow, esports motifs, bubbly cards, or elastic motion. CSS gradients that draw court lines are structural geometry.
 - Don't let Ionic defaults become the visual identity.
 - Don't trade scoring speed for spectacle.
+
+## Live scoring and lineup identity
+
+The shared court presentation supplies expanded and compact variants for Home, Match Setup, and Live Court. Cards show jersey number, Court Position, readable player name, and a text serving badge. Selection has an outline and checkmark. Setup labels the first server "Serves first"; a live match labels the current server "Serving".
+
+Rally Outcome columns identify the team receiving the point. Dig sits separately with "Record stat · no point". Ace and Service error name their automatic P1 attribution beside the action label. The scoring heading identifies the selected player for the other individual statistics.
+
+The latest-action receipt confirms the recorded player, action, and resulting score, with Undo beside it. Storage status remains separate. Active-match Home shows the opponent, score, set, serving team, and Resume Match. Its court shows the actual On-court Lineup and is labelled "Current lineup". Saved defaults use "Starting lineup".

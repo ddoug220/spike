@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import {
   CollectionReference,
   DocumentData,
@@ -14,7 +15,6 @@ import {
   getDoc,
   getDocs,
   getFirestore,
-  orderBy,
   query,
   onSnapshot,
   setDoc,
@@ -196,9 +196,9 @@ export class FirebaseDbService {
 
     try {
       const snapshot = await getDocs(
-        query(this.gameEventsRef(gameId), orderBy('createdAt', 'asc')),
+        query(this.gameEventsRef(gameId), where('ownerId', '==', this.currentOwnerId())),
       );
-      return { ok: true, data: snapshot.docs.map((entry) => entry.data()).filter((event) => !event.isDeleted) };
+      return { ok: true, data: this.visibleEvents(snapshot.docs.map((entry) => entry.data())) };
     } catch (error) {
       return {
         ok: false,
@@ -220,6 +220,7 @@ export class FirebaseDbService {
         query(
           this.collectionRef('playerSetStats'),
           where('gameId', '==', gameId),
+          where('ownerId', '==', this.currentOwnerId()),
         ),
       );
       return { ok: true, data: this.sortPlayerSetStats(snapshot.docs.map((entry) => entry.data())) };
@@ -258,8 +259,8 @@ export class FirebaseDbService {
       return () => undefined;
     }
 
-    return onSnapshot(query(this.gameEventsRef(gameId), orderBy('createdAt', 'asc')), (snapshot) => {
-      onData(snapshot.docs.map((entry) => entry.data()).filter((event) => !event.isDeleted));
+    return onSnapshot(query(this.gameEventsRef(gameId), where('ownerId', '==', this.currentOwnerId())), (snapshot) => {
+      onData(this.visibleEvents(snapshot.docs.map((entry) => entry.data())));
     });
   }
 
@@ -270,7 +271,7 @@ export class FirebaseDbService {
     }
 
     return onSnapshot(
-      query(this.collectionRef('playerSetStats'), where('gameId', '==', gameId)),
+      query(this.collectionRef('playerSetStats'), where('gameId', '==', gameId), where('ownerId', '==', this.currentOwnerId())),
       (snapshot) => {
         onData(this.sortPlayerSetStats(snapshot.docs.map((entry) => entry.data())));
       },
@@ -279,6 +280,14 @@ export class FirebaseDbService {
 
   private sortPlayerSetStats(stats: PlayerSetStats[]): PlayerSetStats[] {
     return [...stats].sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+  }
+
+  private visibleEvents(events: GameEvent[]): GameEvent[] {
+    return events.filter((event) => !event.isDeleted).sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  private currentOwnerId(): string {
+    return getAuth(this.getDb().app).currentUser?.uid ?? '';
   }
 
   private collectionRef<C extends FirestoreCollection>(collectionName: C): CollectionReference<FirestoreDocumentMap[C]> {

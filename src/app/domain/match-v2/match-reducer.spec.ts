@@ -296,6 +296,45 @@ describe('match v2 reducer', () => {
     expect(state.appliedEventIds).not.toContain('event-7');
   });
 
+  it('reads the Match Format from the session and applies it to set targets and match completion', () => {
+    const bestOfThree = { ...session, matchFormat: 'best-of-3' as const };
+    const set1Events: MatchEvent[] = [start(1), ...winSet(2, 'team', 1)];
+    const set2Start: MatchEvent = {
+      ...eventBase(27),
+      kind: 'set-started',
+      setNumber: 2,
+      lineup,
+      servingTeam: 'team',
+    };
+    const set2Events: MatchEvent[] = [set2Start, ...winSet(28, 'team', 2)];
+
+    const afterSet1 = reduceMatch(bestOfThree, set1Events);
+    expect(afterSet1.status).toBe('set-break');
+    expect(afterSet1.teamSets).toBe(1);
+
+    const finalBestOf3 = reduceMatch(bestOfThree, [...set1Events, ...set2Events]);
+    expect(finalBestOf3.status).toBe('final');
+    expect(finalBestOf3.teamSets).toBe(2);
+
+    const set3Start: MatchEvent = {
+      ...eventBase(53),
+      kind: 'set-started',
+      setNumber: 3,
+      lineup,
+      servingTeam: 'team',
+    };
+    const finalBestOf5 = reduceMatch(session, [
+      start(1),
+      ...winSet(2, 'team', 1),
+      set2Start,
+      ...winSet(28, 'team', 2),
+      set3Start,
+      ...winSet(54, 'team', 3),
+    ]);
+    expect(finalBestOf5.status).toBe('final');
+    expect(finalBestOf5.teamSets).toBe(3);
+  });
+
   function start(sequence: number, servingTeam: TeamSide = 'team'): MatchEvent {
     return { ...eventBase(sequence), kind: 'match-started', lineup, servingTeam };
   }

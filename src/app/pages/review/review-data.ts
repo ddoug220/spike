@@ -56,6 +56,7 @@ export interface MatchReviewData {
   status: 'live' | 'final' | 'ended-early';
   opponentName: string;
   teamName: string;
+  matchFormat: 'best-of-3' | 'best-of-5';
   currentSet: number;
   startedAt: string;
   teamSets: number;
@@ -84,6 +85,7 @@ export function buildMatchReview(game: Game | null, storedEvents: GameEvent[]): 
     status: match.status === 'ended-early' ? 'ended-early' : match.status === 'final' ? 'final' : 'live',
     opponentName: match.session.opponentName,
     teamName: match.session.teamName ?? 'Team',
+    matchFormat: match.session.matchFormat,
     currentSet: match.currentSet,
     startedAt: match.session.createdAt,
     teamSets: match.teamSets,

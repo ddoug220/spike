@@ -388,6 +388,61 @@ describe('PreMatchPage', () => {
     expect(component.opponentName).toBe('');
   });
 
+  it('defaults to Best of 3 for a new team and remembers the last selection', () => {
+    expect(component.matchFormat).toBe('best-of-3');
+
+    component.setMatchFormat('best-of-5');
+    fixture.detectChanges();
+
+    expect(component.matchFormat).toBe('best-of-5');
+    expect(teamRoster.matchDefaults().matchFormat).toBe('best-of-5');
+
+    component.setMatchFormat('best-of-3');
+    fixture.detectChanges();
+
+    expect(component.matchFormat).toBe('best-of-3');
+    expect(teamRoster.matchDefaults().matchFormat).toBe('best-of-3');
+  });
+
+  it('offers exactly Best of 3 and Best of 5 options in the UI', () => {
+    fixture.detectChanges();
+    const page: HTMLElement = fixture.nativeElement;
+    const formatButtons = Array.from(page.querySelectorAll('[role="radiogroup"][aria-label="Match format"] button'));
+
+    expect(formatButtons.length).toBe(2);
+    expect(formatButtons[0].textContent?.trim()).toBe('Best of 3');
+    expect(formatButtons[1].textContent?.trim()).toBe('Best of 5');
+    expect(formatButtons[0].getAttribute('aria-checked')).toBe('true');
+    expect(formatButtons[1].getAttribute('aria-checked')).toBe('false');
+
+    (formatButtons[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(formatButtons[0].getAttribute('aria-checked')).toBe('false');
+    expect(formatButtons[1].getAttribute('aria-checked')).toBe('true');
+    expect(component.matchFormat).toBe('best-of-5');
+  });
+
+  it('includes the selected format when starting a match', async () => {
+    addSixPlayers();
+    const players = teamRoster.players();
+    players.forEach((player, index) => {
+      teamRoster.setMatchSquadPlayer(player.id, true);
+      teamRoster.assignMatchStarter(player.id, index + 1);
+    });
+    component.opponentName = 'Central High';
+    component.setMatchFormat('best-of-5');
+    spyOn(matchEngine, 'startMatch').and.returnValue({ ok: true, value: 'game-test' });
+    spyOn(router, 'navigate').and.resolveTo(true);
+
+    await component.startMatch();
+
+    expect(matchEngine.startMatch).toHaveBeenCalledWith('team', {
+      opponentName: 'Central High',
+      matchFormat: 'best-of-5',
+    });
+  });
+
   function addSixPlayers(): void {
     for (let i = 1; i <= 6; i += 1) {
       teamRoster.addPlayer({ name: `Player ${i}`, jerseyNumber: i, primaryPosition: 'OH' });

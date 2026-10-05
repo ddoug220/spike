@@ -354,8 +354,11 @@ test('correction changes player attribution without affecting score or later eve
 
   const matchIdMatch = page.url().match(/\/court$/);
   await page.evaluate(() => {
-    const matchId = window.localStorage.getItem('spike.activeMatchId');
-    if (matchId) window.location.href = `/review/${matchId}`;
+    const keys = Object.keys(window.localStorage).filter(key => key.includes('spike-durable-match-record'));
+    if (keys.length > 0) {
+      const record = JSON.parse(window.localStorage.getItem(keys[0]) || '{}');
+      if (record.activeMatchId) window.location.href = `/review/${record.activeMatchId}`;
+    }
   });
   await expect(page).toHaveURL(/\/review\//);
 
@@ -367,8 +370,8 @@ test('correction changes player attribution without affecting score or later eve
   await page.waitForTimeout(500);
   await expect(firstKill).toContainText('Player 2');
   
-  await expect(page.locator('.score-side.home').first()).toContainText('1');
-  await expect(page.locator('.score-side.away').first()).toContainText('1');
+  await expect(page.locator('.score-side.home, .scoreboard-banner').first()).toContainText('1');
+  await expect(page.locator('.score-side.away, .scoreboard-banner').first()).toContainText('1');
   
   await page.locator('app-match-box-score tbody tr').filter({ hasText: 'Player 1' }).locator('td').nth(2).then(async (cell) => {
     await expect(cell).toHaveText('0');
@@ -379,5 +382,5 @@ test('correction changes player attribution without affecting score or later eve
 
   await page.reload();
   await expect(firstKill).toContainText('Player 2');
-  await expect(page.locator('.score-side.home').first()).toContainText('1');
+  await expect(page.locator('.score-side.home, .scoreboard-banner').first()).toContainText('1');
 });

@@ -372,14 +372,10 @@ test('correction changes player attribution without affecting score or later eve
   
   await expect(page.locator('.match-title p').filter({ hasText: /points/ })).toContainText('1–1');
   
-  await page.locator('app-match-box-score tbody tr').filter({ hasText: 'Player 1' }).locator('td').nth(2).then(async (cell) => {
-    await expect(cell).toHaveText('0');
-  });
-  await page.locator('app-match-box-score tbody tr').filter({ hasText: 'Player 2' }).locator('td').nth(2).then(async (cell) => {
-    await expect(cell).toHaveText('1');
-  });
+  await expect(page.locator('app-match-box-score tbody tr').filter({ hasText: 'Player 1' }).locator('td').nth(2)).toHaveText('0');
+  await expect(page.locator('app-match-box-score tbody tr').filter({ hasText: 'Player 2' }).locator('td').nth(2)).toHaveText('1');
 
   await page.reload();
   await expect(firstKill).toContainText('Player 2');
-  await expect(page.locator('.score-side.home, .scoreboard-banner').first()).toContainText('1');
+  await expect(page.locator('.match-title p').filter({ hasText: /points/ })).toContainText('1–1');
 });

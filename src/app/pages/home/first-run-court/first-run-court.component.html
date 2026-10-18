@@ -21,9 +21,7 @@
   </div>
   <div class="court-workspace" [class.editing]="selectedPosition !== null">
     <div class="court-wrap">
-      <div class="court" role="group" aria-label="Interactive starting lineup">
-        <span class="net-label">Net</span>
-        <div class="court-lines" aria-hidden="true"></div>
+      <app-volleyball-court role="group" aria-label="Interactive starting lineup">
         @for (slot of slots; track slot.position) {
           <button
             #courtSlotButton
@@ -33,6 +31,7 @@
             [class.selected]="selectedPosition === slot.position || movingFrom === slot.position"
             [class.destination]="movingFrom !== null && movingFrom !== slot.position"
             [attr.data-position]="slot.position"
+            [attr.data-selected]="selectedPosition === slot.position || movingFrom === slot.position"
             aria-controls="court-slot-editor"
             [attr.aria-describedby]="slotHasDraft(slot.position) ? 'draft-' + slot.position : null"
             [attr.aria-expanded]="selectedPosition === slot.position"
@@ -40,18 +39,13 @@
             (click)="selectSlot(slot.position)"
             [attr.aria-label]="movingFrom !== null ? (movingFrom === slot.position ? 'Moving from P' + slot.position : (slot.player ? 'Swap with ' + slot.player.name + ' in P' + slot.position : 'Move to P' + slot.position)) : slot.player ? 'Edit ' + slot.player.name + ' in position ' + slot.position + ', ' + slot.zone : 'Add player to position ' + slot.position + ', ' + slot.zone"
           >
-            <span class="position">P{{ slot.position }} @if (slotHasDraft(slot.position)) { <span class="draft-mark" [id]="'draft-' + slot.position">· Draft</span> }</span>
-            @if (slot.player; as player) {
-              <strong>#{{ player.jerseyNumber }}</strong>
-              <span class="player-name" dir="auto">{{ player.name }}</span>
-              <small>{{ player.primaryPosition }}</small>
-            } @else {
-              <strong class="plus" aria-hidden="true">+</strong>
-              <span class="open-label">{{ slot.zone }}</span>
-            }
+            <app-court-player [player]="slot.player" [position]="slot.position" [selected]="selectedPosition === slot.position || movingFrom === slot.position">
+              @if (slotHasDraft(slot.position)) { <span class="draft-mark" [id]="'draft-' + slot.position">Draft</span> }
+              <span class="court-player-detail">{{ slot.player?.primaryPosition || slot.zone }}</span>
+            </app-court-player>
           </button>
         }
-      </div>
+      </app-volleyball-court>
     </div>
 
     <aside

@@ -3,6 +3,7 @@ import { By } from '@angular/platform-browser';
 import { provideRouter, RouterLink } from '@angular/router';
 import { FirebaseDbService } from '../../services/firebase-db.service';
 import type { Game, GameStatus } from '../../models/firestore.models';
+import { MatchEngineService } from '../../services/match-engine.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
 import { TeamRosterService } from '../../services/team-roster.service';
 import { FirstRunCourtComponent } from './first-run-court/first-run-court.component';
@@ -141,7 +142,7 @@ describe('HomePage', () => {
     expect(fixture.debugElement.query(By.directive(FirstRunCourtComponent))).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Set up the next match');
     expect(fixture.nativeElement.textContent).toContain('Set Up Match');
-    expect(fixture.nativeElement.textContent).toContain('Saved starting six');
+    expect(fixture.nativeElement.textContent).toContain('Starting lineup');
     expect(fixture.nativeElement.textContent).toContain('Player 1');
     expect(fixture.nativeElement.textContent).not.toContain('First match guide');
     expect(routeLinks()).toContain('/pre-match');
@@ -320,6 +321,27 @@ describe('HomePage', () => {
   it('does not offer Review Last Match without a finished game snapshot', () => {
     expect(component.hasReviewableMatch).toBeFalse();
     expect(fixture.nativeElement.textContent).not.toContain('Review Last Match');
+  });
+
+  it('shows the actual On-court Lineup after rotation and substitution while preserving saved defaults', () => {
+    addSixPlayers();
+    const bench = teamRoster.addPlayer({ name: 'Bench player', jerseyNumber: 12, primaryPosition: 'MB' });
+    const startingSix = teamRoster.players().slice(0, 6);
+    for (const player of teamRoster.players()) teamRoster.setMatchSquadPlayer(player.id, true);
+    startingSix.forEach((player, index) => teamRoster.assignMatchStarter(player.id, index + 1));
+    const engine = TestBed.inject(MatchEngineService);
+    engine.startMatch('opponent', { opponentName: 'Central High' });
+    engine.recordPlayerAction(1, 'kill');
+    fixture.detectChanges();
+    expect(component.displayedLineup.find((slot) => slot.position === 1)?.player?.id).toBe(startingSix[1].id);
+    expect(teamRoster.matchDefaults().startingLineup[0]).toBe(startingSix[0].id);
+    engine.recordSubstitution(startingSix[1].id, bench.id);
+    fixture.detectChanges();
+    const currentServer = fixture.nativeElement.querySelector('.mini-player[data-position="1"]');
+    expect(currentServer.textContent).toContain('Bench player');
+    expect(currentServer.textContent).toContain('Serving');
+    expect(fixture.nativeElement.querySelector('.preview-head').textContent).toContain('Current lineup');
+    expect(fixture.nativeElement.querySelector('.active-match-score').textContent).toContain('1–0');
   });
 
   function addSixPlayers(): void {

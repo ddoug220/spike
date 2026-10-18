@@ -226,7 +226,7 @@ describe('Live-match takeover recovery on a small phone', () => {
     expect(court.getPlayerTileStatLine(6)).toBe('1K / 0E');
 
     const positionOneTile = harness.routeNativeElement?.querySelector('[data-position="1"]') as HTMLButtonElement;
-    const kill = harness.routeNativeElement?.querySelector('[aria-label="Kill - awards point"]') as HTMLButtonElement;
+    const kill = harness.routeNativeElement?.querySelector('[aria-label^="Kill - awards point to "]') as HTMLButtonElement;
     positionOneTile.click();
     kill.click();
     await harness.fixture.whenStable();

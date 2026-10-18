@@ -1,9 +1,13 @@
-<app-equipment-rail task="Live court" [context]="teamDisplayName + ' vs ' + opponentName">
+<app-equipment-rail class="desktop-rail" task="Live court" [context]="teamDisplayName + ' vs ' + opponentName">
   <ion-button rail-action (click)="isStatsOpen = true">Team & Stats</ion-button>
   <ion-button rail-action class="exit-link" (click)="openExitSheet()">Exit</ion-button>
 </app-equipment-rail>
 
 <ion-content [fullscreen]="true">
+  <div class="mobile-save-error" *ngIf="scoringBlocked" role="alert">
+    <span>{{ offlineSync.storageError() }}</span>
+    <button type="button" (click)="retrySync()">Retry Save</button>
+  </div>
   <section class="scoreboard-banner">
     <div class="match-over-banner" *ngIf="isMatchOver">
       <strong>{{ isEndedEarly ? 'Match ended early. No final result.' : 'Match final.' }}</strong>
@@ -26,9 +30,9 @@
         <span class="score-set-label">SET {{ gameState.currentSet }}</span>
         <span class="live-status-pill" [title]="scoreSituationText">{{ scoreSituationText }}</span>
         <div class="score-meta-row">
-          <span class="meta-badge" [ngClass]="{ serving: gameState.servingTeam === 'team' }">{{ servePossessionText }}</span>
-          <span class="meta-badge">{{ rotationIndicatorText }}</span>
-          <span class="meta-badge">T {{ timeoutIndicatorText }}</span>
+          <span class="meta-badge serve-meta" [ngClass]="{ serving: gameState.servingTeam === 'team' }">{{ servePossessionText }}</span>
+          <span class="meta-badge" [attr.aria-label]="'Team rotation ' + gameState.teamRotation + ', server ' + rotationIndicatorText">{{ rotationIndicatorText }}</span>
+          <span class="meta-badge" [attr.aria-label]="'Timeouts remaining: ' + teamDisplayName + ' ' + gameState.teamTimeoutsRemaining + ', ' + opponentName + ' ' + gameState.opponentTimeoutsRemaining">{{ timeoutIndicatorText }}</span>
         </div>
       </div>
       <div class="score-side away">
@@ -40,6 +44,7 @@
           <span class="set-dot" [class.won]="gameState.opponentSets >= 3"></span>
         </div>
       </div>
+      <button type="button" class="mobile-tools" (click)="isToolsOpen = true" aria-label="Open match tools">More</button>
     </div>
   </section>
 
@@ -90,68 +95,13 @@
           </div>
         </div>
 
-        <div
-          class="court-wrap"
-          role="grid"
-          aria-label="Volleyball court with player positions. Use arrow keys to navigate between players."
-        >
-          <div class="court-lines"></div>
-          <div class="serve-indicator" [ngClass]="getServeIndicatorClass()">
-            <span>Serve: {{ gameState.servingTeam === 'team' ? 'Our Team' : 'Opponent' }}</span>
-          </div>
-          <div class="front-row-tint" *ngIf="isFrontRow(activePlayer)"></div>
-          <div class="rotation-arrows" *ngIf="gameState.servingTeam === 'opponent'">
-            <ion-icon name="play-forward" class="arrow arrow-5"></ion-icon>
-            <ion-icon name="play-forward" class="arrow arrow-6"></ion-icon>
-            <ion-icon name="play-forward" class="arrow arrow-1"></ion-icon>
-          </div>
-          <button
-            *ngFor="let player of playerPositions; let i = index"
-            class="player-chip"
-            [ngClass]="{
-              selected: player.id === activePlayer,
-              'current-server': player.id === 1 && gameState.servingTeam === 'team',
-              'sub-out-selected': isSelectedOutPlayer(player.id)
-            }"
-            [style.top]="player.top"
-            [style.left]="player.left"
-            [attr.aria-label]="getPlayerTileAriaLabel(player.id)"
-            [attr.title]="getPlayerForPosition(player.id)?.name || player.label"
-            [attr.aria-pressed]="player.id === activePlayer"
-            [attr.data-position]="player.id"
-            [tabindex]="player.id === (activePlayer ?? 1) ? 0 : -1"
-            (click)="handleCourtPlayerTap(player.id)"
-            (keydown)="handleCourtKeydown($event, player.id)"
-          >
-            <ng-container *ngIf="getPlayerForPosition(player.id) as assigned; else unassignedPlayer">
-              <span class="chip-meta">
-                <span class="chip-jersey">#{{ assigned.jerseyNumber }}</span>
-                <span class="chip-pos">{{ assigned.primaryPosition }}</span>
-                <ion-icon *ngIf="player.id === 1 && gameState.servingTeam === 'team'" name="star" class="chip-serve-star"></ion-icon>
-              </span>
-              <span class="chip-name">{{ assigned.name }}</span>
-              <span class="chip-stats">{{ getPlayerTileStatLine(player.id) }}</span>
-              <span *ngIf="isSelectedOutPlayer(player.id)" class="sub-out-tag">OUT</span>
-            </ng-container>
-            <ng-template #unassignedPlayer>
-              <span class="chip-meta">
-                <span class="chip-jersey">P{{ player.id }}</span>
-                <span class="chip-pos">{{ player.label }}</span>
-                <ion-icon *ngIf="player.id === 1 && gameState.servingTeam === 'team'" name="star" class="chip-serve-star"></ion-icon>
-              </span>
-              <span class="chip-name">—</span>
-              <span class="chip-stats">{{ getPlayerTileStatLine(player.id) }}</span>
-            </ng-template>
-          </button>
+        <ng-container *ngTemplateOutlet="liveCourt; context: { expanded: false }" />
 
-        </div>
       </section>
 
       <aside class="action-section" [class.substitution-open]="isSubOverlayOpen">
-        <div class="section-head">
-          <h2>Score the Point</h2>
-          <p *ngIf="activePlayer !== null" class="selected-player-line" [title]="selectedPlayerDetail">{{ selectedPlayerDetail }}</p>
-          <p class="score-line">Side-out: {{ formatRate(teamSideOutRate) }}</p>
+        <div class="section-head scoring-heading">
+          <h2>{{ selectedPlayerDetail }}</h2>
         </div>
 
         <ng-container *ngIf="!isSubOverlayOpen">
@@ -160,37 +110,44 @@
           </div>
 
           <div class="action-group-label">Rally outcome</div>
-          <div class="direct-actions-grid">
-            <ion-button
-              *ngFor="let action of standardOutcomeActions"
-              expand="block"
-              class="action-btn"
-              [ngClass]="action.accent"
-              (click)="recordStandardOutcome(action.id)"
-              [disabled]="isMatchOver || scoringBlocked || !isActionAvailableForServe(action.id) || (requiresPlayerAttribution(action.id) && activePlayer === null)"
-              [attr.aria-label]="action.label + ' - awards point'"
-            >
-              <ion-icon [name]="action.icon" slot="start" aria-hidden="true"></ion-icon>
-              {{ action.label }}
-            </ion-button>
+          <div class="outcome-columns">
+            <section *ngFor="let group of outcomeGroups" class="outcome-column" [class.team-outcomes]="group.side === 'team'" [class.opponent-outcomes]="group.side === 'opponent'">
+              <h3 [title]="group.side === 'team' ? teamDisplayName : opponentName">Point to {{ group.side === 'team' ? teamDisplayName : opponentName }}</h3>
+              <ion-button *ngFor="let action of group.actions" expand="block" class="action-btn"
+                (click)="recordStandardOutcome(action.id)"
+                [disabled]="isMatchOver || scoringBlocked || !isActionAvailableForServe(action.id) || (requiresPlayerAttribution(action.id) && activePlayer === null)"
+                [attr.aria-label]="outcomeAriaLabel(action)">
+                <span class="outcome-button-copy"><span>{{ action.label }}</span>
+                  <small *ngIf="(action.id === 'ace' || action.id === 'service-error') && gameState.servingTeam === 'team'">{{ serverIdentity }}</small>
+                  <small *ngIf="(action.id === 'ace' || action.id === 'service-error') && gameState.servingTeam !== 'team'">When your team serves</small>
+                  <small *ngIf="action.id === 'receive-error' && gameState.servingTeam !== 'opponent'">When receiving</small>
+                </span>
+              </ion-button>
+            </section>
           </div>
-
-          <div class="action-group-label">Stat observation - score stays the same</div>
           <div class="stat-only-actions-grid">
-            <ion-button
-              *ngFor="let action of statOnlyActions"
-              expand="block"
-              class="action-btn stat-only-btn"
-              [ngClass]="action.accent"
-              (click)="recordAction(action.id)"
-              [disabled]="isMatchOver || scoringBlocked || activePlayer === null"
-              [attr.aria-label]="action.label + ' - stat only, no point'"
-            >
-              <ion-icon [name]="action.icon" slot="start" aria-hidden="true"></ion-icon>
-              {{ action.label }}
+            <ion-button expand="block" class="action-btn stat-only-btn" (click)="recordAction('dig')"
+              [disabled]="isMatchOver || scoringBlocked || activePlayer === null" aria-label="Dig - stat only, no point">
+              Dig <span class="stat-explanation">Record stat · no point</span>
             </ion-button>
           </div>
         </ng-container>
+        <div class="last-action" role="status" aria-live="polite" [ngClass]="{ empty: !lastEvent }">
+          <span>{{ getLastEventText() }}</span>
+          <ion-button
+            [disabled]="!canUndo"
+            size="small"
+            fill="clear"
+            class="receipt-undo"
+            (click)="undoLastAction()"
+            aria-label="Undo last action (Ctrl+Z)"
+            aria-keyshortcuts="Control+z"
+          >
+            <ion-icon name="arrow-undo" slot="start" aria-hidden="true"></ion-icon>
+            Undo
+          </ion-button>
+        </div>
+
 
         <div class="command-row">
           <ion-button
@@ -218,71 +175,8 @@
           </ion-button>
         </div>
 
-        <section class="substitution-rail" *ngIf="isSubOverlayOpen && !isMatchOver" aria-label="Substitution bench rail">
-          <div class="sub-overlay-head">
-            <h3>Substitution Bench</h3>
-            <button type="button" class="sub-overlay-close" (click)="closeSubOverlay('Substitution cancelled.')" aria-label="Close substitution panel">Close</button>
-          </div>
-          <div class="sub-overlay-grid">
-            <div class="sub-overlay-left">
-              <span class="sub-overlay-label">On Court (OUT)</span>
-              <div class="sub-out-card" [ngClass]="{ empty: !selectedOutPlayer }">
-                <ng-container *ngIf="selectedOutPlayer as player; else noOutPlayer">
-                  <span class="sub-out-jersey">#{{ player.jerseyNumber }}</span>
-                  <span class="sub-out-name" [title]="player.name">{{ player.name }}</span>
-                  <span class="sub-out-pos">{{ player.primaryPosition }}</span>
-                </ng-container>
-                <ng-template #noOutPlayer>
-                  <span class="sub-out-name">No OUT player selected</span>
-                </ng-template>
-              </div>
-              <button
-                type="button"
-                class="sub-change-out"
-                (click)="closeSubOverlay('Select another on-court player, then open Substitute again.')"
-              >Choose another OUT player</button>
-            </div>
 
-            <div class="sub-overlay-right">
-              <span class="sub-overlay-label">Bench (Select to Swap)</span>
-              <div class="sub-bench-grid" *ngIf="benchPlayers.length > 0; else noBenchPlayers" role="listbox" aria-label="Bench players available for substitution">
-                <button
-                  *ngFor="let benchPlayer of benchPlayers"
-                  type="button"
-                  class="sub-bench-tile"
-                  role="option"
-                  [attr.title]="benchPlayer.name"
-                  [attr.aria-label]="'Substitute in ' + benchPlayer.name + ', Jersey ' + benchPlayer.jerseyNumber + ', ' + benchPlayer.primaryPosition"
-                  (click)="handleBenchPlayerTap(benchPlayer.id)"
-                >
-                  <span class="sub-bench-meta">#{{ benchPlayer.jerseyNumber }} | {{ benchPlayer.primaryPosition }}</span>
-                  <span class="sub-bench-name">{{ benchPlayer.name }}</span>
-                </button>
-              </div>
-              <ng-template #noBenchPlayers>
-                <p class="sub-overlay-empty">No bench players available.</p>
-              </ng-template>
-            </div>
-          </div>
-        </section>
-
-        <div class="last-action" [ngClass]="{ empty: !lastEvent }">
-          <span>{{ getLastEventText() }}</span>
-          <ion-button
-            *ngIf="canUndo"
-            size="small"
-            fill="clear"
-            class="receipt-undo"
-            (click)="undoLastAction()"
-            aria-label="Undo last action (Ctrl+Z)"
-            aria-keyshortcuts="Control+z"
-          >
-            <ion-icon name="arrow-undo" slot="start" aria-hidden="true"></ion-icon>
-            Undo
-          </ion-button>
-        </div>
-
-        <p class="sub-status" [ngClass]="{ empty: !substitutionStatus }">{{ substitutionStatus || 'No substitutions yet' }}</p>
+        <p *ngIf="substitutionStatus" class="sub-status" [ngClass]="{ empty: !substitutionStatus }">{{ substitutionStatus || 'No substitutions yet' }}</p>
 
         <div class="quiet-sync" [ngClass]="{ pending: offlineSync.pendingCount() > 0, error: offlineSync.lastError() }">
           <span>{{ syncStatusText }}</span>
@@ -374,3 +268,96 @@
   [buttons]="exitSheetButtons"
   (didDismiss)="handleExitSheetDismiss($event)"
 ></ion-action-sheet>
+
+<ng-template #liveCourt let-expanded="expanded">
+  <app-volleyball-court class="live-court" [variant]="expanded ? 'expanded' : 'responsive'" role="group" aria-label="On-court Lineup">
+    <button *ngFor="let slot of playerPositions" type="button" class="player-chip" [attr.data-position]="slot.id"
+      [attr.data-selected]="slot.id === activePlayer" [attr.aria-pressed]="slot.id === activePlayer"
+      [attr.aria-label]="getPlayerTileAriaLabel(slot.id)" [attr.title]="getPlayerForPosition(slot.id)?.name || slot.label"
+      [tabindex]="slot.id === (activePlayer ?? 1) ? 0 : -1"
+      (click)="handleCourtPlayerTap(slot.id)" (keydown)="handleCourtKeydown($event, slot.id)">
+      <app-court-player [player]="getPlayerForPosition(slot.id)" [position]="slot.id" [selected]="slot.id === activePlayer"
+        [servingLabel]="slot.id === 1 && gameState.servingTeam === 'team' ? 'Serving' : ''">
+        <span class="court-player-detail">{{ getPlayerTileStatLine(slot.id) }}</span>
+      </app-court-player>
+    </button>
+  </app-volleyball-court>
+</ng-template>
+
+<ion-modal #toolsModal class="match-panel" [isOpen]="isToolsOpen" (didDismiss)="isToolsOpen = false">
+  <ng-template>
+    <header class="stats-panel-header"><h1>Match tools</h1><button type="button" (click)="isToolsOpen = false" aria-label="Close match tools">Close</button></header>
+    <ion-content><nav class="match-tools-list" aria-label="Match tools">
+      <button type="button" (click)="isToolsOpen = false; isExpandedCourtOpen = true">Expanded court</button>
+      <button type="button" (click)="isToolsOpen = false; toggleSubMode()" [disabled]="isMatchOver || scoringBlocked || activePlayer === null">Substitute</button>
+      <p *ngIf="activePlayer === null && !isMatchOver">Select an on-court player to substitute.</p>
+      <button type="button" (click)="isToolsOpen = false; openMatchControls()" [disabled]="isMatchOver || scoringBlocked">Match Controls</button>
+      <button type="button" (click)="isToolsOpen = false; isStatsOpen = true">Team & Stats</button>
+      <a href="/home" (click)="navigateHomeFromTools($event)">Home</a>
+      <button type="button" (click)="isToolsOpen = false; openExitSheet()">Exit</button>
+      <p>{{ syncStatusText }}</p>
+      <button *ngIf="offlineSync.lastError()" type="button" (click)="retrySync()">Retry sync</button>
+    </nav></ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal class="match-panel" [isOpen]="isExpandedCourtOpen" (didDismiss)="isExpandedCourtOpen = false">
+  <ng-template>
+    <header class="stats-panel-header"><h1>On-court Lineup</h1><button type="button" (click)="isExpandedCourtOpen = false" aria-label="Close expanded court">Close</button></header>
+    <ion-content><div class="stats-panel-body"><ng-container *ngTemplateOutlet="liveCourt; context: { expanded: true }" /></div></ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal class="match-panel" [isOpen]="isSubOverlayOpen" (didDismiss)="closeSubOverlay('')">
+  <ng-template><ion-content>
+        <section class="substitution-rail" aria-label="Substitution bench rail">
+          <div class="sub-overlay-head">
+            <h3>Substitution Bench</h3>
+            <button type="button" class="sub-overlay-close" (click)="closeSubOverlay('Substitution cancelled.')" aria-label="Close substitution panel">Close</button>
+          </div>
+          <div class="sub-overlay-grid">
+            <div class="sub-overlay-left">
+              <span class="sub-overlay-label">On Court (OUT)</span>
+              <div class="sub-out-card" [ngClass]="{ empty: !selectedOutPlayer }">
+                <ng-container *ngIf="selectedOutPlayer as player; else noOutPlayer">
+                  <span class="sub-out-jersey">#{{ player.jerseyNumber }}</span>
+                  <span class="sub-out-name" [title]="player.name">{{ player.name }}</span>
+                  <span class="sub-out-pos">{{ player.primaryPosition }}</span>
+                </ng-container>
+                <ng-template #noOutPlayer>
+                  <span class="sub-out-name">No OUT player selected</span>
+                </ng-template>
+              </div>
+              <button
+                type="button"
+                class="sub-change-out"
+                (click)="closeSubOverlay('Select another on-court player, then open Substitute again.')"
+              >Choose another OUT player</button>
+            </div>
+
+            <div class="sub-overlay-right">
+              <span class="sub-overlay-label">Bench (Select to Swap)</span>
+              <div class="sub-bench-grid" *ngIf="benchPlayers.length > 0; else noBenchPlayers" role="listbox" aria-label="Bench players available for substitution">
+                <button
+                  *ngFor="let benchPlayer of benchPlayers"
+                  type="button"
+                  class="sub-bench-tile"
+                  role="option"
+                  [attr.title]="benchPlayer.name"
+                  [attr.aria-label]="'Substitute in ' + benchPlayer.name + ', Jersey ' + benchPlayer.jerseyNumber + ', ' + benchPlayer.primaryPosition"
+                  (click)="handleBenchPlayerTap(benchPlayer.id)"
+                >
+                  <span class="sub-bench-meta">#{{ benchPlayer.jerseyNumber }} | {{ benchPlayer.primaryPosition }}</span>
+                  <span class="sub-bench-name">{{ benchPlayer.name }}</span>
+                </button>
+              </div>
+              <ng-template #noBenchPlayers>
+                <p class="sub-overlay-empty">No bench players available.</p>
+              </ng-template>
+            </div>
+          </div>
+        </section>
+
+    <p class="panel-status" role="status">{{ substitutionStatus }}</p>
+  </ion-content></ng-template>
+</ion-modal>

@@ -1,7 +1,34 @@
 rules_version = '2';
 
+// Assumed data model (ISO UTC strings follow the current Web SDK writers).
+// All documents have immutable id, ownerId and createdAt. Mutable documents
+// also require updatedAt. IDs are 1-300 characters without '/', owner UIDs
+// are 1-128 characters, names are 1-200 characters, and dates are <= 40.
+// teams: name.
+// players: immutable teamId; name, jerseyNumber (0-99), primaryPosition, active.
+// roster: immutable teamId and nullable gameId; six nullable lineup IDs;
+// optional squadPlayerIds (<= 100 entries), matchFormat.
+// games: immutable teamId, startedAt and match setup; score/status projection,
+// nullable endedAt, schemaVersion 2 and positive writerGeneration/device ID.
+// Optional setup fields are teamName, matchSquad (<= 100 entries),
+// startingLineup (six nullable IDs) and matchFormat.
+// games/{gameId}/events: immutable v2 event records with ownerId, gameId,
+// type, action, createdAt, isDeleted=false, sequence and writer identity.
+// Type-specific payload fields are validated below; deletedAt may only be null.
+// sets: immutable gameId; setNumber, scores, teamWon, nullable completedAt.
+// playerSetStats: immutable gameId, playerId, setNumber; playerName,
+// jerseyNumber, nonnegative counters, nullable serveInPercentage (0-1), writer.
+// Variable lists are bounded but their arbitrary elements are not all inspected.
+// Fixed six-position lineups are fully inspected. Match reduction, squad
+// membership, event ordering and projection correctness remain client concerns.
+// Device IDs are client assertions, not independently authenticated identities.
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     function signedIn() {
       return request.auth != null;
     }
@@ -10,83 +37,432 @@ service cloud.firestore {
       return signedIn() && data.ownerId == request.auth.uid;
     }
 
-    function ownsExisting() {
-      return owns(resource.data);
+    function validText(value, maximum) {
+      return value is string && value.size() > 0 && value.size() <= maximum;
     }
 
-    function ownsWrite() {
-      return owns(request.resource.data);
+    function validId(value) {
+      return value is string && value.size() > 0 && value.size() <= 300
+        && value.matches('^[^/]+$');
+    }
+
+    function validDate(value) {
+      // Historical dates are allowed because writes can wait offline.
+      return value is string && value.size() > 0 && value.size() <= 40
+        && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,9})?Z$');
+    }
+
+    function validNullableDate(value) {
+      return value == null || validDate(value);
+    }
+
+    function validInteger(value, minimum, maximum) {
+      return value is int && value >= minimum && value <= maximum;
+    }
+
+    function validCounter(value) {
+      return value is int && value >= 0 && value <= 2147483647;
+    }
+
+    function validSide(value) {
+      return value in ['team', 'opponent'];
+    }
+
+    function validPosition(value) {
+      return value in ['S', 'OH', 'MB', 'OPP', 'L', 'DS'];
+    }
+
+    function validFormat(value) {
+      return value in ['best-of-3', 'best-of-5'];
+    }
+
+    function optionalBool(data, field) {
+      return data.get(field, false) is bool;
+    }
+
+    function validNullableId(value) {
+      return value == null || validId(value);
+    }
+
+    function validLineup(value) {
+      return value is list && value.size() == 6
+        && (value[0] == null || (value[0] is string && value[0].size() > 0
+          && value[0].size() <= 300 && value[0].matches('^[^/]+$')))
+        && (value[1] == null || (value[1] is string && value[1].size() > 0
+          && value[1].size() <= 300 && value[1].matches('^[^/]+$')))
+        && (value[2] == null || (value[2] is string && value[2].size() > 0
+          && value[2].size() <= 300 && value[2].matches('^[^/]+$')))
+        && (value[3] == null || (value[3] is string && value[3].size() > 0
+          && value[3].size() <= 300 && value[3].matches('^[^/]+$')))
+        && (value[4] == null || (value[4] is string && value[4].size() > 0
+          && value[4].size() <= 300 && value[4].matches('^[^/]+$')))
+        && (value[5] == null || (value[5] is string && value[5].size() > 0
+          && value[5].size() <= 300 && value[5].matches('^[^/]+$')));
+    }
+
+    function validBase(data, documentId) {
+      return data.keys().hasAll(['id', 'ownerId', 'createdAt', 'updatedAt'])
+        && validId(data.id) && data.id == documentId
+        && validText(data.ownerId, 128)
+        && validDate(data.createdAt) && validDate(data.updatedAt);
+    }
+
+    function immutable(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['id', 'ownerId', 'createdAt'].concat(fields));
+    }
+
+    function teamData(teamId) {
+      return get(/databases/$(database)/documents/teams/$(teamId)).data;
+    }
+
+    function gameData(gameId) {
+      return get(/databases/$(database)/documents/games/$(gameId)).data;
+    }
+
+    function ownsTeam(teamId) {
+      return owns(teamData(teamId));
+    }
+
+    function ownsGame(gameId) {
+      return owns(gameData(gameId));
+    }
+
+    function validWriter(data) {
+      return validId(data.writerDeviceId)
+        && validInteger(data.writerGeneration, 1, 9007199254740991);
+    }
+
+    function currentWriter(data, game) {
+      return data.writerGeneration == game.writerGeneration
+        && data.writerDeviceId == game.writerDeviceId;
+    }
+
+    function validTeam(data, teamId) {
+      return validBase(data, teamId)
+        && data.keys().hasOnly(['id', 'ownerId', 'name', 'createdAt', 'updatedAt'])
+        && validText(data.name, 200);
+    }
+
+    function validPlayer(data, playerId) {
+      return validBase(data, playerId)
+        && data.keys().hasAll(['teamId', 'name', 'jerseyNumber', 'primaryPosition', 'active'])
+        && data.keys().hasOnly(['id', 'ownerId', 'teamId', 'name', 'jerseyNumber',
+          'primaryPosition', 'active', 'createdAt', 'updatedAt'])
+        && validId(data.teamId) && validText(data.name, 200)
+        && validInteger(data.jerseyNumber, 0, 99)
+        && validPosition(data.primaryPosition) && data.active is bool;
+    }
+
+    function validRoster(data, rosterId) {
+      return validBase(data, rosterId)
+        && data.keys().hasAll(['teamId', 'gameId', 'lineup'])
+        && data.keys().hasOnly(['id', 'ownerId', 'teamId', 'gameId', 'lineup',
+          'squadPlayerIds', 'matchFormat', 'createdAt', 'updatedAt'])
+        && validId(data.teamId) && validNullableId(data.gameId)
+        && validLineup(data.lineup)
+        && (!('squadPlayerIds' in data)
+          || (data.squadPlayerIds is list && data.squadPlayerIds.size() <= 100))
+        && (!('matchFormat' in data) || validFormat(data.matchFormat));
+    }
+
+    function rosterParents(data) {
+      return ownsTeam(data.teamId)
+        && (data.gameId == null || (ownsGame(data.gameId)
+          && gameData(data.gameId).teamId == data.teamId));
+    }
+
+    function validGame(data, gameId) {
+      return validBase(data, gameId)
+        && data.keys().hasAll(['teamId', 'opponentName', 'status', 'servingTeam',
+          'teamPoints', 'opponentPoints', 'teamSets', 'opponentSets', 'currentSet',
+          'isMatchOver', 'teamTimeoutsRemaining', 'opponentTimeoutsRemaining',
+          'teamRotation', 'startedAt', 'endedAt', 'schemaVersion',
+          'writerDeviceId', 'writerGeneration'])
+        && data.keys().hasOnly(['id', 'ownerId', 'teamId', 'teamName', 'opponentName',
+          'status', 'servingTeam', 'teamPoints', 'opponentPoints', 'teamSets',
+          'opponentSets', 'currentSet', 'isMatchOver', 'isSetBreak',
+          'teamTimeoutsRemaining', 'opponentTimeoutsRemaining', 'teamRotation',
+          'startedAt', 'endedAt', 'createdAt', 'updatedAt', 'schemaVersion',
+          'writerDeviceId', 'writerGeneration', 'matchSquad', 'startingLineup', 'matchFormat'])
+        && validId(data.teamId) && validText(data.opponentName, 200)
+        && (!('teamName' in data) || validText(data.teamName, 200))
+        && data.status in ['scheduled', 'live', 'final', 'ended-early']
+        && validSide(data.servingTeam)
+        && validCounter(data.teamPoints) && validCounter(data.opponentPoints)
+        && validInteger(data.teamSets, 0, 3) && validInteger(data.opponentSets, 0, 3)
+        && validInteger(data.currentSet, 1, 5) && data.isMatchOver is bool
+        && optionalBool(data, 'isSetBreak')
+        && validInteger(data.teamTimeoutsRemaining, 0, 2)
+        && validInteger(data.opponentTimeoutsRemaining, 0, 2)
+        && validInteger(data.teamRotation, 1, 6)
+        && validDate(data.startedAt) && validNullableDate(data.endedAt)
+        && data.schemaVersion == 2 && validWriter(data)
+        && (!('matchSquad' in data)
+          || (data.matchSquad is list && data.matchSquad.size() <= 100))
+        && (!('startingLineup' in data) || validLineup(data.startingLineup))
+        && (!('matchFormat' in data) || validFormat(data.matchFormat));
+    }
+
+    function validGameWriterUpdate(data) {
+      return currentWriter(data, resource.data)
+        || (resource.data.status == 'live'
+          && data.writerGeneration == resource.data.writerGeneration + 1
+          && data.writerDeviceId != resource.data.writerDeviceId
+          && data.diff(resource.data).affectedKeys()
+            .hasOnly(['writerDeviceId', 'writerGeneration', 'updatedAt']));
+    }
+
+    function validSet(data, setId) {
+      return validBase(data, setId)
+        && data.keys().hasAll(['gameId', 'setNumber', 'teamPoints', 'opponentPoints',
+          'teamWon', 'completedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'gameId', 'setNumber', 'teamPoints',
+          'opponentPoints', 'teamWon', 'completedAt', 'createdAt', 'updatedAt'])
+        && validId(data.gameId) && validInteger(data.setNumber, 1, 5)
+        && validCounter(data.teamPoints) && validCounter(data.opponentPoints)
+        && data.teamWon is bool && validNullableDate(data.completedAt);
+    }
+
+    function validStats(data, statsId) {
+      return validBase(data, statsId)
+        && data.keys().hasAll(['gameId', 'playerId', 'playerName', 'jerseyNumber',
+          'setNumber', 'kills', 'attackErrors', 'totalAttacks', 'aces', 'serveAttempts',
+          'servesIn', 'serveInPercentage', 'blocks', 'digs', 'serviceErrors',
+          'receiveErrors', 'writerDeviceId', 'writerGeneration'])
+        && data.keys().hasOnly(['id', 'ownerId', 'gameId', 'playerId', 'playerName',
+          'jerseyNumber', 'setNumber', 'kills', 'attackErrors', 'totalAttacks', 'aces',
+          'serveAttempts', 'servesIn', 'serveInPercentage', 'blocks', 'digs',
+          'serviceErrors', 'receiveErrors', 'createdAt', 'updatedAt',
+          'writerDeviceId', 'writerGeneration'])
+        && validId(data.gameId) && validId(data.playerId)
+        && validText(data.playerName, 200) && validInteger(data.jerseyNumber, 0, 99)
+        && (data.setNumber == null || validInteger(data.setNumber, 1, 5))
+        && validCounter(data.kills) && validCounter(data.attackErrors)
+        && validCounter(data.totalAttacks) && validCounter(data.aces)
+        && validCounter(data.serveAttempts) && validCounter(data.servesIn)
+        && (data.serveInPercentage == null || (data.serveInPercentage is number
+          && data.serveInPercentage >= 0 && data.serveInPercentage <= 1))
+        && validCounter(data.blocks) && validCounter(data.digs)
+        && validCounter(data.serviceErrors) && validCounter(data.receiveErrors)
+        && validWriter(data);
+    }
+
+    function statsParent(data) {
+      let game = gameData(data.gameId);
+      // Player snapshots can outlive their Team Roster entries.
+      return owns(game) && currentWriter(data, game);
+    }
+
+    function eventKindMatches(data, expected) {
+      return data.get('eventKind', expected) == expected;
+    }
+
+    function validRallyPayload(data) {
+      // The complete event validator already checks these optional values.
+      return data.keys().hasAll(['rallyId', 'servingTeamBefore', 'teamRotationBefore']);
+    }
+
+    function validEventPayload(data) {
+      return (data.type == 'matchStarted' && data.action == 'match-started'
+          && eventKindMatches(data, 'match-started')
+          && data.keys().hasAll(['lineup', 'servingTeam']))
+        || (data.type == 'setStarted' && data.action == 'set-started'
+          && eventKindMatches(data, 'set-started')
+          && data.keys().hasAll(['lineup', 'servingTeam', 'setNumber'])
+          && data.setNumber >= 2)
+        || (data.type == 'matchEnded' && data.action == 'match-ended'
+          && !('eventKind' in data))
+        || (data.type == 'matchEndedEarly' && data.action == 'match-ended-early'
+          && eventKindMatches(data, 'match-ended-early'))
+        || (data.type == 'serveTeamSet' && data.action == 'serve-team-set'
+          && eventKindMatches(data, 'serve-corrected') && 'servingTeam' in data)
+        || (data.type == 'playerAction' && (
+          (data.action == 'dig' && eventKindMatches(data, 'stat-observation')
+            && data.keys().hasAll(['playerId', 'rallyId']) && data.playerId != null)
+          || (data.action in ['kill', 'attack-error', 'ace', 'service-error',
+              'receive-error', 'block', 'opponent-error']
+            && eventKindMatches(data, 'rally-outcome') && validRallyPayload(data)
+            && (data.action == 'opponent-error' || data.get('playerId', null) != null))))
+        || (data.type == 'opponentPoint' && data.action == 'opponent-point'
+          && eventKindMatches(data, 'rally-outcome') && validRallyPayload(data))
+        || (data.type == 'substitution' && data.action == 'substitution'
+          && eventKindMatches(data, 'substitution')
+          && data.keys().hasAll(['outPlayerId', 'inPlayerId'])
+          && data.outPlayerId != data.inPlayerId)
+        || (data.type == 'timeoutCalled' && data.action == 'timeout-called'
+          && eventKindMatches(data, 'timeout-called') && 'timeoutTeam' in data)
+        || (data.type == 'manualRotation' && data.action == 'manual-rotation'
+          && eventKindMatches(data, 'rotation-corrected')
+          && (('targetRotation' in data) || ('targetTeamRotation' in data)
+            || ('teamRotation' in data)))
+        || (data.type == 'playerAttributionCorrected'
+          && data.action == 'player-attribution-corrected'
+          && eventKindMatches(data, 'player-attribution-corrected')
+          && data.keys().hasAll(['targetEventId', 'replacementPlayerId']))
+        || (data.type == 'undo' && data.action == 'undo'
+          && eventKindMatches(data, 'undo') && 'targetEventId' in data);
+    }
+
+    function validEvent(data, eventId, gameId) {
+      return data.keys().hasAll(['id', 'ownerId', 'gameId', 'type', 'action',
+          'createdAt', 'isDeleted', 'schemaVersion', 'sequence',
+          'writerDeviceId', 'writerGeneration'])
+        && data.keys().hasOnly(['id', 'ownerId', 'gameId', 'type', 'action',
+          'createdAt', 'isDeleted', 'deletedAt', 'playerId', 'rotationPosition',
+          'servingTeam', 'lineup', 'wasReceiving', 'sideOutWon', 'teamPoints',
+          'opponentPoints', 'teamSets', 'opponentSets', 'currentSet', 'isMatchOver',
+          'isSetBreak', 'teamRotation', 'teamTimeoutsRemaining',
+          'opponentTimeoutsRemaining', 'outPlayerId', 'inPlayerId', 'timeoutTeam',
+          'targetEventId', 'replacementPlayerId', 'previousTeamRotation',
+          'targetTeamRotation', 'inferredServeInServerPlayerId', 'actionSetNumber',
+          'schemaVersion', 'sequence', 'rallyId', 'servingTeamBefore',
+          'teamRotationBefore', 'writerDeviceId', 'writerGeneration', 'eventKind',
+          'courtPosition', 'setNumber', 'targetRotation'])
+        && validId(data.id) && data.id == eventId
+        && validText(data.ownerId, 128) && validId(data.gameId) && data.gameId == gameId
+        && validDate(data.createdAt) && data.isDeleted == false
+        && (!('deletedAt' in data) || data.deletedAt == null)
+        && data.schemaVersion == 2 && validInteger(data.sequence, 1, 9007199254740991)
+        && validWriter(data)
+        // Check only present optional fields, without helper/default bindings.
+        && (!('playerId' in data) || data.playerId == null
+          || (data.playerId is string && data.playerId.size() > 0
+            && data.playerId.size() <= 300 && data.playerId.matches('^[^/]+$')))
+        && (!('outPlayerId' in data) || (data.outPlayerId is string
+          && data.outPlayerId.size() > 0 && data.outPlayerId.size() <= 300
+          && data.outPlayerId.matches('^[^/]+$')))
+        && (!('inPlayerId' in data) || (data.inPlayerId is string
+          && data.inPlayerId.size() > 0 && data.inPlayerId.size() <= 300
+          && data.inPlayerId.matches('^[^/]+$')))
+        && (!('targetEventId' in data) || (data.targetEventId is string
+          && data.targetEventId.size() > 0 && data.targetEventId.size() <= 300
+          && data.targetEventId.matches('^[^/]+$')))
+        && (!('replacementPlayerId' in data) || (data.replacementPlayerId is string
+          && data.replacementPlayerId.size() > 0 && data.replacementPlayerId.size() <= 300
+          && data.replacementPlayerId.matches('^[^/]+$')))
+        && (!('inferredServeInServerPlayerId' in data)
+          || (data.inferredServeInServerPlayerId is string
+            && data.inferredServeInServerPlayerId.size() > 0
+            && data.inferredServeInServerPlayerId.size() <= 300
+            && data.inferredServeInServerPlayerId.matches('^[^/]+$')))
+        && (!('rallyId' in data) || (data.rallyId is string
+          && data.rallyId.size() > 0 && data.rallyId.size() <= 300
+          && data.rallyId.matches('^[^/]+$')))
+        && (!('rotationPosition' in data) || (data.rotationPosition is int
+          && data.rotationPosition >= 1 && data.rotationPosition <= 6))
+        && (!('courtPosition' in data) || (data.courtPosition is int
+          && data.courtPosition >= 1 && data.courtPosition <= 6))
+        && (!('teamRotation' in data) || (data.teamRotation is int
+          && data.teamRotation >= 1 && data.teamRotation <= 6))
+        && (!('previousTeamRotation' in data) || (data.previousTeamRotation is int
+          && data.previousTeamRotation >= 1 && data.previousTeamRotation <= 6))
+        && (!('targetTeamRotation' in data) || (data.targetTeamRotation is int
+          && data.targetTeamRotation >= 1 && data.targetTeamRotation <= 6))
+        && (!('targetRotation' in data) || (data.targetRotation is int
+          && data.targetRotation >= 1 && data.targetRotation <= 6))
+        && (!('teamRotationBefore' in data) || (data.teamRotationBefore is int
+          && data.teamRotationBefore >= 1 && data.teamRotationBefore <= 6))
+        && (!('teamPoints' in data) || (data.teamPoints is int
+          && data.teamPoints >= 0 && data.teamPoints <= 2147483647))
+        && (!('opponentPoints' in data) || (data.opponentPoints is int
+          && data.opponentPoints >= 0 && data.opponentPoints <= 2147483647))
+        && (!('teamSets' in data) || (data.teamSets is int
+          && data.teamSets >= 0 && data.teamSets <= 3))
+        && (!('opponentSets' in data) || (data.opponentSets is int
+          && data.opponentSets >= 0 && data.opponentSets <= 3))
+        && (!('currentSet' in data) || (data.currentSet is int
+          && data.currentSet >= 1 && data.currentSet <= 5))
+        && (!('setNumber' in data) || (data.setNumber is int
+          && data.setNumber >= 1 && data.setNumber <= 5))
+        && (!('actionSetNumber' in data) || (data.actionSetNumber is int
+          && data.actionSetNumber >= 1 && data.actionSetNumber <= 5))
+        && (!('teamTimeoutsRemaining' in data) || (data.teamTimeoutsRemaining is int
+          && data.teamTimeoutsRemaining >= 0 && data.teamTimeoutsRemaining <= 2))
+        && (!('opponentTimeoutsRemaining' in data) || (data.opponentTimeoutsRemaining is int
+          && data.opponentTimeoutsRemaining >= 0 && data.opponentTimeoutsRemaining <= 2))
+        && (!('wasReceiving' in data) || data.wasReceiving is bool)
+        && (!('sideOutWon' in data) || data.sideOutWon is bool)
+        && (!('isMatchOver' in data) || data.isMatchOver is bool)
+        && (!('isSetBreak' in data) || data.isSetBreak is bool)
+        && (!('servingTeam' in data) || data.servingTeam in ['team', 'opponent'])
+        && (!('servingTeamBefore' in data) || data.servingTeamBefore in ['team', 'opponent'])
+        && (!('timeoutTeam' in data) || data.timeoutTeam in ['team', 'opponent'])
+        && (!('lineup' in data) || validLineup(data.lineup))
+        && validEventPayload(data);
     }
 
     match /teams/{teamId} {
-      allow read: if ownsExisting();
-      allow create: if ownsWrite();
-      allow update, delete: if ownsExisting() && ownsWrite();
+      allow read, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data) && validTeam(request.resource.data, teamId);
+      allow update: if owns(resource.data) && owns(request.resource.data)
+        && immutable([]) && validTeam(request.resource.data, teamId);
     }
 
     match /players/{playerId} {
-      allow read: if ownsExisting();
-      allow create: if ownsWrite();
-      allow update, delete: if ownsExisting() && ownsWrite();
+      allow read, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data)
+        && validPlayer(request.resource.data, playerId) && ownsTeam(request.resource.data.teamId);
+      allow update: if owns(resource.data) && owns(request.resource.data)
+        && immutable(['teamId']) && validPlayer(request.resource.data, playerId)
+        && ownsTeam(request.resource.data.teamId);
     }
 
     match /roster/{rosterId} {
-      allow read: if ownsExisting();
-      allow create: if ownsWrite();
-      allow update, delete: if ownsExisting() && ownsWrite();
+      allow read, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data)
+        && validRoster(request.resource.data, rosterId) && rosterParents(request.resource.data);
+      allow update: if owns(resource.data) && owns(request.resource.data)
+        && immutable(['teamId', 'gameId']) && validRoster(request.resource.data, rosterId)
+        && rosterParents(request.resource.data);
     }
 
     match /games/{gameId} {
-      allow read: if ownsExisting();
-      allow create: if ownsWrite() && request.resource.data.writerGeneration == 1;
-      allow update: if ownsExisting()
-        && ownsWrite()
-        && (
-          (
-            request.resource.data.writerGeneration == resource.data.writerGeneration
-            && request.resource.data.writerDeviceId == resource.data.writerDeviceId
-          )
-          || (
-            request.resource.data.writerGeneration == resource.data.writerGeneration + 1
-            && request.resource.data.writerDeviceId != resource.data.writerDeviceId
-          )
-        );
-      allow delete: if ownsExisting();
+      allow read: if owns(resource.data);
+      // Deletion would leave events behind for a new owner recreating this ID.
+      allow delete: if false;
+      allow create: if !exists(/databases/$(database)/documents/games/$(gameId))
+        && owns(request.resource.data) && validGame(request.resource.data, gameId)
+        && ownsTeam(request.resource.data.teamId) && request.resource.data.writerGeneration == 1;
+      allow update: if owns(resource.data) && owns(request.resource.data)
+        && immutable(['teamId', 'startedAt', 'teamName', 'opponentName',
+          'schemaVersion', 'matchSquad', 'startingLineup', 'matchFormat'])
+        && validGame(request.resource.data, gameId) && ownsTeam(request.resource.data.teamId)
+        && validGameWriterUpdate(request.resource.data);
 
       match /events/{eventId} {
-        function game() {
-          return get(/databases/$(database)/documents/games/$(gameId));
-        }
-
-        allow read: if signedIn() && game().data.ownerId == request.auth.uid;
-        allow create: if signedIn()
-          && game().data.ownerId == request.auth.uid
-          && request.resource.data.ownerId == request.auth.uid
-          && request.resource.data.writerGeneration == game().data.writerGeneration
-          && request.resource.data.writerDeviceId == game().data.writerDeviceId;
-        allow update: if signedIn()
-          && resource.data.ownerId == request.auth.uid
-          && request.resource.data == resource.data;
+        allow read: if owns(resource.data) && ownsGame(gameId);
+        allow create: if !exists(/databases/$(database)/documents/games/$(gameId)/events/$(eventId))
+          && owns(request.resource.data) && ownsGame(gameId)
+          && validEvent(request.resource.data, eventId, gameId)
+          && currentWriter(request.resource.data, gameData(gameId));
+        // setDoc(..., {merge:true}) may retry a record after takeover.
+        // Only an identical, valid existing record can pass this update rule.
+        allow update: if owns(resource.data) && owns(request.resource.data) && ownsGame(gameId)
+          && request.resource.data == resource.data
+          && validEvent(request.resource.data, eventId, gameId);
+        allow delete: if false;
       }
     }
 
     match /sets/{setId} {
-      allow read: if ownsExisting();
-      allow create: if ownsWrite();
-      allow update, delete: if ownsExisting() && ownsWrite();
+      allow read, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data) && validSet(request.resource.data, setId)
+        && ownsGame(request.resource.data.gameId);
+      allow update: if owns(resource.data) && owns(request.resource.data)
+        && immutable(['gameId', 'setNumber']) && validSet(request.resource.data, setId)
+        && ownsGame(request.resource.data.gameId);
     }
 
     match /playerSetStats/{statsId} {
-      function statsGame() {
-        return get(/databases/$(database)/documents/games/$(request.resource.data.gameId));
-      }
-
-      allow read: if ownsExisting();
-      allow create, update: if ownsWrite()
-        && statsGame().data.ownerId == request.auth.uid
-        && request.resource.data.writerGeneration == statsGame().data.writerGeneration
-        && request.resource.data.writerDeviceId == statsGame().data.writerDeviceId;
-      allow delete: if ownsExisting();
+      // The client filters by gameId and ownerId. Check both document and parent.
+      allow read: if owns(resource.data) && ownsGame(resource.data.gameId);
+      allow create: if owns(request.resource.data) && validStats(request.resource.data, statsId)
+        && statsParent(request.resource.data);
+      allow update: if owns(resource.data) && owns(request.resource.data)
+        && immutable(['gameId', 'playerId', 'setNumber'])
+        && validStats(request.resource.data, statsId) && statsParent(request.resource.data);
+      allow delete: if owns(resource.data);
     }
   }
 }

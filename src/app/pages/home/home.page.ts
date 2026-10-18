@@ -1,4 +1,4 @@
-import { NgClass, NgFor, NgIf } from '@angular/common';
+import { NgFor, NgIf } from '@angular/common';
 import { Component, ViewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { IonButton, IonContent, IonIcon } from '@ionic/angular/standalone';
@@ -6,6 +6,8 @@ import { addIcons } from 'ionicons';
 import { logOutOutline } from 'ionicons/icons';
 import { AuthService } from '../../services/auth.service';
 import { EquipmentRailComponent } from '../../components/equipment-rail/equipment-rail.component';
+import { CourtPlayerComponent, VolleyballCourtComponent } from '../../components/volleyball-court/volleyball-court.component';
+import { LiveMatchStoreService } from '../../services/live-match-store.service';
 import { MatchStateService } from '../../services/match-state.service';
 import { MatchStatsService } from '../../services/match-stats.service';
 import { OfflineSyncService } from '../../services/offline-sync.service';
@@ -22,11 +24,12 @@ import { FirstRunCourtComponent } from './first-run-court/first-run-court.compon
     IonContent,
     IonButton,
     IonIcon,
-    NgClass,
     NgFor,
     NgIf,
     RouterLink,
     FirstRunCourtComponent,
+    CourtPlayerComponent,
+    VolleyballCourtComponent,
   ],
 })
 export class HomePage {
@@ -41,12 +44,14 @@ export class HomePage {
   constructor(
     public readonly teamRoster: TeamRosterService,
     public readonly matchState: MatchStateService,
+    public readonly liveStore: LiveMatchStoreService,
     public readonly offlineSync: OfflineSyncService,
     private readonly matchStats: MatchStatsService,
     private readonly auth: AuthService,
     private readonly router: Router,
   ) {
     addIcons({ logOutOutline });
+    this.liveStore.syncActiveGame();
   }
 
   get userEmail(): string | null { return this.auth.email; }
@@ -75,6 +80,17 @@ export class HomePage {
 
   get playerCount(): number { return this.teamRoster.players().length; }
   get defaultLineup() { return this.teamRoster.getMatchStartingSlots(); }
+  get displayedLineup() {
+    if (!this.hasLiveMatch) return this.defaultLineup;
+    return [4, 3, 2, 5, 6, 1].map((position) => ({
+      position,
+      player: this.liveStore.getMatchPlayerById(this.liveStore.getPlayerIdAtPosition(position)),
+    }));
+  }
+  get currentScore() { return this.liveStore.gameState(); }
+  get servingTeamName(): string {
+    return this.currentScore.servingTeam === 'team' ? this.teamRoster.team().name : this.activeGame?.opponentName || 'Opponent';
+  }
   get assignedDefaultCount(): number { return this.teamRoster.matchDefaults().startingLineup.filter((id) => !!id).length; }
 
   get nextTitle(): string {

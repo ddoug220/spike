@@ -15,6 +15,7 @@
       <label class="opponent-field">
         <span id="opponent-label">Opponent</span>
         <input
+          #opponentField
           type="text"
           name="opponentName"
           aria-labelledby="opponent-label"
@@ -87,14 +88,13 @@
           <span class="lineup-count">{{ assignedStarterCount }}<span> / 6 set</span></span>
         </header>
 
-        <div class="lineup-court" [ngClass]="{ empty: !hasAssignedStarters }">
-          <div class="court-lines" aria-hidden="true"></div>
-          <span class="court-row-label" aria-hidden="true">Front row · Net</span>
+        <app-volleyball-court class="lineup-court" role="group" aria-label="Starting Lineup">
           @for (slot of courtSlots; track slot.position) {
             <button
               type="button"
               class="court-slot"
               [attr.data-position]="slot.position"
+              [attr.data-selected]="editingPosition === slot.position || (!!selectedPlayerId && getSlotPlayer(slot.position)?.id === selectedPlayerId)"
               [ngClass]="{
                 'front-row': slot.row === 'front',
                 assigned: !!getSlotPlayer(slot.position),
@@ -114,45 +114,19 @@
               (dragover)="allowDrop($event)"
               (drop)="dropOnPosition($event, slot.position)"
             >
-              <span class="slot-head">
-                <span class="slot-position">P{{ slot.position }}</span>
-                <span class="slot-location">{{ slot.roleLabel }}</span>
-              </span>
-              @if (getSlotPlayer(slot.position); as player) {
-                <span class="slot-identity">
-                  <span class="slot-jersey">#{{ player.jerseyNumber }}</span>
-                  <span class="slot-player">
-                    <strong [title]="player.name">{{ player.name }}</strong>
-                    <span class="slot-playing-position">{{ playingPositionNames[player.primaryPosition] }}</span>
-                  </span>
-                </span>
-              } @else {
-                <strong>{{ hasAssignedStarters ? 'Needs player' : 'Open position' }}</strong>
-                @if (hasAssignedStarters) {
-                  <span class="slot-error"><ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>Assign starter</span>
+              <app-court-player [player]="getSlotPlayer(slot.position)" [position]="slot.position"
+                [emptyLabel]="hasAssignedStarters ? 'Needs player' : 'Open position'"
+                [selected]="editingPosition === slot.position || (!!selectedPlayerId && getSlotPlayer(slot.position)?.id === selectedPlayerId)"
+                [servingLabel]="slot.isServerSpot && firstServeTeam === 'team' && getSlotPlayer(slot.position) ? 'Serves first' : ''">
+                @if (getSlotPlayer(slot.position); as player) {
+                  <span class="court-player-detail">{{ playingPositionNames[player.primaryPosition] }}</span>
+                } @else if (hasAssignedStarters) {
+                  <span class="slot-error">Assign starter</span>
                 }
-              }
-              <span class="slot-roles">
-                @if (getSlotPlayer(slot.position)) {
-                  <span class="starter-label">Starter</span>
-                }
-                @if (slot.isServerSpot && firstServeTeam === 'team' && getSlotPlayer(slot.position)) {
-                  <span class="server-label">
-                    <svg class="serve-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 2C8 4 8 9 12 12M20.66 17C21 12 17 10 12 12M3.34 17C7 20 11 17 12 12" />
-                    </svg>
-                    <span>Serves first</span>
-                  </span>
-                }
-              </span>
-              @if (getSlotPlayer(slot.position)) {
-                <span class="slot-action">{{ getCourtSlotAction(slot.position) }}</span>
-              }
+              </app-court-player>
             </button>
           }
-          <span class="court-row-label back-row-label" aria-hidden="true">{{ firstServeTeam === 'team' ? 'Back row · P1 serves first' : 'Back row' }}</span>
-        </div>
+        </app-volleyball-court>
         @if (selectedPlayerId) {
           <div class="lineup-selection-actions" aria-label="Selected player actions">
             @if (selectedStarterPosition; as position) {
@@ -206,7 +180,7 @@
                       @if (getPlayerAssignedPosition(player.id); as position) {
                         <span class="starter-label">Starter · P{{ position }}</span>
                       } @else {
-                        <span class="availability-label">{{ teamRoster.isInMatchSquad(player.id) ? 'Bench' : 'Out' }}</span>
+                        <span class="availability-label">{{ teamRoster.isInMatchSquad(player.id) ? 'In squad · Bench' : 'Not in squad' }}</span>
                       }
                     </span>
                   </span>
@@ -274,7 +248,7 @@
               <span class="position-player-number">#{{ player.jerseyNumber }}</span>
               <span class="position-player-copy">
                 <strong>{{ player.name }}</strong>
-                <span>{{ player.primaryPosition }}</span>
+                <span>{{ playingPositionNames[player.primaryPosition] }}</span>
               </span>
               <span class="position-player-assignment">
                 @if (getPlayerAssignedPosition(player.id); as position) {
@@ -302,7 +276,11 @@
     <ion-icon [name]="canStartMatch ? 'checkmark-circle' : 'alert-circle-outline'"></ion-icon>
     <div>
       <strong>{{ canStartMatch ? 'Ready to start' : 'Before you start' }}</strong>
-      <span>{{ canStartMatch ? 'Opponent and starting six confirmed.' : startMatchDisabledReason }}</span>
+      @if (!hasOpponent && !offlineSync.mutationBlocked()) {
+        <button type="button" class="opponent-recovery" (click)="focusOpponent()">Enter opponent name</button>
+      } @else {
+        <span>{{ canStartMatch ? 'Opponent and starting six confirmed.' : startMatchDisabledReason }}</span>
+      }
     </div>
   </div>
   <ion-button

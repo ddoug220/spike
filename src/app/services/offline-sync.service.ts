@@ -9,7 +9,7 @@ import {
 } from '../models/firestore.models';
 import { AuthService } from './auth.service';
 import { FirebaseDbService } from './firebase-db.service';
-import { projectionFromFirestore } from './match-v2.adapter';
+import { projectionFromFirestore, scoreStateFromProjection, statsStateFromProjection } from './match-v2.adapter';
 import { purgeLegacyMatchCaches } from './legacy-match-cache';
 import { OfflineReadinessService } from './offline-readiness.service';
 
@@ -237,8 +237,10 @@ export class OfflineSyncService {
 
   queuePlayerSetStats(payload: OwnerPayload<PlayerSetStats>): LocalCommitResult {
     const game = this.getGame(payload.gameId);
+    const existing = this.getPlayerSetStats(payload.gameId).find((stats) => stats.id === payload.id);
     return this.enqueue('playerSetStats', this.withOwner<PlayerSetStats>({
       ...payload,
+      createdAt: existing?.createdAt ?? game?.createdAt ?? payload.createdAt,
       writerDeviceId: payload.writerDeviceId ?? game?.writerDeviceId ?? this.getDeviceId(),
       writerGeneration: payload.writerGeneration ?? game?.writerGeneration ?? 1,
     }));
@@ -574,13 +576,67 @@ export class OfflineSyncService {
     const archive = shouldArchive
       ? this.withArchivedPayload(this.archiveSignal(), collectionName, payload)
       : this.archiveSignal();
+    const candidate = { ...this.currentDurableRecord(), queue, archive };
     const result = this.commitDurableRecord(
-      { ...this.currentDurableRecord(), queue, archive },
+      collectionName === 'events'
+        ? this.withMatchProjection(candidate, payload as GameEvent)
+        : candidate,
       payload.id,
       this.actionLabel(collectionName, payload),
     );
     if (result.ok) void this.flushQueue();
     return result;
+  }
+
+  // Events are authoritative. Persist their derived local snapshot and complete
+  // terminal box score in the same record, before publishing any reactive state.
+  private withMatchProjection(record: DurableMatchRecord, event: GameEvent): DurableMatchRecord {
+    const game = record.archive.games.find((entry) => entry.id === event.gameId);
+    if (!game) return record;
+    const projection = projectionFromFirestore(game, record.archive.events.filter((entry) => entry.gameId === game.id));
+    if (!projection) return record;
+    const terminal = projection.status === 'final' || projection.status === 'ended-early';
+    const snapshot: Game = {
+      ...game,
+      ...scoreStateFromProjection(projection),
+      status: terminal ? projection.status as 'final' | 'ended-early' : 'live',
+      endedAt: terminal ? event.createdAt : null,
+      updatedAt: event.createdAt,
+    };
+    const add = <C extends QueuedCollection>(collection: C, payload: QueuedDocumentMap[C]): void => {
+      const item = {
+        id: this.createId('sync'), collection, payload,
+        createdAt: event.createdAt, retryCount: 0,
+      } as SyncQueueItem;
+      record = {
+        ...record,
+        queue: this.upsertQueuedItem(record.queue, item),
+        archive: this.withArchivedPayload(record.archive, collection, payload),
+      };
+    };
+    add('games', snapshot);
+    if (terminal) {
+      const stats = statsStateFromProjection(projection);
+      for (const player of projection.session.squad) {
+        const line = stats[player.id];
+        add('playerSetStats', {
+          ...line,
+          id: `${game.id}-${player.id}-match`,
+          ownerId: game.ownerId,
+          gameId: game.id,
+          playerId: player.id,
+          playerName: player.name,
+          jerseyNumber: player.jerseyNumber,
+          setNumber: null,
+          serveInPercentage: line.serveAttempts === 0 ? null : line.servesIn / line.serveAttempts,
+          writerDeviceId: game.writerDeviceId,
+          writerGeneration: game.writerGeneration ?? 1,
+          createdAt: event.createdAt,
+          updatedAt: event.createdAt,
+        });
+      }
+    }
+    return record;
   }
 
   private async pushToFirebase(item: SyncQueueItem): Promise<boolean> {

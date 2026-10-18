@@ -136,7 +136,7 @@ describe('First-run mobile smoke flow', () => {
 
     expect(router.url).toBe('/court');
     expect(harness.routeNativeElement?.textContent).toContain('Live Court');
-    expect(harness.routeNativeElement?.textContent).toContain('Score the Point');
+    expect(harness.routeNativeElement?.textContent).toContain('Rally outcome');
 
     let court = harness.routeDebugElement?.componentInstance as CourtPage;
     const savedStarter = court.getPlayerForPosition(1)!;

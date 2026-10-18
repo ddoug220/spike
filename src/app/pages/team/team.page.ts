@@ -1,5 +1,5 @@
 import { NgClass } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, viewChild, type ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
@@ -35,11 +35,15 @@ import {
   ],
 })
 export class TeamPage {
+  private readonly playerNameInput = viewChild.required<ElementRef<HTMLInputElement>>('playerNameInput');
   readonly primaryPositions: PrimaryPosition[] = ['S', 'OH', 'MB', 'OPP', 'L', 'DS'];
   teamNameDraft: string;
   showTeamPicker = false;
   editingPlayerId: string | null = null;
   draft: NewRosterPlayer = this.emptyPlayer();
+  bulkRosterText = '';
+  bulkImportErrors: string[] = [];
+  bulkImportStatus = '';
 
   constructor(
     public readonly teamRoster: TeamRosterService,
@@ -89,6 +93,66 @@ export class TeamPage {
     this.draft = this.emptyPlayer(player.primaryPosition);
   }
 
+  importRoster(): void {
+    this.bulkImportErrors = [];
+    this.bulkImportStatus = '';
+    const parsedPlayers: NewRosterPlayer[] = [];
+    const lines = this.bulkRosterText.split(/\r?\n/);
+
+    for (const [index, line] of lines.entries()) {
+      if (!line.trim()) continue;
+
+      const columns = this.parseRosterLine(line);
+      if (!columns) {
+        this.bulkImportErrors.push(`Line ${index + 1}: Check the quotes or use tabs between spreadsheet columns.`);
+        continue;
+      }
+
+      const firstHeader = columns[0]?.trim() ?? '';
+      const secondHeader = columns[1]?.trim() ?? '';
+      if (/^(jersey(\s*number)?|number|#)$/i.test(firstHeader) && /^(player(\s*name)?|name)$/i.test(secondHeader)) continue;
+      if (columns.length < 2 || columns.length > 3) {
+        this.bulkImportErrors.push(`Line ${index + 1}: Enter a jersey number, player name, and optional position.`);
+        continue;
+      }
+
+      const jerseyText = columns[0].trim();
+      const name = columns[1].trim();
+      const positionText = columns[2]?.trim().toUpperCase() || 'OH';
+      const jerseyNumber = Number(jerseyText);
+
+      if (!/^\d{1,2}$/.test(jerseyText) || jerseyNumber > 99) {
+        this.bulkImportErrors.push(`Line ${index + 1}: Enter a jersey number from 0 to 99.`);
+        continue;
+      }
+      if (!name) {
+        this.bulkImportErrors.push(`Line ${index + 1}: Enter a player name.`);
+        continue;
+      }
+      if (!this.primaryPositions.includes(positionText as PrimaryPosition)) {
+        this.bulkImportErrors.push(`Line ${index + 1}: Use one of ${this.primaryPositions.join(', ')} for the position.`);
+        continue;
+      }
+
+      parsedPlayers.push({ name, jerseyNumber, primaryPosition: positionText as PrimaryPosition });
+    }
+
+    if (this.bulkImportErrors.length > 0) return;
+    if (parsedPlayers.length === 0) {
+      this.bulkImportStatus = 'Paste at least one player row before adding the roster.';
+      return;
+    }
+
+    const addedPlayers = this.teamRoster.addPlayers(parsedPlayers);
+    this.bulkRosterText = '';
+    this.bulkImportStatus = `Added ${addedPlayers.length} ${addedPlayers.length === 1 ? 'player' : 'players'} to the saved roster.`;
+  }
+
+  clearBulkImportFeedback(): void {
+    this.bulkImportErrors = [];
+    this.bulkImportStatus = '';
+  }
+
   editPlayer(playerId: string): void {
     const player = this.teamRoster.getPlayerById(playerId);
     if (!player) return;
@@ -98,6 +162,9 @@ export class TeamPage {
       jerseyNumber: player.jerseyNumber,
       primaryPosition: player.primaryPosition,
     };
+    const nameInput = this.playerNameInput().nativeElement;
+    nameInput.focus({ preventScroll: true });
+    nameInput.scrollIntoView({ block: 'center', behavior: 'instant' });
   }
 
   cancelEdit(): void {
@@ -127,5 +194,31 @@ export class TeamPage {
 
   private emptyPlayer(primaryPosition: PrimaryPosition = 'OH'): NewRosterPlayer {
     return { name: '', jerseyNumber: 1, primaryPosition };
+  }
+
+  private parseRosterLine(line: string): string[] | null {
+    if (line.includes('\t')) return line.split('\t');
+
+    const columns: string[] = [];
+    let value = '';
+    let inQuotes = false;
+    for (let index = 0; index < line.length; index += 1) {
+      const character = line[index];
+      if (character === '"' && line[index + 1] === '"' && inQuotes) {
+        value += '"';
+        index += 1;
+      } else if (character === '"') {
+        inQuotes = !inQuotes;
+      } else if (character === ',' && !inQuotes) {
+        columns.push(value);
+        value = '';
+      } else {
+        value += character;
+      }
+    }
+
+    if (inQuotes) return null;
+    columns.push(value);
+    return columns;
   }
 }

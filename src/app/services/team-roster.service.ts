@@ -144,6 +144,25 @@ export class TeamRosterService {
     return nextPlayer;
   }
 
+  addPlayers(players: NewRosterPlayer[]): RosterPlayer[] {
+    if (players.length === 0) return [];
+
+    const now = new Date().toISOString();
+    const nextPlayers = players.map((player): RosterPlayer => ({
+      id: this.createPlayerId(),
+      name: player.name.trim(),
+      jerseyNumber: player.jerseyNumber,
+      primaryPosition: player.primaryPosition,
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    this.playersSignal.update((existing) => [...existing, ...nextPlayers]);
+    this.persist('all');
+    return nextPlayers;
+  }
+
   updatePlayer(playerId: string, player: NewRosterPlayer): boolean {
     const name = player.name.trim();
     if (!name) {

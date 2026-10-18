@@ -1,4 +1,5 @@
 import { MatchEngineService, MatchMutationResult } from './match-engine.service';
+import { LiveMatchStoreService } from './live-match-store.service';
 import { MatchStateService } from './match-state.service';
 import { MatchStatsService } from './match-stats.service';
 import { OfflineSyncService } from './offline-sync.service';
@@ -36,6 +37,405 @@ describe('MatchEngineService', () => {
     matchStats = new MatchStatsService();
     teamRoster = new TeamRosterService(new RotationService(), auth);
     service = new MatchEngineService(matchState, matchStats, teamRoster, offlineSync);
+  });
+
+  describe('durable persistence', () => {
+    for (const winner of ['team', 'opponent'] as const) {
+      it(`commits the ${winner} final rally and every box-score row together, including retry and reload`, async () => {
+        startWithLineup();
+        for (let set = 1; set <= 2; set++) {
+          for (let point = 0; point < (set === 2 ? 24 : 25); point++) {
+            if (winner === 'team') service.recordPlayerAction(1, 'kill');
+            else service.recordOpponentPoint();
+          }
+          if (set < 2) service.startNextSet(service.getNextSetDefaultLineup(), 'team');
+        }
+        const matchId = offlineSync.getActiveMatchId();
+        const beforeEvents = offlineSync.getMatchEvents(matchId).length;
+        const live = new LiveMatchStoreService(matchState, matchStats, offlineSync, new FakeFirebaseDbService() as unknown as FirebaseDbService);
+        expect(live.gameState().isMatchOver).toBeFalse();
+        expect(offlineSync.getPlayerSetStats(matchId).length).toBe(0);
+        const originalSetItem = Storage.prototype.setItem;
+        const writes = spyOn(Storage.prototype, 'setItem').and.callFake(function (this: Storage, key, value) {
+          // Fail only once the candidate record contains multiple box-score rows.
+          // The old per-player loop has already committed the rally and first row here.
+          if (key.includes('spike-durable-match-record') && JSON.parse(value).archive.playerSetStats.length >= 2) {
+            throw new Error('Injected box-score storage failure');
+          }
+          originalSetItem.call(this, key, value);
+        });
+        const failed = winner === 'team' ? service.recordPlayerAction(1, 'kill') : service.recordOpponentPoint();
+        expect(failed.impactedScore).toBeFalse();
+        expect(matchState.state().isMatchOver).toBeFalse();
+        expect(live.gameState().isMatchOver).toBeFalse();
+        expect(offlineSync.getMatchEvents(matchId).length).toBe(beforeEvents);
+        expect(offlineSync.getPlayerSetStats(matchId).length).toBe(0);
+        expect(offlineSync.mutationBlocked()).toBeTrue();
+        const auth = new FakeAuthService() as unknown as AuthService;
+        const firebase = new FakeFirebaseDbService() as unknown as FirebaseDbService;
+        const beforeReload = new OfflineSyncService(firebase, auth);
+        expect(beforeReload.getMatchEvents(matchId).length).toBe(beforeEvents);
+        expect(beforeReload.getPlayerSetStats(matchId).length).toBe(0);
+        expect(projectionFromFirestore(beforeReload.getGame(matchId)!, beforeReload.getMatchEvents(matchId))?.status).toBe('live');
+        // Another tap while blocked cannot replace the original pending rally.
+        service.recordOpponentPoint();
+        expect((await offlineSync.retryNow()).ok).toBeFalse();
+        writes.and.callThrough();
+        expect((await offlineSync.retryNow()).ok).toBeTrue();
+        expect((await offlineSync.retryNow()).ok).toBeTrue();
+        expect(live.gameState().isMatchOver).toBeTrue();
+        const reloaded = new OfflineSyncService(firebase, auth);
+        const events = reloaded.getMatchEvents(matchId);
+        expect(events.length).toBe(beforeEvents + 1);
+        expect(events.filter(event => event.id === failed.eventId).length).toBe(1);
+        expect(reloaded.getGame(matchId)?.status).toBe('final');
+        expect(projectionFromFirestore(reloaded.getGame(matchId)!, events)?.status).toBe('final');
+        const rows = reloaded.getPlayerSetStats(matchId);
+        expect(rows.length).toBe(6);
+        expect(new Set(rows.map(row => row.id)).size).toBe(6);
+        expect(rows.reduce((sum, row) => sum + row.kills, 0)).toBe(winner === 'team' ? 50 : 0);
+      });
+    }
+
+    it('writes a successful final rally, snapshot and whole box score in one durable write', () => {
+      startWithLineup();
+      for (let point = 0; point < 25; point++) service.recordPlayerAction(1, 'kill');
+      service.startNextSet(service.getNextSetDefaultLineup(), 'team');
+      for (let point = 0; point < 24; point++) service.recordPlayerAction(1, 'kill');
+      const writes = spyOn(Storage.prototype, 'setItem').and.callThrough();
+      const final = service.recordPlayerAction(1, 'kill');
+      expect(final.impactedScore).toBeTrue();
+      const commits = writes.calls.allArgs().filter(([key]) => key.includes('spike-durable-match-record'));
+      expect(commits.length).toBe(1);
+      const saved = JSON.parse(commits[0][1]);
+      expect(saved.archive.events.filter((event: GameEvent) => event.id === final.eventId).length).toBe(1);
+      expect(saved.archive.games[0].status).toBe('final');
+      expect(saved.archive.playerSetStats.length).toBe(6);
+      expect(saved.queue.filter((item: { collection: string }) => item.collection === 'playerSetStats').length).toBe(6);
+    });
+
+    it('retries an ended-early match with its whole box score', async () => {
+      startWithLineup();
+      service.recordPlayerAction(1, 'kill');
+      const matchId = offlineSync.getActiveMatchId();
+      const writes = spyOn(Storage.prototype, 'setItem').and.throwError('Injected storage failure');
+      service.endMatchEarly();
+      expect(offlineSync.getGame(matchId)?.status).toBe('live');
+      expect(offlineSync.getPlayerSetStats(matchId).length).toBe(0);
+      writes.and.callThrough();
+      await offlineSync.retryNow();
+      const reloaded = new OfflineSyncService(new FakeFirebaseDbService() as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
+      expect(reloaded.getGame(matchId)?.status).toBe('ended-early');
+      expect(reloaded.getPlayerSetStats(matchId).length).toBe(6);
+      expect(reloaded.getMatchEvents(matchId).filter(event => event.type === 'matchEndedEarly').length).toBe(1);
+    });
+
+    it('retries a final attribution correction with all affected statistics and no duplicate correction', async () => {
+      startWithLineup();
+      for (let point = 0; point < 25; point++) service.recordPlayerAction(1, 'kill');
+      service.startNextSet(service.getNextSetDefaultLineup(), 'team');
+      for (let point = 0; point < 25; point++) service.recordPlayerAction(1, 'kill');
+      const matchId = offlineSync.getActiveMatchId();
+      const target = offlineSync.getMatchEvents(matchId).filter(event => event.type === 'playerAction').slice(-1)[0]!;
+      const replacement = teamRoster.players().find(player => player.id !== target.playerId)!;
+      const rowsBefore = offlineSync.getPlayerSetStats(matchId);
+      const writes = spyOn(Storage.prototype, 'setItem').and.throwError('Injected storage failure');
+      const result = service.correctPlayerAttribution(matchId, target.id, replacement.id);
+      expect(result.ok).toBeFalse();
+      expect(offlineSync.getPlayerSetStats(matchId)).toEqual(rowsBefore);
+      expect(offlineSync.getMatchEvents(matchId).some(event => event.type === 'playerAttributionCorrected')).toBeFalse();
+      writes.and.callThrough();
+      await offlineSync.retryNow();
+      await offlineSync.retryNow();
+      const reloaded = new OfflineSyncService(new FakeFirebaseDbService() as unknown as FirebaseDbService, new FakeAuthService() as unknown as AuthService);
+      const rows = reloaded.getPlayerSetStats(matchId);
+      expect(rows.find(row => row.playerId === target.playerId)?.kills).toBe(49);
+      expect(rows.find(row => row.playerId === replacement.id)?.kills).toBe(1);
+      expect(reloaded.getMatchEvents(matchId).filter(event => event.type === 'playerAttributionCorrected').length).toBe(1);
+      expect(reloaded.getGame(matchId)?.teamPoints).toBe(25);
+    });
+
+    it('recovers partially synced cloud statistics from the complete local record after reload', async () => {
+      const online = spyOnProperty(navigator, 'onLine', 'get').and.returnValue(false);
+      const documents = new Map<string, unknown>();
+      let rejectStats = true;
+      const firebase = {
+        isConfigured: () => true,
+        writeEvent: async (event: GameEvent) => {
+          documents.set(`events/${event.id}`, event);
+          return { ok: true };
+        },
+        writeDocument: async (collection: string, id: string, payload: unknown) => {
+          if (collection === 'playerSetStats' && rejectStats && documents.has(`playerSetStats/${offlineSync.getActiveMatchId()}-${teamRoster.players()[0].id}-match`)) {
+            return { ok: false, error: 'Injected cloud statistics outage' };
+          }
+          documents.set(`${collection}/${id}`, payload);
+          return { ok: true };
+        },
+      } as unknown as FirebaseDbService;
+      const auth = new FakeAuthService() as unknown as AuthService;
+      offlineSync = new OfflineSyncService(firebase, auth);
+      service = new MatchEngineService(matchState, matchStats, teamRoster, offlineSync);
+      startWithLineup();
+      for (let point = 0; point < 25; point++) service.recordPlayerAction(1, 'kill');
+      service.startNextSet(service.getNextSetDefaultLineup(), 'team');
+      for (let point = 0; point < 25; point++) service.recordPlayerAction(1, 'kill');
+      const matchId = offlineSync.getActiveMatchId();
+      online.and.returnValue(true);
+      await offlineSync.flushQueue();
+      expect([...documents.keys()].filter(key => key.startsWith('playerSetStats/')).length).toBe(1);
+      expect(offlineSync.getPlayerSetStats(matchId).length).toBe(6);
+      expect(offlineSync.mutationBlocked()).toBeFalse();
+      online.and.returnValue(false);
+      const reloaded = new OfflineSyncService(firebase, auth);
+      rejectStats = false;
+      online.and.returnValue(true);
+      await reloaded.retryNow();
+      await reloaded.retryNow();
+      expect([...documents.keys()].filter(key => key.startsWith('playerSetStats/')).length).toBe(6);
+      expect([...documents.keys()].filter(key => key.startsWith('events/')).length).toBe(reloaded.getMatchEvents(matchId).length);
+      expect(reloaded.pendingCount()).toBe(0);
+    });
+
+    it('blocks Start Match when local persistence probe fails', () => {
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+      const result = service.startMatch('team', { opponentName: 'Central High' });
+
+      expect(result.ok).toBeFalse();
+      expect(result.ok ? null : result.error).toContain('was not recorded');
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+      expect(offlineSync.getActiveMatchId()).toBe('local-match');
+      expect(matchState.state().teamPoints).toBe(0);
+      expect(matchState.state().opponentPoints).toBe(0);
+    });
+
+    it('keeps score unchanged when a player action fails to persist', () => {
+      startWithLineup();
+      const beforePoints = matchState.state().teamPoints;
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+      const event = service.recordPlayerAction(1, 'kill');
+
+      expect(event.impactedScore).toBeFalse();
+      expect(event.impactedStats).toBeFalse();
+      expect(matchState.state().teamPoints).toBe(beforePoints);
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+    });
+
+    it('keeps score unchanged when opponent point fails to persist', () => {
+      startWithLineup();
+      const beforePoints = matchState.state().opponentPoints;
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+      const event = service.recordOpponentPoint();
+
+      expect(event.impactedScore).toBeFalse();
+      expect(matchState.state().opponentPoints).toBe(beforePoints);
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+    });
+
+    it('blocks further scoring after a persistence failure', async () => {
+      startWithLineup();
+      const setItem = spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+      const first = service.recordPlayerAction(1, 'kill');
+      const second = service.recordPlayerAction(1, 'ace');
+
+      expect(first.impactedScore).toBeFalse();
+      expect(second.impactedScore).toBeFalse();
+      expect(matchState.state().teamPoints).toBe(0);
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+
+      setItem.and.callThrough();
+      const retryResult = await offlineSync.retryNow();
+      expect(retryResult.ok).toBeTrue();
+      expect(offlineSync.mutationBlocked()).toBeFalse();
+
+      const third = service.recordPlayerAction(1, 'kill');
+      expect(third.impactedScore).toBeTrue();
+      expect(matchState.state().teamPoints).toBe(2);
+    });
+
+    it('restores last durable match after reload when persistence failed mid-match', () => {
+      startWithLineup();
+      service.recordPlayerAction(1, 'kill');
+      expect(matchState.state().teamPoints).toBe(1);
+
+      const matchId = offlineSync.getActiveMatchId();
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+      const failed = service.recordPlayerAction(1, 'ace');
+      expect(failed.impactedScore).toBeFalse();
+
+      const auth = new FakeAuthService() as unknown as AuthService;
+      const firebase = new FakeFirebaseDbService() as unknown as FirebaseDbService;
+      const restartedSync = new OfflineSyncService(firebase, auth);
+      const restartedState = new MatchStateService();
+      const restartedStats = new MatchStatsService();
+      const restartedRoster = new TeamRosterService(new RotationService(), auth);
+      const restartedEngine = new MatchEngineService(restartedState, restartedStats, restartedRoster, restartedSync);
+
+      expect(restartedSync.getActiveMatchId()).toBe(matchId);
+      expect(restartedState.state().teamPoints).toBe(1);
+      expect(restartedSync.getMatchEvents(matchId).filter((e) => e.type === 'playerAction').length).toBe(1);
+    });
+
+    it('retries the original failed action exactly once', async () => {
+      startWithLineup();
+      const setItem = spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+      const failed = service.recordPlayerAction(1, 'kill');
+      expect(failed.impactedScore).toBeFalse();
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+
+      setItem.and.callThrough();
+      const retryResult = await offlineSync.retryNow();
+      expect(retryResult.ok).toBeTrue();
+      expect(offlineSync.mutationBlocked()).toBeFalse();
+
+      const matchId = offlineSync.getActiveMatchId();
+      const game = offlineSync.getGame(matchId);
+      const events = offlineSync.getMatchEvents(matchId);
+      const projection = game ? projectionFromFirestore(game, events) : null;
+
+      expect(projection?.teamPoints).toBe(1);
+      expect(events.filter((e) => e.type === 'playerAction').length).toBe(1);
+    });
+
+    it('distinguishes local failure from cloud outage by showing appropriate status', () => {
+      startWithLineup();
+      service.recordPlayerAction(1, 'kill');
+
+      expect(matchState.state().teamPoints).toBe(1);
+      expect(offlineSync.pendingCount()).toBeGreaterThan(0);
+      expect(offlineSync.mutationBlocked()).toBeFalse();
+      expect(offlineSync.lastError()).toBeNull();
+    });
+
+    it('allows scoring to continue after successful local save even when cloud is unavailable', () => {
+      startWithLineup();
+      spyOnProperty(window.navigator, 'onLine', 'get').and.returnValue(false);
+
+      service.recordPlayerAction(1, 'kill');
+      service.recordPlayerAction(1, 'ace');
+
+      expect(matchState.state().teamPoints).toBe(2);
+      expect(offlineSync.pendingCount()).toBeGreaterThan(0);
+      expect(offlineSync.mutationBlocked()).toBeFalse();
+    });
+
+    it('prevents duplicate actions when retrying after reload', async () => {
+      startWithLineup();
+      const players = teamRoster.players();
+      const setItem = spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+      const failed = service.recordPlayerAction(1, 'kill');
+      expect(failed.impactedScore).toBeFalse();
+
+      setItem.and.callThrough();
+      await offlineSync.retryNow();
+
+      const auth = new FakeAuthService() as unknown as AuthService;
+      const firebase = new FakeFirebaseDbService() as unknown as FirebaseDbService;
+      const restartedSync = new OfflineSyncService(firebase, auth);
+
+      const matchId = restartedSync.getActiveMatchId();
+      const game = restartedSync.getGame(matchId);
+      const events = restartedSync.getMatchEvents(matchId);
+      const projection = game ? projectionFromFirestore(game, events) : null;
+
+      expect(projection?.teamPoints).toBe(1);
+      const killEvent = events.find((e) => e.type === 'playerAction' && e.action === 'kill');
+      expect(killEvent?.playerId).toBe(players[0].id);
+      expect(events.filter((e) => e.type === 'playerAction').length).toBe(1);
+    });
+
+    it('does not lose actions after injected persistence failure and reload', () => {
+      startWithLineup();
+      service.recordPlayerAction(1, 'kill');
+      const matchId = offlineSync.getActiveMatchId();
+
+      const firstCount = offlineSync.getMatchEvents(matchId).length;
+      const firstPoints = matchState.state().teamPoints;
+
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+      service.recordPlayerAction(1, 'ace');
+
+      const auth = new FakeAuthService() as unknown as AuthService;
+      const firebase = new FakeFirebaseDbService() as unknown as FirebaseDbService;
+      const restartedSync = new OfflineSyncService(firebase, auth);
+      const restartedState = new MatchStateService();
+      const restartedStats = new MatchStatsService();
+      const restartedRoster = new TeamRosterService(new RotationService(), auth);
+      const restartedEngine = new MatchEngineService(restartedState, restartedStats, restartedRoster, restartedSync);
+
+      expect(restartedState.state().teamPoints).toBe(firstPoints);
+      expect(restartedSync.getMatchEvents(matchId).length).toBe(firstCount);
+    });
+
+    it('blocks substitutions when persistence fails', () => {
+      for (let i = 1; i <= 7; i += 1) {
+        teamRoster.addPlayer({ name: `P${i}`, jerseyNumber: i, primaryPosition: 'OH' });
+      }
+      const players = teamRoster.players();
+      players.slice(0, 6).forEach((player, index) => teamRoster.assignPlayerToPosition(player.id, index + 1));
+      service.startMatch('team');
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+      const didSubstitute = service.recordSubstitution(players[0].id, players[6].id);
+
+      expect(didSubstitute).toBeFalse();
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+    });
+
+    it('blocks timeouts when persistence fails', () => {
+      startWithLineup();
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+      const didCallTimeout = service.recordTimeout('team');
+
+      expect(didCallTimeout).toBeFalse();
+      expect(matchState.state().teamTimeoutsRemaining).toBe(2);
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+    });
+
+    it('blocks manual rotation when persistence fails', () => {
+      startWithLineup();
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+
+      const didRotate = service.manualRotateTeam();
+
+      expect(didRotate).toBeFalse();
+      expect(matchState.state().teamRotation).toBe(1);
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+    });
+
+    it('blocks serve correction when persistence fails', () => {
+      startWithLineup();
+      service.setServingTeam('opponent');
+      expect(matchState.state().servingTeam).toBe('opponent');
+
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+      service.setServingTeam('team');
+
+      expect(matchState.state().servingTeam).toBe('opponent');
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+    });
+
+    it('blocks next set start when persistence fails', () => {
+      startWithLineup();
+      for (let point = 0; point < 25; point += 1) {
+        service.recordPlayerAction(1, 'kill');
+      }
+      expect(matchState.state().isSetBreak).toBeTrue();
+
+      spyOn(Storage.prototype, 'setItem').and.throwError('QuotaExceededError');
+      const didStart = service.startNextSet(service.getNextSetDefaultLineup(), 'team');
+
+      expect(didStart).toBeFalse();
+      expect(matchState.state().currentSet).toBe(1);
+      expect(offlineSync.mutationBlocked()).toBeTrue();
+    });
   });
 
   it('starts a new match with a new durable match id', () => {
